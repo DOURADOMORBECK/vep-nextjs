@@ -27,9 +27,9 @@ export async function POST(request: NextRequest) {
 
     const { email, password } = body;
 
-    // Use internal Railway URL in production, external URL in development
-    const isProduction = process.env.NODE_ENV === 'production' && process.env.RAILWAY_ENVIRONMENT;
-    const apiUrl = isProduction 
+    // Use internal Railway URL only when deployed on Railway
+    const isRailwayProduction = process.env.RAILWAY_ENVIRONMENT === 'production';
+    const apiUrl = isRailwayProduction 
       ? 'http://api-users.railway.internal:3000/login'
       : 'https://api-users-production-54ed.up.railway.app/login';
 

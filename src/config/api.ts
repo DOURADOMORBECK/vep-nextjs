@@ -26,18 +26,18 @@ const PROD_API_URLS = {
   VEHICLES_API: process.env.BUN_VEHICLES_SERVICE_URL || 'http://api-vehicles.railway.internal',
 };
 
-// Determina se está em produção (deployado no Railway)
-const isProduction = process.env.NODE_ENV === 'production' && process.env.RAILWAY_ENVIRONMENT;
+// Determina se está deployado no Railway em produção
+const isRailwayProduction = process.env.RAILWAY_ENVIRONMENT === 'production';
 
 // Configuração das APIs reais no Railway (Bun Services)
 // Em desenvolvimento: usa URLs públicas (.up.railway.app)
 // Em produção no Railway: usa URLs internas (.railway.internal)
-export const API_CONFIG = isProduction ? PROD_API_URLS : DEV_API_URLS;
+export const API_CONFIG = isRailwayProduction ? PROD_API_URLS : DEV_API_URLS;
 
 // Log da configuração atual (apenas em desenvolvimento)
 if (process.env.NODE_ENV === 'development') {
   console.log('🔧 API Configuration:', {
-    mode: isProduction ? 'PRODUCTION (Internal URLs)' : 'DEVELOPMENT (Public URLs)',
+    mode: isRailwayProduction ? 'PRODUCTION (Internal URLs)' : 'DEVELOPMENT (Public URLs)',
     example: API_CONFIG.AUTH_API
   });
 }

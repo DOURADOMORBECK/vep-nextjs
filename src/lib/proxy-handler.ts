@@ -21,9 +21,9 @@ export function createProxyHandler(config: ProxyConfig) {
 
   const handler = async (request: NextRequest) => {
     try {
-      // Use internal URL in production, external URL in development
-      const isProduction = process.env.NODE_ENV === 'production' && process.env.RAILWAY_ENVIRONMENT;
-      const baseUrl = isProduction ? config.internalUrl : config.externalUrl;
+      // Use internal URL only when deployed on Railway
+      const isRailwayProduction = process.env.RAILWAY_ENVIRONMENT === 'production';
+      const baseUrl = isRailwayProduction ? config.internalUrl : config.externalUrl;
       
       // Get the path after /api/proxy/[service]
       const url = new URL(request.url);
