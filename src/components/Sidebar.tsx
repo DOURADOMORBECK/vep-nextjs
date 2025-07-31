@@ -37,11 +37,13 @@ export default function Sidebar({ isCollapsed = false }: SidebarProps) {
       <div className="flex flex-col h-full">
         {/* Logo */}
         <div className="flex items-center justify-center md:justify-start h-16 px-4 border-b border-gray-700">
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary-600 md:mr-3">
-            <i className="fa-solid fa-leaf text-lg"></i>
-          </div>
+          <img 
+            src="/logo_veplim.png" 
+            alt="VepLim" 
+            className={`${isCollapsed ? 'h-8' : 'h-10'} transition-all duration-300`}
+          />
           {!isCollapsed && (
-            <h1 className="text-lg font-bold text-white">Gestão de Operações</h1>
+            <h1 className="text-lg font-bold text-white ml-3">Gestão VepLim</h1>
           )}
         </div>
         

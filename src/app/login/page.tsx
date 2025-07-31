@@ -93,8 +93,12 @@ export default function LoginPage() {
       
       <div className="w-full max-w-md p-8 mx-auto">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-600 mb-4">
-            <i className="fa-solid fa-leaf text-2xl"></i>
+          <div className="mb-4">
+            <img 
+              src="/logo_veplim.png" 
+              alt="VepLim" 
+              className="h-20 mx-auto"
+            />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Gestão de Operações</h1>
           <p className="text-gray-400">Faça login para acessar o sistema</p>
