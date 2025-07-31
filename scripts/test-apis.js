@@ -13,17 +13,38 @@ const http = require('http');
 const fs = require('fs').promises;
 const path = require('path');
 
-// Configuração das URLs das APIs (substitua com as URLs reais)
-const API_CONFIG = {
-  AUTH_API: process.env.BUN_USERS_SERVICE_URL || 'https://your-users-api.railway.app',
-  PRODUCTS_API: process.env.BUN_JORNADA_PRODUTO_SERVICE_URL || 'https://your-products-api.railway.app',
-  CLIENTS_API: process.env.BUN_CUSTOMERS_SERVICE_URL || 'https://your-customers-api.railway.app',
-  ORDERS_API: process.env.BUN_DASHBOARD_SERVICE_URL || 'https://your-dashboard-api.railway.app',
-  SUPPLIERS_API: process.env.BUN_CUSTOMERS_SERVICE_URL || 'https://your-customers-api.railway.app',
-  USERLOGS_API: process.env.BUN_USERLOG_SERVICE_URL || 'https://your-userlog-api.railway.app',
-  DELIVERY_API: process.env.BUN_DELIVERY_SERVICE_URL || 'https://your-delivery-api.railway.app',
-  VEHICLES_API: process.env.BUN_VEHICLES_SERVICE_URL || 'https://your-vehicles-api.railway.app',
+// URLs públicas das APIs para desenvolvimento/testes
+const DEV_API_URLS = {
+  AUTH_API: 'https://api-users-production-54ed.up.railway.app',
+  PRODUCTS_API: 'https://api-jornada-produto-production.up.railway.app',
+  CLIENTS_API: 'https://api-customers-production.up.railway.app',
+  ORDERS_API: 'https://api-dashboard-production-f3c4.up.railway.app',
+  SUPPLIERS_API: 'https://api-customers-production.up.railway.app',
+  USERLOGS_API: 'https://api-userlog-production.up.railway.app',
+  DELIVERY_API: 'https://api-delivery-production-0851.up.railway.app',
+  VEHICLES_API: 'https://api-vehicles-production.up.railway.app',
+  AUDIT_API: 'https://api-audit-production.up.railway.app',
 };
+
+// URLs internas do Railway para produção
+const PROD_API_URLS = {
+  AUTH_API: process.env.BUN_USERS_SERVICE_URL || 'http://api-users.railway.internal',
+  PRODUCTS_API: process.env.BUN_JORNADA_PRODUTO_SERVICE_URL || 'http://api-jornada-produto.railway.internal',
+  CLIENTS_API: process.env.BUN_CUSTOMERS_SERVICE_URL || 'http://api-customers.railway.internal',
+  ORDERS_API: process.env.BUN_DASHBOARD_SERVICE_URL || 'http://api-dashboard.railway.internal',
+  SUPPLIERS_API: process.env.BUN_CUSTOMERS_SERVICE_URL || 'http://api-customers.railway.internal',
+  USERLOGS_API: process.env.BUN_USERLOG_SERVICE_URL || 'http://api-userlog.railway.internal',
+  DELIVERY_API: process.env.BUN_DELIVERY_SERVICE_URL || 'http://api-delivery.railway.internal',
+  VEHICLES_API: process.env.BUN_VEHICLES_SERVICE_URL || 'http://api-vehicles.railway.internal',
+  AUDIT_API: process.env.BUN_AUDIT_SERVICE_URL || 'http://api-audit.railway.internal',
+};
+
+// Usa URLs públicas por padrão para testes locais
+const isProduction = process.env.NODE_ENV === 'production' && process.env.RAILWAY_ENVIRONMENT;
+const API_CONFIG = isProduction ? PROD_API_URLS : DEV_API_URLS;
+
+console.log('🔧 Usando APIs:', isProduction ? 'PRODUÇÃO (internas)' : 'DESENVOLVIMENTO (públicas)');
+console.log('📍 Exemplo de URL:', API_CONFIG.AUTH_API);
 
 // Token de autenticação (será preenchido após login)
 let authToken = '';
@@ -179,8 +200,8 @@ async function runAllTests() {
   // 1. Teste de autenticação
   console.log('====== AUTENTICAÇÃO ======');
   const authResult = await testEndpoint(
-    'POST /auth/login',
-    buildUrl(API_CONFIG.AUTH_API, '/auth/login'),
+    'POST /login',
+    buildUrl(API_CONFIG.AUTH_API, '/login'),
     {
       method: 'POST',
       body: {
@@ -206,15 +227,15 @@ async function runAllTests() {
   
   // Listar produtos
   results.push(await testEndpoint(
-    'GET /api/products',
-    buildUrl(API_CONFIG.PRODUCTS_API, '/api/products'),
+    'GET /produto',
+    buildUrl(API_CONFIG.PRODUCTS_API, '/produto'),
     { headers: authHeaders }
   ));
   
   // Criar produto
   const createProductResult = await testEndpoint(
-    'POST /api/products',
-    buildUrl(API_CONFIG.PRODUCTS_API, '/api/products'),
+    'POST /produto',
+    buildUrl(API_CONFIG.PRODUCTS_API, '/produto'),
     {
       method: 'POST',
       headers: authHeaders,
@@ -228,15 +249,15 @@ async function runAllTests() {
   
   // Listar clientes
   results.push(await testEndpoint(
-    'GET /api/customers',
-    buildUrl(API_CONFIG.CLIENTS_API, '/api/customers'),
+    'GET /customer',
+    buildUrl(API_CONFIG.CLIENTS_API, '/customer'),
     { headers: authHeaders }
   ));
   
   // Criar cliente
   results.push(await testEndpoint(
-    'POST /api/customers',
-    buildUrl(API_CONFIG.CLIENTS_API, '/api/customers'),
+    'POST /customer',
+    buildUrl(API_CONFIG.CLIENTS_API, '/customer'),
     {
       method: 'POST',
       headers: authHeaders,
@@ -248,8 +269,8 @@ async function runAllTests() {
   console.log('\n====== PEDIDOS ======');
   
   results.push(await testEndpoint(
-    'GET /api/orders',
-    buildUrl(API_CONFIG.ORDERS_API, '/api/orders'),
+    'GET /order',
+    buildUrl(API_CONFIG.ORDERS_API, '/order'),
     { headers: authHeaders }
   ));
   
@@ -257,8 +278,8 @@ async function runAllTests() {
   console.log('\n====== ENTREGAS ======');
   
   results.push(await testEndpoint(
-    'GET /api/deliveries',
-    buildUrl(API_CONFIG.DELIVERY_API, '/api/deliveries'),
+    'GET /delivery',
+    buildUrl(API_CONFIG.DELIVERY_API, '/delivery'),
     { headers: authHeaders }
   ));
   
@@ -266,8 +287,8 @@ async function runAllTests() {
   console.log('\n====== VEÍCULOS ======');
   
   results.push(await testEndpoint(
-    'GET /api/vehicles',
-    buildUrl(API_CONFIG.VEHICLES_API, '/api/vehicles'),
+    'GET /vehicle',
+    buildUrl(API_CONFIG.VEHICLES_API, '/vehicle'),
     { headers: authHeaders }
   ));
   
@@ -275,8 +296,8 @@ async function runAllTests() {
   console.log('\n====== USER LOGS ======');
   
   results.push(await testEndpoint(
-    'POST /api/logs',
-    buildUrl(API_CONFIG.USERLOGS_API, '/api/logs'),
+    'POST /logs',
+    buildUrl(API_CONFIG.USERLOGS_API, '/logs'),
     {
       method: 'POST',
       headers: authHeaders,

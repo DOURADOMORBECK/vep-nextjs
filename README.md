@@ -36,7 +36,7 @@ Sistema completo de gestão de operações para VepLim, desenvolvido com Next.js
 
 1. Clone o repositório
 ```bash
-git clone https://github.com/seu-usuario/vep-nextjs.git
+git clone https://github.com/DOURADOMORBECK/vep-nextjs.git
 cd vep-nextjs
 ```
 
@@ -45,23 +45,29 @@ cd vep-nextjs
 npm install
 ```
 
-3. Configure as variáveis de ambiente
-```bash
-cp .env.local.example .env.local
-```
-
-4. Edite `.env.local` com as URLs das suas APIs Railway:
-```env
-BUN_USERS_SERVICE_URL=https://sua-api-users.railway.app
-BUN_CUSTOMERS_SERVICE_URL=https://sua-api-customers.railway.app
-BUN_DASHBOARD_SERVICE_URL=https://sua-api-dashboard.railway.app
-# ... outras APIs
-```
-
-5. Execute o projeto
+3. Execute o projeto (as APIs já estão configuradas)
 ```bash
 npm run dev
 ```
+
+### 🔧 Configuração de APIs
+
+O projeto está configurado para usar automaticamente as URLs corretas:
+
+- **Desenvolvimento Local**: Usa URLs públicas (.up.railway.app)
+- **Produção no Railway**: Usa URLs internas (.railway.internal)
+
+As APIs públicas já configuradas:
+- Users: `api-users-production-54ed.up.railway.app`
+- Produtos: `api-jornada-produto-production.up.railway.app`
+- Clientes: `api-customers-production.up.railway.app`
+- Dashboard: `api-dashboard-production-f3c4.up.railway.app`
+- Entregas: `api-delivery-production-0851.up.railway.app`
+- Logs: `api-userlog-production.up.railway.app`
+- Auditoria: `api-audit-production.up.railway.app`
+- Veículos: `api-vehicles-production.up.railway.app`
+
+**Nota**: Para produção no Railway, as variáveis de ambiente serão configuradas automaticamente para usar as URLs internas.
 
 Acesse http://localhost:3000
 

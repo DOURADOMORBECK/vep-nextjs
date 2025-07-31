@@ -262,7 +262,7 @@ const getAuthToken = () => {
 export const railwayApi = {
   // Autenticação (Users Service)
   async login(email: string, password: string, role: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/auth/login'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/login'), {
       method: 'POST',
       body: JSON.stringify({ email, password, role })
     });
@@ -270,19 +270,19 @@ export const railwayApi = {
 
   // Produtos (Jornada Produto Service)
   async getProducts() {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, '/api/products'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, '/produto'), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async getProduct(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/api/products/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/produto/${id}`), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async createProduct(data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, '/api/products'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, '/produto'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -290,7 +290,7 @@ export const railwayApi = {
   },
   
   async updateProduct(id: string, data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/api/products/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/produto/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -298,7 +298,7 @@ export const railwayApi = {
   },
   
   async deleteProduct(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/api/products/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/produto/${id}`), {
       method: 'DELETE',
       headers: getDefaultHeaders(getAuthToken())
     });
@@ -306,19 +306,19 @@ export const railwayApi = {
 
   // Clientes (Customers Service)
   async getClients() {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, '/api/customers'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, '/customer'), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async getClient(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/api/customers/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/customer/${id}`), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async createClient(data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, '/api/customers'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, '/customer'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -326,7 +326,7 @@ export const railwayApi = {
   },
   
   async updateClient(id: string, data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/api/customers/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/customer/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -334,7 +334,7 @@ export const railwayApi = {
   },
   
   async deleteClient(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/api/customers/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/customer/${id}`), {
       method: 'DELETE',
       headers: getDefaultHeaders(getAuthToken())
     });
@@ -342,19 +342,19 @@ export const railwayApi = {
 
   // Pedidos (Dashboard Service)
   async getOrders() {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/api/orders'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/order'), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async getOrder(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, `/api/orders/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, `/order/${id}`), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async createOrder(data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/api/orders'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/order'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -362,7 +362,7 @@ export const railwayApi = {
   },
   
   async updateOrder(id: string, data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, `/api/orders/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, `/order/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -371,7 +371,7 @@ export const railwayApi = {
 
   // UserLogs
   async logUserAction(action: string, details: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.USERLOGS_API, '/api/logs'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.USERLOGS_API, '/logs'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify({
@@ -386,19 +386,19 @@ export const railwayApi = {
 
   // Operadores (Users Service)
   async getOperators() {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, '/api/users?role=operator'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, '/users?role=operator'), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async getOperator(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, `/api/users/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, `/users/${id}`), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async createOperator(data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, '/api/users'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, '/users'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify({ ...data, role: 'operator' })
@@ -406,7 +406,7 @@ export const railwayApi = {
   },
   
   async updateOperator(id: string, data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, `/api/users/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, `/users/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -414,7 +414,7 @@ export const railwayApi = {
   },
   
   async deleteOperator(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, `/api/users/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, `/users/${id}`), {
       method: 'DELETE',
       headers: getDefaultHeaders(getAuthToken())
     });
@@ -422,19 +422,19 @@ export const railwayApi = {
 
   // Fornecedores (Customers Service)
   async getSuppliers() {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, '/api/suppliers'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, '/supplier'), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async getSupplier(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/api/suppliers/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/supplier/${id}`), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async createSupplier(data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, '/api/suppliers'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, '/supplier'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -442,7 +442,7 @@ export const railwayApi = {
   },
   
   async updateSupplier(id: string, data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/api/suppliers/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/supplier/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -450,7 +450,7 @@ export const railwayApi = {
   },
   
   async deleteSupplier(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/api/suppliers/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/supplier/${id}`), {
       method: 'DELETE',
       headers: getDefaultHeaders(getAuthToken())
     });
@@ -458,19 +458,19 @@ export const railwayApi = {
 
   // Entregas (Delivery Service)
   async getDeliveries() {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, '/api/deliveries'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, '/delivery'), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async getDelivery(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/api/deliveries/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/${id}`), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
 
   async updateDeliveryStatus(id: string, status: string, location?: { lat: number, lng: number }) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/api/deliveries/${id}/status`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/${id}/status`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify({ status, location })
@@ -479,19 +479,19 @@ export const railwayApi = {
 
   // Veículos (Vehicles Service)
   async getVehicles() {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, '/api/vehicles'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, '/vehicle'), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async getVehicle(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/api/vehicles/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/vehicle/${id}`), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async createVehicle(data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, '/api/vehicles'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, '/vehicle'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -499,7 +499,7 @@ export const railwayApi = {
   },
   
   async updateVehicle(id: string, data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/api/vehicles/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/vehicle/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -507,7 +507,7 @@ export const railwayApi = {
   },
   
   async deleteVehicle(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/api/vehicles/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/vehicle/${id}`), {
       method: 'DELETE',
       headers: getDefaultHeaders(getAuthToken())
     });
@@ -515,19 +515,19 @@ export const railwayApi = {
 
   // Usuários (Users Service)
   async getUsers() {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/api/users'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/users'), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async getUser(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, `/api/users/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, `/users/${id}`), {
       headers: getDefaultHeaders(getAuthToken())
     });
   },
   
   async createUser(data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/api/users'), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/users'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -535,7 +535,7 @@ export const railwayApi = {
   },
   
   async updateUser(id: string, data: any) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, `/api/users/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, `/users/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
       body: JSON.stringify(data)
@@ -543,7 +543,7 @@ export const railwayApi = {
   },
   
   async deleteUser(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, `/api/users/${id}`), {
+    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, `/users/${id}`), {
       method: 'DELETE',
       headers: getDefaultHeaders(getAuthToken())
     });
