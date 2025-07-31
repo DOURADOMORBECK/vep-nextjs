@@ -39,6 +39,10 @@ export async function POST(request: NextRequest) {
 
     let response;
     try {
+      // Implementar timeout de 30 segundos
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos
+      
       response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -48,9 +52,26 @@ export async function POST(request: NextRequest) {
           email: email.toLowerCase().trim(),
           password 
         }),
+        signal: controller.signal
       });
-    } catch (fetchError) {
-      console.error('[API Route] Network error:', fetchError);
+      
+      clearTimeout(timeoutId);
+    } catch (fetchError: any) {
+      console.error('[API Route] Network error:', {
+        name: fetchError.name,
+        message: fetchError.message,
+        apiUrl,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Diferenciar tipos de erro
+      if (fetchError.name === 'AbortError') {
+        return NextResponse.json(
+          { error: 'A requisição demorou muito para responder. Por favor, tente novamente.' },
+          { status: 504, headers: corsHeaders }
+        );
+      }
+      
       return NextResponse.json(
         { error: 'Não foi possível conectar ao servidor de autenticação. Por favor, tente novamente.' },
         { status: 503, headers: corsHeaders }

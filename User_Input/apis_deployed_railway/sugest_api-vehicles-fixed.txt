@@ -1,0 +1,369 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import postgres from "postgres";
+
+// --- DB Connection ---
+const db = postgres(process.env.DATABASE_URL!, {
+  ssl: { rejectUnauthorized: false },
+});
+
+// --- App ---
+const app = new Hono();
+
+// --- CORS Middleware ---
+app.use("/*", cors());
+
+// --- Health Check ---
+app.get("/", (c) => c.text("API Vehicles Bun OK 🚀"));
+
+// --- Vehicle/Position Endpoints ---
+
+// Get all positions (limit 200)
+app.get("/positions", async (c) => {
+  try {
+    const { limit, offset } = c.req.query();
+    
+    const result = await db`
+      SELECT * FROM ssx_positions 
+      ORDER BY update_date DESC 
+      LIMIT ${limit || 200}
+      OFFSET ${offset || 0}
+    `;
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching positions:", error);
+    return c.json({ error: "Error fetching positions" }, 500);
+  }
+});
+
+// Get latest position for each vehicle
+app.get("/positions/latest", async (c) => {
+  try {
+    const result = await db`
+      SELECT DISTINCT ON (id_tracked_unit) *
+      FROM ssx_positions
+      ORDER BY id_tracked_unit, update_date DESC
+    `;
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching latest positions:", error);
+    return c.json({ error: "Error fetching latest positions" }, 500);
+  }
+});
+
+// Get general stats
+app.get("/positions/stats", async (c) => {
+  try {
+    const total = await db`
+      SELECT COUNT(DISTINCT id_tracked_unit) AS total 
+      FROM ssx_positions
+    `;
+    
+    const last = await db`
+      SELECT MAX(update_date) AS last 
+      FROM ssx_positions
+    `;
+    
+    const active = await db`
+      SELECT COUNT(DISTINCT id_tracked_unit) AS active
+      FROM ssx_positions
+      WHERE update_date > NOW() - INTERVAL '1 hour'
+    `;
+    
+    const withValidGPS = await db`
+      SELECT COUNT(DISTINCT id_tracked_unit) AS valid_gps
+      FROM ssx_positions
+      WHERE valid_gps = 'true'
+      AND update_date > NOW() - INTERVAL '1 hour'
+    `;
+
+    return c.json({ 
+      total: total[0]?.total || 0, 
+      last: last[0]?.last || null,
+      active: active[0]?.active || 0,
+      withValidGPS: withValidGPS[0]?.valid_gps || 0
+    });
+  } catch (error) {
+    console.error("Error fetching stats:", error);
+    return c.json({ error: "Error fetching statistics" }, 500);
+  }
+});
+
+// Filter by date range (YYYY-MM-DDTHH:mm)
+app.get("/positions/range", async (c) => {
+  try {
+    const { start, end, limit, offset } = c.req.query();
+    
+    if (!start || !end) {
+      return c.json({ error: "Missing start/end dates" }, 400);
+    }
+    
+    const result = await db`
+      SELECT * FROM ssx_positions
+      WHERE event_date BETWEEN ${start} AND ${end}
+      ORDER BY update_date DESC
+      LIMIT ${limit || 200}
+      OFFSET ${offset || 0}
+    `;
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching positions by date range:", error);
+    return c.json({ error: "Error fetching positions by date range" }, 500);
+  }
+});
+
+// Filter: vehicles with valid GPS
+app.get("/positions/valid-gps", async (c) => {
+  try {
+    const { limit, offset } = c.req.query();
+    
+    const result = await db`
+      SELECT * FROM ssx_positions
+      WHERE valid_gps = 'true'
+      ORDER BY update_date DESC
+      LIMIT ${limit || 200}
+      OFFSET ${offset || 0}
+    `;
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching positions with valid GPS:", error);
+    return c.json({ error: "Error fetching positions with valid GPS" }, 500);
+  }
+});
+
+// Filter: vehicles with ignition on
+app.get("/positions/ignition-on", async (c) => {
+  try {
+    const { limit, offset } = c.req.query();
+    
+    const result = await db`
+      SELECT * FROM ssx_positions
+      WHERE ignition = 'true' AND valid_gps = 'true'
+      ORDER BY update_date DESC
+      LIMIT ${limit || 200}
+      OFFSET ${offset || 0}
+    `;
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching positions with ignition on:", error);
+    return c.json({ error: "Error fetching positions with ignition on" }, 500);
+  }
+});
+
+// Filter: geographic area (bounding box)
+app.get("/positions/area", async (c) => {
+  try {
+    const { minLat, maxLat, minLong, maxLong, limit, offset } = c.req.query();
+    
+    if (!minLat || !maxLat || !minLong || !maxLong) {
+      return c.json({ error: "Missing bounding box params (minLat, maxLat, minLong, maxLong)" }, 400);
+    }
+    
+    const result = await db`
+      SELECT * FROM ssx_positions
+      WHERE CAST(lat AS DECIMAL) BETWEEN ${minLat} AND ${maxLat}
+        AND CAST(long AS DECIMAL) BETWEEN ${minLong} AND ${maxLong}
+        AND valid_gps = 'true'
+      ORDER BY update_date DESC
+      LIMIT ${limit || 200}
+      OFFSET ${offset || 0}
+    `;
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching positions by area:", error);
+    return c.json({ error: "Error fetching positions by area" }, 500);
+  }
+});
+
+// Get all positions for a specific vehicle
+app.get("/positions/vehicle/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const { limit, offset } = c.req.query();
+    
+    if (!id) {
+      return c.json({ error: "Missing vehicle id" }, 400);
+    }
+    
+    const result = await db`
+      SELECT * FROM ssx_positions
+      WHERE id_tracked_unit = ${id}
+      ORDER BY update_date DESC
+      LIMIT ${limit || 200}
+      OFFSET ${offset || 0}
+    `;
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching vehicle positions:", error);
+    return c.json({ error: "Error fetching vehicle positions" }, 500);
+  }
+});
+
+// Get latest position for a specific vehicle
+app.get("/positions/vehicle/:id/latest", async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    if (!id) {
+      return c.json({ error: "Missing vehicle id" }, 400);
+    }
+    
+    const result = await db`
+      SELECT * FROM ssx_positions
+      WHERE id_tracked_unit = ${id}
+      ORDER BY update_date DESC
+      LIMIT 1
+    `;
+    
+    return c.json(result[0] || null);
+  } catch (error) {
+    console.error("Error fetching latest vehicle position:", error);
+    return c.json({ error: "Error fetching latest vehicle position" }, 500);
+  }
+});
+
+// --- VEHICLE MANAGEMENT ENDPOINTS ---
+
+// Create/register new vehicle
+app.post("/vehicle", async (c) => {
+  try {
+    const data = await c.req.json();
+    
+    if (!data.id_tracked_unit) {
+      return c.json({ error: "id_tracked_unit is required" }, 400);
+    }
+    
+    // Check if vehicle already exists
+    const existing = await db`
+      SELECT id_tracked_unit FROM ssx_positions 
+      WHERE id_tracked_unit = ${data.id_tracked_unit}
+      LIMIT 1
+    `;
+    
+    if (existing.length) {
+      return c.json({ error: "Vehicle already exists" }, 400);
+    }
+    
+    // Insert initial position record
+    const [vehicle] = await db`
+      INSERT INTO ssx_positions (
+        id_tracked_unit,
+        lat,
+        long,
+        speed,
+        heading,
+        altitude,
+        valid_gps,
+        ignition,
+        event_date,
+        update_date
+      ) VALUES (
+        ${data.id_tracked_unit},
+        ${data.lat || '0'},
+        ${data.long || '0'},
+        ${data.speed || '0'},
+        ${data.heading || '0'},
+        ${data.altitude || '0'},
+        ${data.valid_gps || 'false'},
+        ${data.ignition || 'false'},
+        ${data.event_date || new Date()},
+        ${data.update_date || new Date()}
+      )
+      RETURNING *
+    `;
+    
+    return c.json(vehicle, 201);
+  } catch (error) {
+    console.error("Error creating vehicle:", error);
+    return c.json({ error: "Error creating vehicle" }, 500);
+  }
+});
+
+// Update vehicle position
+app.put("/vehicle/:id/position", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const data = await c.req.json();
+    
+    const [updated] = await db`
+      INSERT INTO ssx_positions (
+        id_tracked_unit,
+        lat,
+        long,
+        speed,
+        heading,
+        altitude,
+        valid_gps,
+        ignition,
+        event_date,
+        update_date
+      ) VALUES (
+        ${id},
+        ${data.lat},
+        ${data.long},
+        ${data.speed || '0'},
+        ${data.heading || '0'},
+        ${data.altitude || '0'},
+        ${data.valid_gps || 'true'},
+        ${data.ignition || 'false'},
+        ${data.event_date || new Date()},
+        ${new Date()}
+      )
+      RETURNING *
+    `;
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error updating vehicle position:", error);
+    return c.json({ error: "Error updating vehicle position" }, 500);
+  }
+});
+
+// Get vehicle history (positions over time)
+app.get("/vehicle/:id/history", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const { startDate, endDate, limit, offset } = c.req.query();
+    
+    let conditions = [`id_tracked_unit = ${id}`];
+    let values = [id];
+    let valueIndex = 2;
+    
+    if (startDate) {
+      conditions.push(`update_date >= $${valueIndex++}`);
+      values.push(startDate);
+    }
+    
+    if (endDate) {
+      conditions.push(`update_date <= $${valueIndex++}`);
+      values.push(endDate);
+    }
+    
+    const query = `
+      SELECT * FROM ssx_positions
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY update_date ASC
+      LIMIT ${limit || 500}
+      OFFSET ${offset || 0}
+    `;
+    
+    const result = await db.unsafe(query, ...values);
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching vehicle history:", error);
+    return c.json({ error: "Error fetching vehicle history" }, 500);
+  }
+});
+
+// --- Serve ---
+Bun.serve({
+  fetch: app.fetch,
+  port: Number(process.env.PORT || 3000),
+});

@@ -1,0 +1,271 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import postgres from "postgres";
+
+// --- DB Connection ---
+const db = postgres(process.env.DATABASE_URL!, {
+  ssl: { rejectUnauthorized: false },
+});
+
+// --- App ---
+const app = new Hono();
+
+// --- CORS Middleware ---
+app.use("/*", cors());
+
+// --- Health Check ---
+app.get("/", (c) => c.text("API Dashboard Bun OK 🚀"));
+
+// --- Dashboard Endpoints ---
+
+// Estatísticas do dashboard
+app.get("/dashboard/stats", async (c) => {
+  try {
+    // Contagem de pedidos
+    const orders = await db`SELECT COUNT(*) AS total FROM pedidos_venda_produtos`;
+
+    // Contagem de operadores (usuários)
+    const operators = await db`SELECT COUNT(*) AS total FROM usuarios`;
+
+    // Contagem de produtos
+    const products = await db`SELECT COUNT(*) AS total FROM itens_pedido_venda`;
+
+    // Contagem de veículos
+    const vehicles =
+      await db`SELECT COUNT(DISTINCT id_tracked_unit) AS total FROM ssx_positions`;
+
+    // Contagem de clientes - removendo filtro de lat/long
+    const customers =
+      await db`SELECT COUNT(*) AS total FROM fnc_pessoas`;
+
+    // Verificar se tabela delivery_routes existe antes de contar
+    let recentDeliveries = 0;
+    try {
+      const deliveryResult = await db`SELECT COUNT(*) AS total FROM delivery_routes WHERE created_at > NOW() - INTERVAL '24 hours'`;
+      recentDeliveries = deliveryResult[0]?.total || 0;
+    } catch (e) {
+      // Tabela não existe, continuar sem erro
+    }
+
+    // Verificar se tabela audit_logs existe antes de contar
+    let recentAuditLogs = 0;
+    try {
+      const auditResult = await db`SELECT COUNT(*) AS total FROM audit_logs WHERE timestamp > NOW() - INTERVAL '24 hours'`;
+      recentAuditLogs = auditResult[0]?.total || 0;
+    } catch (e) {
+      // Tabela não existe, continuar sem erro
+    }
+
+    return c.json({
+      orders: orders[0]?.total || 0,
+      operators: operators[0]?.total || 0,
+      products: products[0]?.total || 0,
+      vehicles: vehicles[0]?.total || 0,
+      customers: customers[0]?.total || 0,
+      recentDeliveries: recentDeliveries,
+      recentAuditLogs: recentAuditLogs,
+    });
+  } catch (error) {
+    console.error("Error fetching dashboard stats:", error);
+    return c.json({ error: "Erro ao buscar estatísticas" }, 500);
+  }
+});
+
+// Estatísticas de pedidos por status
+app.get("/dashboard/orders-by-status", async (c) => {
+  try {
+    const result =
+      await db`SELECT status, COUNT(*) as count FROM pedidos_venda_produtos GROUP BY status`;
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching orders by status:", error);
+    return c.json({ error: "Erro ao buscar pedidos por status" }, 500);
+  }
+});
+
+// Estatísticas de itens por status
+app.get("/dashboard/items-by-status", async (c) => {
+  try {
+    const result =
+      await db`SELECT status, COUNT(*) as count FROM itens_pedido_venda GROUP BY status`;
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching items by status:", error);
+    return c.json({ error: "Erro ao buscar itens por status" }, 500);
+  }
+});
+
+// Estatísticas de entregas por status
+app.get("/dashboard/deliveries-by-status", async (c) => {
+  try {
+    // Verificar se tabela delivery_routes existe
+    const result = await db`SELECT status, COUNT(*) as count FROM delivery_routes GROUP BY status`;
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching deliveries by status:", error);
+    // Retornar array vazio se tabela não existir
+    return c.json([]);
+  }
+});
+
+// Atividade recente (últimos 7 dias)
+app.get("/dashboard/recent-activity", async (c) => {
+  try {
+    const orders = await db`
+      SELECT DATE(data_pedido) as date, COUNT(*) as count 
+      FROM pedidos_venda_produtos 
+      WHERE data_pedido > NOW() - INTERVAL '7 days' 
+      GROUP BY DATE(data_pedido) 
+      ORDER BY date
+    `;
+
+    let deliveries = [];
+    try {
+      deliveries = await db`
+        SELECT DATE(created_at) as date, COUNT(*) as count 
+        FROM delivery_routes 
+        WHERE created_at > NOW() - INTERVAL '7 days' 
+        GROUP BY DATE(created_at) 
+        ORDER BY date
+      `;
+    } catch (e) {
+      // Tabela não existe
+    }
+
+    let auditLogs = [];
+    try {
+      auditLogs = await db`
+        SELECT DATE(timestamp) as date, COUNT(*) as count 
+        FROM audit_logs 
+        WHERE timestamp > NOW() - INTERVAL '7 days' 
+        GROUP BY DATE(timestamp) 
+        ORDER BY date
+      `;
+    } catch (e) {
+      // Tabela não existe
+    }
+
+    return c.json({ orders, deliveries, auditLogs });
+  } catch (error) {
+    console.error("Error fetching recent activity:", error);
+    return c.json({ error: "Erro ao buscar atividade recente" }, 500);
+  }
+});
+
+// --- ORDERS ENDPOINTS (rotas adicionais para gerenciamento de pedidos) ---
+
+// Listar todos os pedidos
+app.get("/order", async (c) => {
+  try {
+    const { status, limit, offset } = c.req.query();
+    
+    let query;
+    if (status) {
+      query = db`
+        SELECT * FROM pedidos_venda_produtos 
+        WHERE status = ${status} 
+        ORDER BY data_pedido DESC 
+        LIMIT ${limit || 100} 
+        OFFSET ${offset || 0}
+      `;
+    } else {
+      query = db`
+        SELECT * FROM pedidos_venda_produtos 
+        ORDER BY data_pedido DESC 
+        LIMIT ${limit || 100} 
+        OFFSET ${offset || 0}
+      `;
+    }
+    
+    const result = await query;
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    return c.json({ error: "Erro ao buscar pedidos" }, 500);
+  }
+});
+
+// Buscar pedido específico
+app.get("/order/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const result = await db`
+      SELECT * FROM pedidos_venda_produtos 
+      WHERE id_pedido = ${id}
+    `;
+    
+    if (!result.length) {
+      return c.json({ error: "Pedido não encontrado" }, 404);
+    }
+    
+    return c.json(result[0]);
+  } catch (error) {
+    console.error("Error fetching order:", error);
+    return c.json({ error: "Erro ao buscar pedido" }, 500);
+  }
+});
+
+// Criar novo pedido
+app.post("/order", async (c) => {
+  try {
+    const data = await c.req.json();
+    
+    const [order] = await db`
+      INSERT INTO pedidos_venda_produtos (
+        id_cliente,
+        data_pedido,
+        valor_total,
+        status,
+        observacoes
+      ) VALUES (
+        ${data.id_cliente},
+        ${data.data_pedido || new Date()},
+        ${data.valor_total || 0},
+        ${data.status || 'PENDENTE'},
+        ${data.observacoes || null}
+      )
+      RETURNING *
+    `;
+    
+    return c.json(order, 201);
+  } catch (error) {
+    console.error("Error creating order:", error);
+    return c.json({ error: "Erro ao criar pedido" }, 500);
+  }
+});
+
+// Atualizar pedido
+app.put("/order/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const data = await c.req.json();
+    
+    const [updated] = await db`
+      UPDATE pedidos_venda_produtos
+      SET 
+        id_cliente = COALESCE(${data.id_cliente}, id_cliente),
+        data_pedido = COALESCE(${data.data_pedido}, data_pedido),
+        valor_total = COALESCE(${data.valor_total}, valor_total),
+        status = COALESCE(${data.status}, status),
+        observacoes = COALESCE(${data.observacoes}, observacoes),
+        data_atualizacao = NOW()
+      WHERE id_pedido = ${id}
+      RETURNING *
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Pedido não encontrado" }, 404);
+    }
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error updating order:", error);
+    return c.json({ error: "Erro ao atualizar pedido" }, 500);
+  }
+});
+
+// --- Serve ---
+Bun.serve({
+  fetch: app.fetch,
+  port: Number(process.env.PORT || 3000),
+});

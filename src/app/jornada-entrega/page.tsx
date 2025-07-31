@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import DeliveryMap from '@/components/DeliveryMap';
+import { api } from '@/lib/api-interceptor';
+import { toast } from 'react-hot-toast';
+import { DeliveryRoute, DeliveryPoint, DeliveryStats } from '@/types/delivery';
 
 export default function JornadaEntregaPage() {
   const [currentStep, setCurrentStep] = useState(1); // 1: Seleção, 2: Rota, 3: Carregamento, 4: Entrega, 5: Resumo
@@ -14,55 +17,97 @@ export default function JornadaEntregaPage() {
   const [currentDeliveryIndex, setCurrentDeliveryIndex] = useState(0);
   const [deliveredOrders, setDeliveredOrders] = useState<string[]>([]);
   const [deliveryNotes, setDeliveryNotes] = useState<{[key: string]: string}>({});
+  
+  // API States
+  const [loading, setLoading] = useState(false);
+  const [activeRoute, setActiveRoute] = useState<DeliveryRoute | null>(null);
+  const [routePoints, setRoutePoints] = useState<DeliveryPoint[]>([]);
+  const [deliveryStats, setDeliveryStats] = useState<DeliveryStats | null>(null);
+  const [pendingOrders, setPendingOrders] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
 
-  const orders = [
-    { 
-      id: 'PED-1234', 
-      customer: 'Marcos Oliveira', 
-      address: 'Rua das Flores, 123 - Vila Madalena, São Paulo', 
-      date: '15/07/2023', 
-      status: 'Verificado',
-      items: 12,
-      weight: '8.5 kg',
-      coords: [-23.5505, -46.6333]
-    },
-    { 
-      id: 'PED-1235', 
-      customer: 'Ana Silva', 
-      address: 'Av. Paulista, 1000 - Bela Vista, São Paulo', 
-      date: '15/07/2023', 
-      status: 'Verificado',
-      items: 8,
-      weight: '5.2 kg',
-      coords: [-23.5629, -46.6544]
-    },
-    { 
-      id: 'PED-1236', 
-      customer: 'Carlos Mendes', 
-      address: 'Rua Augusta, 500 - Consolação, São Paulo', 
-      date: '15/07/2023', 
-      status: 'Verificado',
-      items: 15,
-      weight: '12.3 kg',
-      coords: [-23.5506, -46.6628]
-    },
-    { 
-      id: 'PED-1237', 
-      customer: 'Juliana Costa', 
-      address: 'Av. Brasil, 750 - Jardins, São Paulo', 
-      date: '16/07/2023', 
-      status: 'Verificado',
-      items: 6,
-      weight: '3.8 kg',
-      coords: [-23.5489, -46.6388]
-    },
-  ];
+  // Fetch delivery stats on mount
+  useEffect(() => {
+    fetchDeliveryStats();
+    fetchPendingOrders();
+    fetchVehicles();
+  }, []);
 
-  const vehicles = [
-    { id: 'v1', name: 'Fiorino Branca', plate: 'ABC-1234', capacity: '650 kg', driver: 'João Silva' },
-    { id: 'v2', name:'Moto Honda', plate: 'XYZ-5678', capacity: '80 kg', driver: 'Maria Santos' },
-    { id: 'v3', name: 'Van Iveco', plate: 'DEF-9012', capacity: '1200 kg', driver: 'Pedro Oliveira' },
-  ];
+  const fetchDeliveryStats = async () => {
+    try {
+      const data = await api.getDeliveryStats();
+      setDeliveryStats(data);
+    } catch (error) {
+      console.error('Error fetching delivery stats:', error);
+    }
+  };
+
+  const fetchPendingOrders = async () => {
+    try {
+      // Fetch pending orders from your orders API
+      // For now using mock data
+      const mockOrders = [
+        { 
+          id: 'PED-1234', 
+          customer: 'Marcos Oliveira', 
+          address: 'Rua das Flores, 123 - Vila Madalena, São Paulo', 
+          date: '15/07/2023', 
+          status: 'Verificado',
+          items: 12,
+          weight: '8.5 kg',
+          coords: [-23.5505, -46.6333]
+        },
+        { 
+          id: 'PED-1235', 
+          customer: 'Ana Silva', 
+          address: 'Av. Paulista, 1000 - Bela Vista, São Paulo', 
+          date: '15/07/2023', 
+          status: 'Verificado',
+          items: 8,
+          weight: '5.2 kg',
+          coords: [-23.5629, -46.6544]
+        },
+        { 
+          id: 'PED-1236', 
+          customer: 'Carlos Mendes', 
+          address: 'Rua Augusta, 500 - Consolação, São Paulo', 
+          date: '15/07/2023', 
+          status: 'Verificado',
+          items: 15,
+          weight: '12.3 kg',
+          coords: [-23.5506, -46.6628]
+        },
+        { 
+          id: 'PED-1237', 
+          customer: 'Juliana Costa', 
+          address: 'Av. Brasil, 750 - Jardins, São Paulo', 
+          date: '16/07/2023', 
+          status: 'Verificado',
+          items: 6,
+          weight: '3.8 kg',
+          coords: [-23.5489, -46.6388]
+        },
+      ];
+      setPendingOrders(mockOrders);
+    } catch (error) {
+      console.error('Error fetching pending orders:', error);
+    }
+  };
+
+  const fetchVehicles = async () => {
+    try {
+      // Fetch vehicles from API
+      // For now using mock data
+      const mockVehicles = [
+        { id: 'v1', name: 'Fiorino Branca', plate: 'ABC-1234', capacity: '650 kg', driver: 'João Silva', driver_id: 1 },
+        { id: 'v2', name:'Moto Honda', plate: 'XYZ-5678', capacity: '80 kg', driver: 'Maria Santos', driver_id: 2 },
+        { id: 'v3', name: 'Van Iveco', plate: 'DEF-9012', capacity: '1200 kg', driver: 'Pedro Oliveira', driver_id: 3 },
+      ];
+      setVehicles(mockVehicles);
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+    }
+  };
 
   const progressSteps = [
     { id: 1, name: 'Seleção de Pedidos', icon: 'fa-clipboard-list', active: currentStep === 1, completed: currentStep > 1 },
@@ -85,20 +130,22 @@ export default function JornadaEntregaPage() {
     setSelectedOrders(prev => prev.filter(id => id !== orderId));
   };
 
-  const handleStepComplete = () => {
+  const handleStepComplete = async () => {
     if (currentStep < 5) {
       setCurrentStep(currentStep + 1);
       
       // Auto-actions based on step
-      if (currentStep === 2) {
-        // Auto-optimize route after route creation
-        setTimeout(() => setRouteOptimized(true), 2000);
+      if (currentStep === 1) {
+        // Create route when moving to step 2
+        await createRoute();
+      } else if (currentStep === 2) {
+        // Route already optimized
       } else if (currentStep === 3) {
-        // Simulate loading progress
+        // Simulate loading progress and start route
         simulateLoading();
+        setTimeout(() => startRoute(), 3000);
       } else if (currentStep === 4) {
-        // Start delivery simulation
-        setDeliveryStatus('in_transit');
+        // Already in delivery
       }
     }
   };
@@ -115,30 +162,148 @@ export default function JornadaEntregaPage() {
     }, 500);
   };
 
-  const handleDeliveryComplete = (orderId: string, notes: string = '') => {
-    setDeliveredOrders(prev => [...prev, orderId]);
-    setDeliveryNotes(prev => ({ ...prev, [orderId]: notes }));
-    
-    if (currentDeliveryIndex < selectedOrders.length - 1) {
-      setCurrentDeliveryIndex(prev => prev + 1);
-    } else {
-      setDeliveryStatus('completed');
-      setTimeout(() => handleStepComplete(), 1000);
+  const handleDeliveryComplete = async (orderId: string, notes: string = '') => {
+    const point = routePoints.find(p => p.notes?.includes(orderId));
+    if (point) {
+      await markDelivered(point.id.toString(), notes);
     }
   };
 
   const getTotalWeight = () => {
     return selectedOrders.reduce((total, orderId) => {
-      const order = orders.find(o => o.id === orderId);
+      const order = pendingOrders.find(o => o.id === orderId);
       return total + (order ? parseFloat(order.weight.replace(' kg', '')) : 0);
     }, 0).toFixed(1);
   };
 
   const getTotalItems = () => {
     return selectedOrders.reduce((total, orderId) => {
-      const order = orders.find(o => o.id === orderId);
+      const order = pendingOrders.find(o => o.id === orderId);
       return total + (order ? order.items : 0);
     }, 0);
+  };
+
+  const createRoute = async () => {
+    if (selectedOrders.length === 0 || !selectedVehicle) return;
+    
+    setLoading(true);
+    try {
+      const vehicle = vehicles.find(v => v.id === selectedVehicle);
+      const routeCode = `ROTA-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+      
+      // Create route
+      const route = await api.createDeliveryRoute({
+        route_code: routeCode,
+        driver_id: vehicle?.driver_id,
+        driver_name: vehicle?.driver,
+        vehicle_id: selectedVehicle,
+        total_points: selectedOrders.length,
+        distance_km: 18.5 // This would be calculated by a real routing service
+      });
+      
+      setActiveRoute(route);
+      
+      // Add points to route
+      const points = [];
+      for (let i = 0; i < selectedOrders.length; i++) {
+        const order = pendingOrders.find(o => o.id === selectedOrders[i]);
+        if (order) {
+          const point = await api.addDeliveryPoint(route.id.toString(), {
+            sequence: i + 1,
+            customer_name: order.customer,
+            address: order.address,
+            lat: order.coords[0],
+            lng: order.coords[1],
+            notes: `Pedido: ${order.id} - ${order.items} itens - ${order.weight}`
+          });
+          points.push(point);
+        }
+      }
+      
+      setRoutePoints(points);
+      toast.success('Rota criada com sucesso!');
+      
+      // Simulate route optimization
+      setTimeout(() => setRouteOptimized(true), 2000);
+    } catch (error) {
+      console.error('Error creating route:', error);
+      toast.error('Erro ao criar rota');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startRoute = async () => {
+    if (!activeRoute) return;
+    
+    setLoading(true);
+    try {
+      await api.startDeliveryRoute(activeRoute.id.toString());
+      setActiveRoute({ ...activeRoute, status: 'EM_ANDAMENTO' });
+      setDeliveryStatus('in_transit');
+      toast.success('Rota iniciada!');
+    } catch (error) {
+      console.error('Error starting route:', error);
+      toast.error('Erro ao iniciar rota');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markDelivered = async (pointId: string, notes: string = '') => {
+    setLoading(true);
+    try {
+      await api.markPointAsDelivered(pointId, {
+        notes,
+        // In a real app, you would upload photo/signature and get URLs
+        photo_url: undefined,
+        signature_url: undefined
+      });
+      
+      // Update local state
+      setDeliveredOrders(prev => [...prev, pointId]);
+      setDeliveryNotes(prev => ({ ...prev, [pointId]: notes }));
+      
+      // Update route progress
+      if (activeRoute) {
+        await api.updateDeliveryRoute(activeRoute.id.toString(), {
+          completed_points: deliveredOrders.length + 1
+        });
+      }
+      
+      toast.success('Entrega confirmada!');
+      
+      // Move to next delivery
+      if (currentDeliveryIndex < selectedOrders.length - 1) {
+        setCurrentDeliveryIndex(prev => prev + 1);
+      } else {
+        // All deliveries completed
+        await finishRoute();
+      }
+    } catch (error) {
+      console.error('Error marking as delivered:', error);
+      toast.error('Erro ao confirmar entrega');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const finishRoute = async () => {
+    if (!activeRoute) return;
+    
+    setLoading(true);
+    try {
+      await api.finishDeliveryRoute(activeRoute.id.toString());
+      setActiveRoute({ ...activeRoute, status: 'CONCLUIDA' });
+      setDeliveryStatus('completed');
+      toast.success('Rota finalizada!');
+      setTimeout(() => handleStepComplete(), 1000);
+    } catch (error) {
+      console.error('Error finishing route:', error);
+      toast.error('Erro ao finalizar rota');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderSelecaoPedidos = () => (
@@ -156,7 +321,7 @@ export default function JornadaEntregaPage() {
             </div>
             
             <div className="space-y-3">
-              {orders.filter(order => order.status === 'Verificado').map((order) => (
+              {pendingOrders.filter(order => order.status === 'Verificado').map((order) => (
                 <div key={order.id} className={`p-4 rounded-lg border transition-all cursor-pointer ${
                   selectedOrders.includes(order.id) 
                     ? 'bg-primary-900/30 border-primary-800 ring-1 ring-primary-600' 
@@ -222,7 +387,7 @@ export default function JornadaEntregaPage() {
               <div className="space-y-2 mb-6">
                 <h5 className="text-sm font-medium text-gray-300">Pedidos Selecionados:</h5>
                 {selectedOrders.map(orderId => {
-                  const order = orders.find(o => o.id === orderId);
+                  const order = pendingOrders.find(o => o.id === orderId);
                   return order ? (
                     <div key={orderId} className="flex items-center justify-between p-2 bg-gray-700/30 rounded">
                       <span className="text-sm text-white">#{order.id}</span>
@@ -240,10 +405,10 @@ export default function JornadaEntregaPage() {
             
             <button 
               onClick={handleStepComplete}
-              disabled={selectedOrders.length === 0}
+              disabled={selectedOrders.length === 0 || loading}
               className="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Avançar para Criação da Rota
+              {loading ? 'Criando rota...' : 'Avançar para Criação da Rota'}
               <i className="fa-solid fa-arrow-right ml-2"></i>
             </button>
           </div>
@@ -291,7 +456,7 @@ export default function JornadaEntregaPage() {
             <div className="space-y-3">
               <h5 className="text-sm font-medium text-gray-300">Sequência de Entrega:</h5>
               {selectedOrders.map((orderId, index) => {
-                const order = orders.find(o => o.id === orderId);
+                const order = pendingOrders.find(o => o.id === orderId);
                 return order ? (
                   <div key={orderId} className="flex items-center p-3 bg-gray-700/50 rounded-lg">
                     <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center text-white text-sm font-medium mr-3">
@@ -335,10 +500,10 @@ export default function JornadaEntregaPage() {
           
           <button 
             onClick={handleStepComplete}
-            disabled={!routeOptimized}
+            disabled={!routeOptimized || loading}
             className="w-full mt-4 bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Confirmar Rota e Avançar
+            {loading ? 'Processando...' : 'Confirmar Rota e Avançar'}
             <i className="fa-solid fa-arrow-right ml-2"></i>
           </button>
         </div>
@@ -475,10 +640,10 @@ export default function JornadaEntregaPage() {
           
           <button 
             onClick={handleStepComplete}
-            disabled={loadingProgress !== 100}
+            disabled={loadingProgress !== 100 || loading}
             className="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Iniciar Entrega
+            {loading ? 'Iniciando rota...' : 'Iniciar Entrega'}
             <i className="fa-solid fa-truck-fast ml-2"></i>
           </button>
         </div>
@@ -487,7 +652,7 @@ export default function JornadaEntregaPage() {
   );
 
   const renderEntregaTempoReal = () => {
-    const currentOrder = selectedOrders[currentDeliveryIndex] ? orders.find(o => o.id === selectedOrders[currentDeliveryIndex]) : null;
+    const currentOrder = selectedOrders[currentDeliveryIndex] ? pendingOrders.find(o => o.id === selectedOrders[currentDeliveryIndex]) : null;
     
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -558,9 +723,10 @@ export default function JornadaEntregaPage() {
                     <div className="flex space-x-2">
                       <button 
                         onClick={() => handleDeliveryComplete(currentOrder.id, deliveryNotes[currentOrder.id] || '')}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded font-medium"
+                        disabled={loading}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded font-medium disabled:opacity-50"
                       >
-                        ✅ Entrega Concluída
+                        {loading ? 'Confirmando...' : '✅ Entrega Concluída'}
                       </button>
                       <button className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded font-medium">
                         ❌ Problema na Entrega
@@ -593,7 +759,7 @@ export default function JornadaEntregaPage() {
           <div className="p-6">
             <div className="space-y-3 max-h-[400px] overflow-y-auto">
               {selectedOrders.map((orderId, index) => {
-                const order = orders.find(o => o.id === orderId);
+                const order = pendingOrders.find(o => o.id === orderId);
                 const isDelivered = deliveredOrders.includes(orderId);
                 const isCurrent = index === currentDeliveryIndex && !isDelivered;
                 
@@ -743,7 +909,7 @@ export default function JornadaEntregaPage() {
         <div className="p-6">
           <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto">
             {selectedOrders.map((orderId, index) => {
-              const order = orders.find(o => o.id === orderId);
+              const order = pendingOrders.find(o => o.id === orderId);
               return order ? (
                 <div key={orderId} className="p-3 bg-green-900/20 border border-green-800 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
@@ -772,11 +938,17 @@ export default function JornadaEntregaPage() {
           </div>
           
           <div className="space-y-3">
-            <button className="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg font-medium">
+            <button 
+              onClick={() => window.print()}
+              className="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg font-medium"
+            >
               <i className="fa-solid fa-download mr-2"></i>
               Gerar Relatório de Entrega
             </button>
-            <button className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium">
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium"
+            >
               <i className="fa-solid fa-plus mr-2"></i>
               Iniciar Nova Jornada de Entrega
             </button>
@@ -815,7 +987,7 @@ export default function JornadaEntregaPage() {
           <div className="flex items-center space-x-6">
             <div>
               <span className="text-xs text-gray-400">Rota</span>
-              <div className="font-medium">#ROTA-2023-0125</div>
+              <div className="font-medium">{activeRoute ? `#${activeRoute.route_code}` : '#ROTA-2023-0125'}</div>
             </div>
             <div>
               <span className="text-xs text-gray-400">Data de entrega</span>

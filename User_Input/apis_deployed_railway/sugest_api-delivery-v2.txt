@@ -1,0 +1,533 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import postgres from "postgres";
+
+// --- DB Connection ---
+const db = postgres(process.env.DATABASE_URL!, {
+  ssl: { rejectUnauthorized: false },
+});
+
+// --- App ---
+const app = new Hono();
+
+// --- CORS Middleware ---
+app.use("/*", cors());
+
+// --- Create tables if not exist ---
+await db`
+  CREATE TABLE IF NOT EXISTS delivery_routes (
+    id SERIAL PRIMARY KEY,
+    route_code TEXT UNIQUE NOT NULL,
+    driver_id INTEGER,
+    driver_name TEXT,
+    vehicle_id TEXT,
+    status TEXT DEFAULT 'PENDENTE',
+    total_points INTEGER DEFAULT 0,
+    completed_points INTEGER DEFAULT 0,
+    start_time TIMESTAMP,
+    end_time TIMESTAMP,
+    distance_km NUMERIC(10,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
+await db`
+  CREATE TABLE IF NOT EXISTS delivery_route_points (
+    id SERIAL PRIMARY KEY,
+    route_id INTEGER REFERENCES delivery_routes(id) ON DELETE CASCADE,
+    sequence INTEGER NOT NULL,
+    customer_id INTEGER,
+    customer_name TEXT,
+    address TEXT,
+    lat DECIMAL,
+    lng DECIMAL,
+    status TEXT DEFAULT 'PENDENTE',
+    arrival_time TIMESTAMP,
+    departure_time TIMESTAMP,
+    signature_url TEXT,
+    photo_url TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
+// Create indexes for better performance
+await db`CREATE INDEX IF NOT EXISTS idx_delivery_routes_status ON delivery_routes(status)`;
+await db`CREATE INDEX IF NOT EXISTS idx_delivery_routes_driver ON delivery_routes(driver_id)`;
+await db`CREATE INDEX IF NOT EXISTS idx_delivery_route_points_route ON delivery_route_points(route_id)`;
+await db`CREATE INDEX IF NOT EXISTS idx_delivery_route_points_status ON delivery_route_points(status)`;
+
+// --- Health Check ---
+app.get("/", (c) => c.text("API Delivery Bun OK 🚀"));
+
+// --- ROTAS DE ENTREGA ---
+
+// Todas as rotas de entrega
+app.get("/delivery", async (c) => {
+  try {
+    const { limit, offset } = c.req.query();
+    const result = await db`
+      SELECT * FROM delivery_routes 
+      ORDER BY created_at DESC
+      LIMIT ${limit || 100}
+      OFFSET ${offset || 0}
+    `;
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching delivery routes:", error);
+    return c.json({ error: "Erro ao buscar rotas de entrega" }, 500);
+  }
+});
+
+// Rota de entrega específica
+app.get("/delivery/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const result = await db`SELECT * FROM delivery_routes WHERE id = ${id}`;
+    
+    if (!result.length) {
+      return c.json({ error: "Rota não encontrada" }, 404);
+    }
+    
+    return c.json(result[0]);
+  } catch (error) {
+    console.error("Error fetching delivery route:", error);
+    return c.json({ error: "Erro ao buscar rota de entrega" }, 500);
+  }
+});
+
+// Rotas de entrega por status
+app.get("/delivery/status/:status", async (c) => {
+  try {
+    const { status } = c.req.param();
+    const { limit, offset } = c.req.query();
+    
+    const result = await db`
+      SELECT * FROM delivery_routes 
+      WHERE status = ${status} 
+      ORDER BY created_at DESC
+      LIMIT ${limit || 100}
+      OFFSET ${offset || 0}
+    `;
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching routes by status:", error);
+    return c.json({ error: "Erro ao buscar rotas por status" }, 500);
+  }
+});
+
+// Rotas de entrega por motorista
+app.get("/delivery/driver/:driverId", async (c) => {
+  try {
+    const { driverId } = c.req.param();
+    const { limit, offset } = c.req.query();
+    
+    const result = await db`
+      SELECT * FROM delivery_routes 
+      WHERE driver_id = ${driverId} 
+      ORDER BY created_at DESC
+      LIMIT ${limit || 100}
+      OFFSET ${offset || 0}
+    `;
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching routes by driver:", error);
+    return c.json({ error: "Erro ao buscar rotas por motorista" }, 500);
+  }
+});
+
+// Criar nova rota de entrega
+app.post("/delivery", async (c) => {
+  try {
+    const data = await c.req.json();
+    
+    if (!data.route_code) {
+      return c.json({ error: "route_code é obrigatório" }, 400);
+    }
+    
+    const [route] = await db`
+      INSERT INTO delivery_routes (
+        route_code,
+        driver_id,
+        driver_name,
+        vehicle_id,
+        status,
+        total_points,
+        distance_km
+      ) VALUES (
+        ${data.route_code},
+        ${data.driver_id || null},
+        ${data.driver_name || null},
+        ${data.vehicle_id || null},
+        ${data.status || 'PENDENTE'},
+        ${data.total_points || 0},
+        ${data.distance_km || null}
+      )
+      RETURNING *
+    `;
+    
+    return c.json(route, 201);
+  } catch (error) {
+    console.error("Error creating delivery route:", error);
+    return c.json({ error: "Erro ao criar rota de entrega" }, 500);
+  }
+});
+
+// Atualizar rota de entrega
+app.put("/delivery/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const data = await c.req.json();
+    
+    const [updated] = await db`
+      UPDATE delivery_routes
+      SET 
+        driver_id = COALESCE(${data.driver_id}, driver_id),
+        driver_name = COALESCE(${data.driver_name}, driver_name),
+        vehicle_id = COALESCE(${data.vehicle_id}, vehicle_id),
+        status = COALESCE(${data.status}, status),
+        total_points = COALESCE(${data.total_points}, total_points),
+        completed_points = COALESCE(${data.completed_points}, completed_points),
+        start_time = COALESCE(${data.start_time}, start_time),
+        end_time = COALESCE(${data.end_time}, end_time),
+        distance_km = COALESCE(${data.distance_km}, distance_km),
+        updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Rota não encontrada" }, 404);
+    }
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error updating delivery route:", error);
+    return c.json({ error: "Erro ao atualizar rota de entrega" }, 500);
+  }
+});
+
+// Iniciar rota
+app.post("/delivery/:id/start", async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    const [updated] = await db`
+      UPDATE delivery_routes
+      SET 
+        status = 'EM_ANDAMENTO',
+        start_time = NOW(),
+        updated_at = NOW()
+      WHERE id = ${id} AND status = 'PENDENTE'
+      RETURNING *
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Rota não encontrada ou já iniciada" }, 404);
+    }
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error starting delivery route:", error);
+    return c.json({ error: "Erro ao iniciar rota" }, 500);
+  }
+});
+
+// Finalizar rota
+app.post("/delivery/:id/finish", async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    const [updated] = await db`
+      UPDATE delivery_routes
+      SET 
+        status = 'CONCLUIDA',
+        end_time = NOW(),
+        updated_at = NOW()
+      WHERE id = ${id} AND status = 'EM_ANDAMENTO'
+      RETURNING *
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Rota não encontrada ou não está em andamento" }, 404);
+    }
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error finishing delivery route:", error);
+    return c.json({ error: "Erro ao finalizar rota" }, 500);
+  }
+});
+
+// --- PONTOS DE ENTREGA ---
+
+// Pontos de uma rota específica
+app.get("/delivery/:routeId/points", async (c) => {
+  try {
+    const { routeId } = c.req.param();
+    const result = await db`
+      SELECT * FROM delivery_route_points 
+      WHERE route_id = ${routeId} 
+      ORDER BY sequence
+    `;
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching route points:", error);
+    return c.json({ error: "Erro ao buscar pontos da rota" }, 500);
+  }
+});
+
+// Buscar ponto específico
+app.get("/delivery/points/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const result = await db`
+      SELECT * FROM delivery_route_points 
+      WHERE id = ${id}
+    `;
+    
+    if (!result.length) {
+      return c.json({ error: "Ponto não encontrado" }, 404);
+    }
+    
+    return c.json(result[0]);
+  } catch (error) {
+    console.error("Error fetching delivery point:", error);
+    return c.json({ error: "Erro ao buscar ponto de entrega" }, 500);
+  }
+});
+
+// Adicionar ponto à rota
+app.post("/delivery/:routeId/points", async (c) => {
+  try {
+    const { routeId } = c.req.param();
+    const data = await c.req.json();
+    
+    const [point] = await db`
+      INSERT INTO delivery_route_points (
+        route_id,
+        sequence,
+        customer_id,
+        customer_name,
+        address,
+        lat,
+        lng,
+        status,
+        notes
+      ) VALUES (
+        ${routeId},
+        ${data.sequence || 0},
+        ${data.customer_id || null},
+        ${data.customer_name || null},
+        ${data.address || null},
+        ${data.lat || null},
+        ${data.lng || null},
+        ${data.status || 'PENDENTE'},
+        ${data.notes || null}
+      )
+      RETURNING *
+    `;
+    
+    // Atualizar total de pontos na rota
+    await db`
+      UPDATE delivery_routes 
+      SET total_points = total_points + 1
+      WHERE id = ${routeId}
+    `;
+    
+    return c.json(point, 201);
+  } catch (error) {
+    console.error("Error adding point to route:", error);
+    return c.json({ error: "Erro ao adicionar ponto à rota" }, 500);
+  }
+});
+
+// Atualizar ponto de entrega
+app.put("/delivery/points/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const data = await c.req.json();
+    
+    const [updated] = await db`
+      UPDATE delivery_route_points
+      SET 
+        sequence = COALESCE(${data.sequence}, sequence),
+        customer_name = COALESCE(${data.customer_name}, customer_name),
+        address = COALESCE(${data.address}, address),
+        lat = COALESCE(${data.lat}, lat),
+        lng = COALESCE(${data.lng}, lng),
+        status = COALESCE(${data.status}, status),
+        arrival_time = COALESCE(${data.arrival_time}, arrival_time),
+        departure_time = COALESCE(${data.departure_time}, departure_time),
+        signature_url = COALESCE(${data.signature_url}, signature_url),
+        photo_url = COALESCE(${data.photo_url}, photo_url),
+        notes = COALESCE(${data.notes}, notes)
+      WHERE id = ${id}
+      RETURNING *
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Ponto não encontrado" }, 404);
+    }
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error updating delivery point:", error);
+    return c.json({ error: "Erro ao atualizar ponto de entrega" }, 500);
+  }
+});
+
+// Marcar ponto como entregue
+app.post("/delivery/points/:id/deliver", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const data = await c.req.json();
+    
+    const [updated] = await db`
+      UPDATE delivery_route_points
+      SET 
+        status = 'ENTREGUE',
+        departure_time = NOW(),
+        signature_url = ${data.signature_url || null},
+        photo_url = ${data.photo_url || null},
+        notes = ${data.notes || null}
+      WHERE id = ${id} AND status != 'ENTREGUE'
+      RETURNING *
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Ponto não encontrado ou já entregue" }, 404);
+    }
+    
+    // Atualizar contador de pontos completos na rota
+    await db`
+      UPDATE delivery_routes 
+      SET completed_points = completed_points + 1
+      WHERE id = ${updated.route_id}
+    `;
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error marking point as delivered:", error);
+    return c.json({ error: "Erro ao marcar ponto como entregue" }, 500);
+  }
+});
+
+// --- ESTATÍSTICAS ---
+
+// Estatísticas gerais de entrega
+app.get("/delivery/stats", async (c) => {
+  try {
+    const total = await db`SELECT COUNT(*) AS total FROM delivery_routes`;
+    const totalPoints = await db`SELECT COUNT(*) AS total FROM delivery_route_points`;
+    
+    const byStatus = await db`
+      SELECT status, COUNT(*) as count 
+      FROM delivery_routes 
+      GROUP BY status
+    `;
+    
+    const pointsByStatus = await db`
+      SELECT status, COUNT(*) as count 
+      FROM delivery_route_points 
+      GROUP BY status
+    `;
+    
+    const recent = await db`
+      SELECT COUNT(*) AS recent 
+      FROM delivery_routes 
+      WHERE created_at > NOW() - INTERVAL '24 hours'
+    `;
+    
+    const activeRoutes = await db`
+      SELECT COUNT(*) AS active 
+      FROM delivery_routes 
+      WHERE status = 'EM_ANDAMENTO'
+    `;
+    
+    const todayDeliveries = await db`
+      SELECT COUNT(*) AS today 
+      FROM delivery_route_points 
+      WHERE status = 'ENTREGUE' 
+      AND departure_time::date = CURRENT_DATE
+    `;
+    
+    return c.json({
+      totalRoutes: total[0]?.total || 0,
+      totalPoints: totalPoints[0]?.total || 0,
+      byStatus,
+      pointsByStatus,
+      recent: recent[0]?.recent || 0,
+      activeRoutes: activeRoutes[0]?.active || 0,
+      todayDeliveries: todayDeliveries[0]?.today || 0
+    });
+  } catch (error) {
+    console.error("Error fetching delivery stats:", error);
+    return c.json({ error: "Erro ao buscar estatísticas" }, 500);
+  }
+});
+
+// Estatísticas por motorista
+app.get("/delivery/stats/driver/:driverId", async (c) => {
+  try {
+    const { driverId } = c.req.param();
+    
+    const totalRoutes = await db`
+      SELECT COUNT(*) AS total 
+      FROM delivery_routes 
+      WHERE driver_id = ${driverId}
+    `;
+    
+    const completedRoutes = await db`
+      SELECT COUNT(*) AS completed 
+      FROM delivery_routes 
+      WHERE driver_id = ${driverId} AND status = 'CONCLUIDA'
+    `;
+    
+    const totalDeliveries = await db`
+      SELECT COUNT(*) AS total 
+      FROM delivery_route_points p
+      JOIN delivery_routes r ON p.route_id = r.id
+      WHERE r.driver_id = ${driverId} AND p.status = 'ENTREGUE'
+    `;
+    
+    const todayDeliveries = await db`
+      SELECT COUNT(*) AS today 
+      FROM delivery_route_points p
+      JOIN delivery_routes r ON p.route_id = r.id
+      WHERE r.driver_id = ${driverId} 
+      AND p.status = 'ENTREGUE'
+      AND p.departure_time::date = CURRENT_DATE
+    `;
+    
+    const avgDeliveryTime = await db`
+      SELECT AVG(EXTRACT(EPOCH FROM (departure_time - arrival_time))/60) AS avg_minutes
+      FROM delivery_route_points p
+      JOIN delivery_routes r ON p.route_id = r.id
+      WHERE r.driver_id = ${driverId} 
+      AND p.status = 'ENTREGUE'
+      AND p.arrival_time IS NOT NULL
+      AND p.departure_time IS NOT NULL
+    `;
+    
+    return c.json({
+      totalRoutes: totalRoutes[0]?.total || 0,
+      completedRoutes: completedRoutes[0]?.completed || 0,
+      totalDeliveries: totalDeliveries[0]?.total || 0,
+      todayDeliveries: todayDeliveries[0]?.today || 0,
+      avgDeliveryTimeMinutes: avgDeliveryTime[0]?.avg_minutes || 0
+    });
+  } catch (error) {
+    console.error("Error fetching driver stats:", error);
+    return c.json({ error: "Erro ao buscar estatísticas do motorista" }, 500);
+  }
+});
+
+// --- Serve ---
+Bun.serve({
+  fetch: app.fetch,
+  port: Number(process.env.PORT || 3000),
+});

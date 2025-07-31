@@ -1,0 +1,491 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import postgres from "postgres";
+
+// --- DB Connection ---
+const db = postgres(process.env.DATABASE_URL!, {
+  ssl: { rejectUnauthorized: false },
+});
+
+// --- App ---
+const app = new Hono();
+
+// --- CORS Middleware ---
+app.use("/*", cors());
+
+// --- Create table if not exists ---
+await db`
+  CREATE TABLE IF NOT EXISTS delivery_routes (
+    id SERIAL PRIMARY KEY,
+    route_code TEXT UNIQUE NOT NULL,
+    driver_id INTEGER,
+    driver_name TEXT,
+    vehicle_id TEXT,
+    status TEXT DEFAULT 'PENDENTE',
+    total_items INTEGER DEFAULT 0,
+    delivered_items INTEGER DEFAULT 0,
+    start_date TIMESTAMP,
+    end_date TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
+await db`
+  CREATE TABLE IF NOT EXISTS delivery_items (
+    id SERIAL PRIMARY KEY,
+    route_id INTEGER REFERENCES delivery_routes(id),
+    order_id INTEGER,
+    customer_id INTEGER,
+    customer_name TEXT,
+    customer_address TEXT,
+    customer_lat DECIMAL,
+    customer_lng DECIMAL,
+    delivery_sequence INTEGER,
+    status TEXT DEFAULT 'PENDENTE',
+    delivered_at TIMESTAMP,
+    signature_url TEXT,
+    photo_url TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
+// Create indexes for better performance
+await db`CREATE INDEX IF NOT EXISTS idx_delivery_routes_status ON delivery_routes(status)`;
+await db`CREATE INDEX IF NOT EXISTS idx_delivery_routes_driver ON delivery_routes(driver_id)`;
+await db`CREATE INDEX IF NOT EXISTS idx_delivery_items_route ON delivery_items(route_id)`;
+await db`CREATE INDEX IF NOT EXISTS idx_delivery_items_status ON delivery_items(status)`;
+
+// --- Health Check ---
+app.get("/", (c) => c.text("API Delivery Bun OK 🚀"));
+
+// --- DELIVERY ROUTES ---
+
+// Listar todas as rotas
+app.get("/delivery/routes", async (c) => {
+  try {
+    const { status, driver_id, limit, offset } = c.req.query();
+    
+    let conditions = [];
+    let values = [];
+    let valueIndex = 1;
+    
+    if (status) {
+      conditions.push(`status = $${valueIndex++}`);
+      values.push(status);
+    }
+    
+    if (driver_id) {
+      conditions.push(`driver_id = $${valueIndex++}`);
+      values.push(driver_id);
+    }
+    
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    
+    const query = `
+      SELECT * FROM delivery_routes 
+      ${whereClause}
+      ORDER BY created_at DESC 
+      LIMIT ${limit || 100} 
+      OFFSET ${offset || 0}
+    `;
+    
+    const result = await db.unsafe(query, ...values);
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching routes:", error);
+    return c.json({ error: "Erro ao buscar rotas" }, 500);
+  }
+});
+
+// Buscar rota específica
+app.get("/delivery/routes/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const result = await db`
+      SELECT * FROM delivery_routes 
+      WHERE id = ${id}
+    `;
+    
+    if (!result.length) {
+      return c.json({ error: "Rota não encontrada" }, 404);
+    }
+    
+    return c.json(result[0]);
+  } catch (error) {
+    console.error("Error fetching route:", error);
+    return c.json({ error: "Erro ao buscar rota" }, 500);
+  }
+});
+
+// Criar nova rota
+app.post("/delivery/routes", async (c) => {
+  try {
+    const data = await c.req.json();
+    
+    if (!data.route_code) {
+      return c.json({ error: "route_code é obrigatório" }, 400);
+    }
+    
+    const [route] = await db`
+      INSERT INTO delivery_routes (
+        route_code,
+        driver_id,
+        driver_name,
+        vehicle_id,
+        status,
+        total_items
+      ) VALUES (
+        ${data.route_code},
+        ${data.driver_id || null},
+        ${data.driver_name || null},
+        ${data.vehicle_id || null},
+        ${data.status || 'PENDENTE'},
+        ${data.total_items || 0}
+      )
+      RETURNING *
+    `;
+    
+    return c.json(route, 201);
+  } catch (error) {
+    console.error("Error creating route:", error);
+    return c.json({ error: "Erro ao criar rota" }, 500);
+  }
+});
+
+// Atualizar rota
+app.put("/delivery/routes/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const data = await c.req.json();
+    
+    const [updated] = await db`
+      UPDATE delivery_routes
+      SET 
+        driver_id = COALESCE(${data.driver_id}, driver_id),
+        driver_name = COALESCE(${data.driver_name}, driver_name),
+        vehicle_id = COALESCE(${data.vehicle_id}, vehicle_id),
+        status = COALESCE(${data.status}, status),
+        total_items = COALESCE(${data.total_items}, total_items),
+        delivered_items = COALESCE(${data.delivered_items}, delivered_items),
+        start_date = COALESCE(${data.start_date}, start_date),
+        end_date = COALESCE(${data.end_date}, end_date),
+        updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Rota não encontrada" }, 404);
+    }
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error updating route:", error);
+    return c.json({ error: "Erro ao atualizar rota" }, 500);
+  }
+});
+
+// Iniciar rota
+app.post("/delivery/routes/:id/start", async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    const [updated] = await db`
+      UPDATE delivery_routes
+      SET 
+        status = 'EM_ANDAMENTO',
+        start_date = NOW(),
+        updated_at = NOW()
+      WHERE id = ${id} AND status = 'PENDENTE'
+      RETURNING *
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Rota não encontrada ou já iniciada" }, 404);
+    }
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error starting route:", error);
+    return c.json({ error: "Erro ao iniciar rota" }, 500);
+  }
+});
+
+// Finalizar rota
+app.post("/delivery/routes/:id/finish", async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    const [updated] = await db`
+      UPDATE delivery_routes
+      SET 
+        status = 'CONCLUIDA',
+        end_date = NOW(),
+        updated_at = NOW()
+      WHERE id = ${id} AND status = 'EM_ANDAMENTO'
+      RETURNING *
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Rota não encontrada ou não está em andamento" }, 404);
+    }
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error finishing route:", error);
+    return c.json({ error: "Erro ao finalizar rota" }, 500);
+  }
+});
+
+// --- DELIVERY ITEMS ---
+
+// Listar itens de uma rota
+app.get("/delivery/routes/:routeId/items", async (c) => {
+  try {
+    const { routeId } = c.req.param();
+    
+    const result = await db`
+      SELECT * FROM delivery_items 
+      WHERE route_id = ${routeId}
+      ORDER BY delivery_sequence ASC
+    `;
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching route items:", error);
+    return c.json({ error: "Erro ao buscar itens da rota" }, 500);
+  }
+});
+
+// Buscar item específico
+app.get("/delivery/items/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    const result = await db`
+      SELECT * FROM delivery_items 
+      WHERE id = ${id}
+    `;
+    
+    if (!result.length) {
+      return c.json({ error: "Item não encontrado" }, 404);
+    }
+    
+    return c.json(result[0]);
+  } catch (error) {
+    console.error("Error fetching item:", error);
+    return c.json({ error: "Erro ao buscar item" }, 500);
+  }
+});
+
+// Adicionar item à rota
+app.post("/delivery/routes/:routeId/items", async (c) => {
+  try {
+    const { routeId } = c.req.param();
+    const data = await c.req.json();
+    
+    const [item] = await db`
+      INSERT INTO delivery_items (
+        route_id,
+        order_id,
+        customer_id,
+        customer_name,
+        customer_address,
+        customer_lat,
+        customer_lng,
+        delivery_sequence,
+        status,
+        notes
+      ) VALUES (
+        ${routeId},
+        ${data.order_id || null},
+        ${data.customer_id || null},
+        ${data.customer_name || null},
+        ${data.customer_address || null},
+        ${data.customer_lat || null},
+        ${data.customer_lng || null},
+        ${data.delivery_sequence || 0},
+        ${data.status || 'PENDENTE'},
+        ${data.notes || null}
+      )
+      RETURNING *
+    `;
+    
+    // Atualizar total de itens na rota
+    await db`
+      UPDATE delivery_routes 
+      SET total_items = total_items + 1
+      WHERE id = ${routeId}
+    `;
+    
+    return c.json(item, 201);
+  } catch (error) {
+    console.error("Error adding item to route:", error);
+    return c.json({ error: "Erro ao adicionar item à rota" }, 500);
+  }
+});
+
+// Atualizar item
+app.put("/delivery/items/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const data = await c.req.json();
+    
+    const [updated] = await db`
+      UPDATE delivery_items
+      SET 
+        customer_name = COALESCE(${data.customer_name}, customer_name),
+        customer_address = COALESCE(${data.customer_address}, customer_address),
+        customer_lat = COALESCE(${data.customer_lat}, customer_lat),
+        customer_lng = COALESCE(${data.customer_lng}, customer_lng),
+        delivery_sequence = COALESCE(${data.delivery_sequence}, delivery_sequence),
+        status = COALESCE(${data.status}, status),
+        notes = COALESCE(${data.notes}, notes)
+      WHERE id = ${id}
+      RETURNING *
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Item não encontrado" }, 404);
+    }
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error updating item:", error);
+    return c.json({ error: "Erro ao atualizar item" }, 500);
+  }
+});
+
+// Marcar item como entregue
+app.post("/delivery/items/:id/deliver", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const data = await c.req.json();
+    
+    const [updated] = await db`
+      UPDATE delivery_items
+      SET 
+        status = 'ENTREGUE',
+        delivered_at = NOW(),
+        signature_url = ${data.signature_url || null},
+        photo_url = ${data.photo_url || null},
+        notes = ${data.notes || null}
+      WHERE id = ${id} AND status != 'ENTREGUE'
+      RETURNING *
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Item não encontrado ou já entregue" }, 404);
+    }
+    
+    // Atualizar contador de itens entregues na rota
+    await db`
+      UPDATE delivery_routes 
+      SET delivered_items = delivered_items + 1
+      WHERE id = ${updated.route_id}
+    `;
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error delivering item:", error);
+    return c.json({ error: "Erro ao marcar item como entregue" }, 500);
+  }
+});
+
+// --- ESTATÍSTICAS ---
+
+// Estatísticas gerais
+app.get("/delivery/stats", async (c) => {
+  try {
+    const totalRoutes = await db`SELECT COUNT(*) AS total FROM delivery_routes`;
+    const totalItems = await db`SELECT COUNT(*) AS total FROM delivery_items`;
+    
+    const routesByStatus = await db`
+      SELECT status, COUNT(*) as count 
+      FROM delivery_routes 
+      GROUP BY status
+    `;
+    
+    const itemsByStatus = await db`
+      SELECT status, COUNT(*) as count 
+      FROM delivery_items 
+      GROUP BY status
+    `;
+    
+    const todayDeliveries = await db`
+      SELECT COUNT(*) AS total 
+      FROM delivery_items 
+      WHERE delivered_at::date = CURRENT_DATE
+    `;
+    
+    const activeRoutes = await db`
+      SELECT COUNT(*) AS total 
+      FROM delivery_routes 
+      WHERE status = 'EM_ANDAMENTO'
+    `;
+    
+    return c.json({
+      totalRoutes: totalRoutes[0]?.total || 0,
+      totalItems: totalItems[0]?.total || 0,
+      todayDeliveries: todayDeliveries[0]?.total || 0,
+      activeRoutes: activeRoutes[0]?.total || 0,
+      routesByStatus,
+      itemsByStatus
+    });
+  } catch (error) {
+    console.error("Error fetching stats:", error);
+    return c.json({ error: "Erro ao buscar estatísticas" }, 500);
+  }
+});
+
+// Estatísticas por motorista
+app.get("/delivery/stats/driver/:driverId", async (c) => {
+  try {
+    const { driverId } = c.req.param();
+    
+    const totalRoutes = await db`
+      SELECT COUNT(*) AS total 
+      FROM delivery_routes 
+      WHERE driver_id = ${driverId}
+    `;
+    
+    const completedRoutes = await db`
+      SELECT COUNT(*) AS total 
+      FROM delivery_routes 
+      WHERE driver_id = ${driverId} AND status = 'CONCLUIDA'
+    `;
+    
+    const totalDeliveries = await db`
+      SELECT COUNT(*) AS total 
+      FROM delivery_items di
+      JOIN delivery_routes dr ON di.route_id = dr.id
+      WHERE dr.driver_id = ${driverId} AND di.status = 'ENTREGUE'
+    `;
+    
+    const todayDeliveries = await db`
+      SELECT COUNT(*) AS total 
+      FROM delivery_items di
+      JOIN delivery_routes dr ON di.route_id = dr.id
+      WHERE dr.driver_id = ${driverId} 
+      AND di.delivered_at::date = CURRENT_DATE
+    `;
+    
+    return c.json({
+      totalRoutes: totalRoutes[0]?.total || 0,
+      completedRoutes: completedRoutes[0]?.total || 0,
+      totalDeliveries: totalDeliveries[0]?.total || 0,
+      todayDeliveries: todayDeliveries[0]?.total || 0
+    });
+  } catch (error) {
+    console.error("Error fetching driver stats:", error);
+    return c.json({ error: "Erro ao buscar estatísticas do motorista" }, 500);
+  }
+});
+
+// --- Serve ---
+Bun.serve({
+  fetch: app.fetch,
+  port: Number(process.env.PORT || 3000),
+});
