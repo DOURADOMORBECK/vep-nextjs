@@ -1,0 +1,696 @@
+<html><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <style>::-webkit-scrollbar { display: none;}</style>
+    <script>tailwind.config = {
+  "darkMode": "class",
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": {
+          "50": "#f0fdf4",
+          "100": "#dcfce7",
+          "200": "#bbf7d0",
+          "300": "#86efac",
+          "400": "#4ade80",
+          "500": "#22c55e",
+          "600": "#16a34a",
+          "700": "#15803d",
+          "800": "#166534",
+          "900": "#14532d"
+        },
+        "dark": {
+          "800": "#1e2124",
+          "850": "#1a1c1e",
+          "900": "#121416",
+          "950": "#0a0b0c"
+        }
+      },
+      "fontFamily": {
+        "sans": [
+          "Inter",
+          "sans-serif"
+        ]
+      }
+    }
+  }
+};</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&amp;display=swap"><style>
+      body {
+        font-family: 'Inter', sans-serif !important;
+      }
+      
+      /* Preserve Font Awesome icons */
+      .fa, .fas, .far, .fal, .fab {
+        font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+      }
+    </style><style>
+  .highlighted-section {
+    outline: 2px solid #3F20FB;
+    background-color: rgba(63, 32, 251, 0.1);
+  }
+
+  .edit-button {
+    position: absolute;
+    z-index: 1000;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  html, body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  </style></head>
+<body class="bg-dark-900 text-gray-100 font-sans">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-dark-950 border-r border-dark-800 flex flex-col">
+            <!-- Logo -->
+            <div class="p-4 border-b border-dark-800 flex items-center">
+                <div class="w-10 h-10 rounded-lg bg-primary-700 flex items-center justify-center mr-3">
+                    <i class="fa-solid fa-leaf text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-white">Gestão de Operações</h1>
+                    <p class="text-xs text-gray-500">v1.2.0</p>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="flex-1 py-4 overflow-y-auto">
+                <div class="px-4 mb-2">
+                    <p class="text-xs uppercase tracking-wider text-gray-500 font-medium">Menu Principal</p>
+                </div>
+                
+                <ul class="space-y-1 px-2">
+                    <li>
+                        <span class="flex items-center px-4 py-2.5 text-sm rounded-lg bg-primary-700 text-white cursor-pointer">
+                            <i class="fa-solid fa-chart-line w-5 h-5 mr-3"></i>
+                            <span>Dashboard</span>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="flex items-center px-4 py-2.5 text-sm rounded-lg text-gray-300 hover:bg-dark-800 cursor-pointer">
+                            <i class="fa-solid fa-database w-5 h-5 mr-3 text-gray-500"></i>
+                            <span>Gestão de Cadastros</span>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="flex items-center px-4 py-2.5 text-sm rounded-lg text-gray-300 hover:bg-dark-800 cursor-pointer">
+                            <i class="fa-solid fa-clipboard-list w-5 h-5 mr-3 text-gray-500"></i>
+                            <span>Gestão de Pedidos</span>
+                        </span>
+                    </li>
+                </ul>
+                
+                <div class="px-4 mt-6 mb-2">
+                    <p class="text-xs uppercase tracking-wider text-gray-500 font-medium">Jornadas</p>
+                </div>
+                
+                <ul class="space-y-1 px-2">
+                    <li>
+                        <span class="flex items-center px-4 py-2.5 text-sm rounded-lg text-gray-300 hover:bg-dark-800 cursor-pointer">
+                            <i class="fa-solid fa-truck w-5 h-5 mr-3 text-gray-500"></i>
+                            <span>Jornada da Entrega</span>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="flex items-center px-4 py-2.5 text-sm rounded-lg text-gray-300 hover:bg-dark-800 cursor-pointer">
+                            <i class="fa-solid fa-box w-5 h-5 mr-3 text-gray-500"></i>
+                            <span>Jornada do Pedido</span>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="flex items-center px-4 py-2.5 text-sm rounded-lg text-gray-300 hover:bg-dark-800 cursor-pointer">
+                            <i class="fa-solid fa-industry w-5 h-5 mr-3 text-gray-500"></i>
+                            <span>Jornada do Produto</span>
+                        </span>
+                    </li>
+                </ul>
+                
+                <div class="px-4 mt-6 mb-2">
+                    <p class="text-xs uppercase tracking-wider text-gray-500 font-medium">Sistema</p>
+                </div>
+                
+                <ul class="space-y-1 px-2">
+                    <li>
+                        <span class="flex items-center px-4 py-2.5 text-sm rounded-lg text-gray-300 hover:bg-dark-800 cursor-pointer">
+                            <i class="fa-solid fa-cog w-5 h-5 mr-3 text-gray-500"></i>
+                            <span>Configurações</span>
+                        </span>
+                    </li>
+                    <li>
+                        <span class="flex items-center px-4 py-2.5 text-sm rounded-lg text-gray-300 hover:bg-dark-800 cursor-pointer">
+                            <i class="fa-solid fa-question-circle w-5 h-5 mr-3 text-gray-500"></i>
+                            <span>Ajuda &amp; Suporte</span>
+                        </span>
+                    </li>
+                </ul>
+            </nav>
+            
+            <!-- User profile -->
+            <div class="p-4 border-t border-dark-800">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-full bg-dark-800 flex items-center justify-center mr-3">
+                        <i class="fa-solid fa-user text-gray-400"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-sm font-medium text-white truncate">João Silva</h3>
+                        <p class="text-xs text-gray-500">Administrador</p>
+                    </div>
+                    <button class="text-gray-500 hover:text-white">
+                        <i class="fa-solid fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <div id="main-content" class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header id="header" class="bg-dark-850 border-b border-dark-800 h-16 flex items-center px-6">
+                <div class="flex items-center">
+                    <button class="text-gray-400 hover:text-white mr-4">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <h2 class="text-lg font-semibold">Dashboard Principal</h2>
+                </div>
+                
+                <div class="ml-auto flex items-center space-x-4">
+                    <div class="relative">
+                        <button class="text-gray-400 hover:text-white relative">
+                            <i class="fa-solid fa-bell"></i>
+                            <span class="absolute top-0 right-0 w-2 h-2 bg-primary-500 rounded-full"></span>
+                        </button>
+                    </div>
+                    
+                    <div class="relative">
+                        <button class="text-gray-400 hover:text-white">
+                            <i class="fa-solid fa-search"></i>
+                        </button>
+                    </div>
+                    
+                    <div>
+                        <span class="text-sm text-gray-400">
+                            <i class="fa-regular fa-clock mr-1"></i>
+                            Última atualização: 10:45
+                        </span>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Dashboard content -->
+            <main class="flex-1 overflow-y-auto p-6 bg-dark-900">
+                <!-- Date filters -->
+                <div id="date-filters" class="flex justify-between items-center mb-6">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">Visão Geral</h1>
+                        <p class="text-gray-400">Acompanhe os principais indicadores do seu negócio</p>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3">
+                        <div class="relative">
+                            <select class="bg-dark-850 border border-dark-800 text-sm rounded-lg px-4 py-2.5 appearance-none pr-8 text-gray-300 focus:ring-primary-500 focus:border-primary-500">
+                                <option>Hoje</option>
+                                <option>Últimos 7 dias</option>
+                                <option selected="">Últimos 30 dias</option>
+                                <option>Este mês</option>
+                                <option>Personalizado</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                                <i class="fa-solid fa-chevron-down text-xs"></i>
+                            </div>
+                        </div>
+                        
+                        <button class="bg-dark-850 border border-dark-800 text-sm rounded-lg px-3 py-2.5 text-gray-300 hover:bg-dark-800">
+                            <i class="fa-solid fa-download mr-1"></i>
+                            Exportar
+                        </button>
+                        
+                        <button class="bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg px-3 py-2.5">
+                            <i class="fa-solid fa-sync-alt mr-1"></i>
+                            Atualizar
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- KPI cards -->
+                <div id="kpi-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <!-- Pedidos em andamento -->
+                    <div class="bg-dark-850 border border-dark-800 rounded-xl p-5">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-gray-400 text-sm">Pedidos em Andamento</p>
+                                <h3 class="text-2xl font-bold text-white mt-1">42</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-blue-900 bg-opacity-30 flex items-center justify-center">
+                                <i class="fa-solid fa-spinner text-blue-400"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-primary-400 text-sm flex items-center">
+                                <i class="fa-solid fa-arrow-up mr-1"></i>
+                                12%
+                            </span>
+                            <span class="text-gray-500 text-sm ml-2">desde ontem</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Pedidos entregues -->
+                    <div class="bg-dark-850 border border-dark-800 rounded-xl p-5">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-gray-400 text-sm">Pedidos Entregues</p>
+                                <h3 class="text-2xl font-bold text-white mt-1">187</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-green-900 bg-opacity-30 flex items-center justify-center">
+                                <i class="fa-solid fa-check-circle text-green-400"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-primary-400 text-sm flex items-center">
+                                <i class="fa-solid fa-arrow-up mr-1"></i>
+                                8%
+                            </span>
+                            <span class="text-gray-500 text-sm ml-2">nos últimos 30 dias</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Estoque baixo -->
+                    <div class="bg-dark-850 border border-dark-800 rounded-xl p-5">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-gray-400 text-sm">Produtos com Estoque Baixo</p>
+                                <h3 class="text-2xl font-bold text-white mt-1">13</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-amber-900 bg-opacity-30 flex items-center justify-center">
+                                <i class="fa-solid fa-exclamation-triangle text-amber-400"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-amber-400 text-sm flex items-center">
+                                <i class="fa-solid fa-arrow-up mr-1"></i>
+                                5
+                            </span>
+                            <span class="text-gray-500 text-sm ml-2">produtos a mais que ontem</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Clientes ativos -->
+                    <div class="bg-dark-850 border border-dark-800 rounded-xl p-5">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-gray-400 text-sm">Clientes Ativos</p>
+                                <h3 class="text-2xl font-bold text-white mt-1">1,254</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-purple-900 bg-opacity-30 flex items-center justify-center">
+                                <i class="fa-solid fa-users text-purple-400"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-primary-400 text-sm flex items-center">
+                                <i class="fa-solid fa-arrow-up mr-1"></i>
+                                3%
+                            </span>
+                            <span class="text-gray-500 text-sm ml-2">nos últimos 30 dias</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Charts row -->
+                <div id="charts-row" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Pedidos por Status -->
+                    <div id="chart-container-1" class="bg-dark-850 border border-dark-800 rounded-xl p-5">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-semibold text-white">Pedidos por Status</h3>
+                            <div class="flex space-x-2">
+                                <button class="text-xs bg-dark-800 hover:bg-dark-900 text-gray-400 py-1 px-2 rounded">7D</button>
+                                <button class="text-xs bg-primary-700 text-white py-1 px-2 rounded">30D</button>
+                                <button class="text-xs bg-dark-800 hover:bg-dark-900 text-gray-400 py-1 px-2 rounded">90D</button>
+                            </div>
+                        </div>
+                        <div id="chart1" class="h-64"></div>
+                    </div>
+                    
+                    <!-- Evolução de Entregas -->
+                    <div id="chart-container-2" class="bg-dark-850 border border-dark-800 rounded-xl p-5">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-semibold text-white">Evolução de Entregas</h3>
+                            <div class="flex space-x-2">
+                                <button class="text-xs bg-dark-800 hover:bg-dark-900 text-gray-400 py-1 px-2 rounded">7D</button>
+                                <button class="text-xs bg-primary-700 text-white py-1 px-2 rounded">30D</button>
+                                <button class="text-xs bg-dark-800 hover:bg-dark-900 text-gray-400 py-1 px-2 rounded">90D</button>
+                            </div>
+                        </div>
+                        <div id="chart2" class="h-64"></div>
+                    </div>
+                </div>
+                
+                <!-- Two column layout -->
+                <div id="two-column-layout" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Pedidos Recentes -->
+                    <div id="recent-orders" class="lg:col-span-2 bg-dark-850 border border-dark-800 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 border-b border-dark-800 flex justify-between items-center">
+                            <h3 class="font-semibold text-white">Pedidos Recentes</h3>
+                            <span class="text-primary-500 hover:text-primary-400 text-sm cursor-pointer">Ver todos</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="bg-dark-900 text-gray-400 text-xs">
+                                        <th class="px-5 py-3 text-left">ID</th>
+                                        <th class="px-5 py-3 text-left">Cliente</th>
+                                        <th class="px-5 py-3 text-left">Data</th>
+                                        <th class="px-5 py-3 text-left">Status</th>
+                                        <th class="px-5 py-3 text-left">Valor</th>
+                                        <th class="px-5 py-3 text-left">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-dark-800">
+                                    <tr class="text-sm">
+                                        <td class="px-5 py-4 text-gray-300">#8752</td>
+                                        <td class="px-5 py-4 text-white">Maria Santos</td>
+                                        <td class="px-5 py-4 text-gray-300">Hoje, 09:42</td>
+                                        <td class="px-5 py-4">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-blue-900 bg-opacity-20 text-blue-400">
+                                                Em produção
+                                            </span>
+                                        </td>
+                                        <td class="px-5 py-4 text-white">R$ 1.250,00</td>
+                                        <td class="px-5 py-4">
+                                            <button class="text-gray-400 hover:text-white">
+                                                <i class="fa-solid fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr class="text-sm">
+                                        <td class="px-5 py-4 text-gray-300">#8751</td>
+                                        <td class="px-5 py-4 text-white">Carlos Oliveira</td>
+                                        <td class="px-5 py-4 text-gray-300">Hoje, 08:15</td>
+                                        <td class="px-5 py-4">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-amber-900 bg-opacity-20 text-amber-400">
+                                                Pronto para entrega
+                                            </span>
+                                        </td>
+                                        <td class="px-5 py-4 text-white">R$ 875,50</td>
+                                        <td class="px-5 py-4">
+                                            <button class="text-gray-400 hover:text-white">
+                                                <i class="fa-solid fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr class="text-sm">
+                                        <td class="px-5 py-4 text-gray-300">#8750</td>
+                                        <td class="px-5 py-4 text-white">Ana Ferreira</td>
+                                        <td class="px-5 py-4 text-gray-300">Ontem, 16:30</td>
+                                        <td class="px-5 py-4">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-green-900 bg-opacity-20 text-green-400">
+                                                Entregue
+                                            </span>
+                                        </td>
+                                        <td class="px-5 py-4 text-white">R$ 2.430,00</td>
+                                        <td class="px-5 py-4">
+                                            <button class="text-gray-400 hover:text-white">
+                                                <i class="fa-solid fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr class="text-sm">
+                                        <td class="px-5 py-4 text-gray-300">#8749</td>
+                                        <td class="px-5 py-4 text-white">Pedro Costa</td>
+                                        <td class="px-5 py-4 text-gray-300">Ontem, 14:22</td>
+                                        <td class="px-5 py-4">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-red-900 bg-opacity-20 text-red-400">
+                                                Cancelado
+                                            </span>
+                                        </td>
+                                        <td class="px-5 py-4 text-white">R$ 560,00</td>
+                                        <td class="px-5 py-4">
+                                            <button class="text-gray-400 hover:text-white">
+                                                <i class="fa-solid fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr class="text-sm">
+                                        <td class="px-5 py-4 text-gray-300">#8748</td>
+                                        <td class="px-5 py-4 text-white">Juliana Lima</td>
+                                        <td class="px-5 py-4 text-gray-300">Ontem, 11:05</td>
+                                        <td class="px-5 py-4">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-green-900 bg-opacity-20 text-green-400">
+                                                Entregue
+                                            </span>
+                                        </td>
+                                        <td class="px-5 py-4 text-white">R$ 1.845,00</td>
+                                        <td class="px-5 py-4">
+                                            <button class="text-gray-400 hover:text-white">
+                                                <i class="fa-solid fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Produtos com Estoque Baixo -->
+                    <div id="low-stock-products" class="bg-dark-850 border border-dark-800 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 border-b border-dark-800 flex justify-between items-center">
+                            <h3 class="font-semibold text-white">Produtos com Estoque Baixo</h3>
+                            <span class="text-primary-500 hover:text-primary-400 text-sm cursor-pointer">Ver todos</span>
+                        </div>
+                        <div class="p-5">
+                            <ul class="space-y-4">
+                                <li class="flex items-center">
+                                    <div class="w-10 h-10 rounded bg-dark-800 flex items-center justify-center mr-3">
+                                        <i class="fa-solid fa-box text-gray-500"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="text-sm font-medium text-white truncate">Produto A</h4>
+                                        <div class="flex items-center mt-1">
+                                            <div class="w-full bg-dark-800 rounded-full h-2">
+                                                <div class="bg-red-500 h-2 rounded-full" style="width: 10%"></div>
+                                            </div>
+                                            <span class="text-xs text-red-400 ml-2">2/20</span>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li class="flex items-center">
+                                    <div class="w-10 h-10 rounded bg-dark-800 flex items-center justify-center mr-3">
+                                        <i class="fa-solid fa-box text-gray-500"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="text-sm font-medium text-white truncate">Produto B</h4>
+                                        <div class="flex items-center mt-1">
+                                            <div class="w-full bg-dark-800 rounded-full h-2">
+                                                <div class="bg-amber-500 h-2 rounded-full" style="width: 20%"></div>
+                                            </div>
+                                            <span class="text-xs text-amber-400 ml-2">4/20</span>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li class="flex items-center">
+                                    <div class="w-10 h-10 rounded bg-dark-800 flex items-center justify-center mr-3">
+                                        <i class="fa-solid fa-box text-gray-500"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="text-sm font-medium text-white truncate">Produto C</h4>
+                                        <div class="flex items-center mt-1">
+                                            <div class="w-full bg-dark-800 rounded-full h-2">
+                                                <div class="bg-amber-500 h-2 rounded-full" style="width: 25%"></div>
+                                            </div>
+                                            <span class="text-xs text-amber-400 ml-2">5/20</span>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li class="flex items-center">
+                                    <div class="w-10 h-10 rounded bg-dark-800 flex items-center justify-center mr-3">
+                                        <i class="fa-solid fa-box text-gray-500"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="text-sm font-medium text-white truncate">Produto D</h4>
+                                        <div class="flex items-center mt-1">
+                                            <div class="w-full bg-dark-800 rounded-full h-2">
+                                                <div class="bg-amber-500 h-2 rounded-full" style="width: 30%"></div>
+                                            </div>
+                                            <span class="text-xs text-amber-400 ml-2">6/20</span>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li class="flex items-center">
+                                    <div class="w-10 h-10 rounded bg-dark-800 flex items-center justify-center mr-3">
+                                        <i class="fa-solid fa-box text-gray-500"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <h4 class="text-sm font-medium text-white truncate">Produto E</h4>
+                                        <div class="flex items-center mt-1">
+                                            <div class="w-full bg-dark-800 rounded-full h-2">
+                                                <div class="bg-amber-500 h-2 rounded-full" style="width: 35%"></div>
+                                            </div>
+                                            <span class="text-xs text-amber-400 ml-2">7/20</span>
+                                        </div>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Chart 1 - Pedidos por Status
+        Highcharts.chart('chart1', {
+            chart: {
+                type: 'column',
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            xAxis: {
+                categories: ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'],
+                labels: {
+                    style: {
+                        color: '#9ca3af'
+                    }
+                },
+                lineColor: '#374151',
+                tickColor: '#374151'
+            },
+            yAxis: {
+                min: 0,
+                title: {
+                    text: null
+                },
+                stackLabels: {
+                    enabled: false
+                },
+                gridLineColor: '#374151',
+                labels: {
+                    style: {
+                        color: '#9ca3af'
+                    }
+                }
+            },
+            legend: {
+                itemStyle: {
+                    color: '#9ca3af'
+                },
+                itemHoverStyle: {
+                    color: '#ffffff'
+                }
+            },
+            tooltip: {
+                headerFormat: '<b>{point.x}</b><br/>',
+                pointFormat: '{series.name}: {point.y}<br/>Total: {point.stackTotal}'
+            },
+            plotOptions: {
+                column: {
+                    stacking: 'normal',
+                    borderWidth: 0
+                }
+            },
+            series: [{
+                name: 'Em produção',
+                data: [25, 31, 27, 24],
+                color: '#3b82f6'
+            }, {
+                name: 'Prontos',
+                data: [42, 38, 45, 40],
+                color: '#f59e0b'
+            }, {
+                name: 'Em entrega',
+                data: [18, 21, 25, 19],
+                color: '#8b5cf6'
+            }, {
+                name: 'Entregues',
+                data: [38, 45, 50, 54],
+                color: '#10b981'
+            }, {
+                name: 'Cancelados',
+                data: [5, 3, 6, 4],
+                color: '#ef4444'
+            }],
+            credits: {
+                enabled: false
+            }
+        });
+
+        // Chart 2 - Evolução de Entregas
+        Highcharts.chart('chart2', {
+            chart: {
+                type: 'spline',
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            xAxis: {
+                categories: ['01/06', '05/06', '10/06', '15/06', '20/06', '25/06', '30/06'],
+                labels: {
+                    style: {
+                        color: '#9ca3af'
+                    }
+                },
+                lineColor: '#374151',
+                tickColor: '#374151'
+            },
+            yAxis: {
+                title: {
+                    text: null
+                },
+                gridLineColor: '#374151',
+                labels: {
+                    style: {
+                        color: '#9ca3af'
+                    }
+                }
+            },
+            tooltip: {
+                crosshairs: true,
+                shared: true
+            },
+            legend: {
+                itemStyle: {
+                    color: '#9ca3af'
+                },
+                itemHoverStyle: {
+                    color: '#ffffff'
+                }
+            },
+            plotOptions: {
+                spline: {
+                    marker: {
+                        radius: 4,
+                        lineColor: '#666666',
+                        lineWidth: 1
+                    }
+                }
+            },
+            series: [{
+                name: 'Entregas no prazo',
+                data: [28, 35, 42, 45, 51, 55, 62],
+                color: '#10b981'
+            }, {
+                name: 'Entregas com atraso',
+                data: [8, 5, 7, 4, 6, 3, 5],
+                color: '#f59e0b'
+            }],
+            credits: {
+                enabled: false
+            }
+        });
+    </script>
+
+</body></html>

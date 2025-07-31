@@ -1,0 +1,377 @@
+<html><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>::-webkit-scrollbar { display: none;}</style>
+    <script>tailwind.config = {
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": {
+          "50": "#f0fdf4",
+          "100": "#dcfce7",
+          "200": "#bbf7d0",
+          "300": "#86efac",
+          "400": "#4ade80",
+          "500": "#22c55e",
+          "600": "#16a34a",
+          "700": "#15803d",
+          "800": "#166534",
+          "900": "#14532d"
+        },
+        "dark": {
+          "500": "#424242",
+          "600": "#383838",
+          "700": "#2d2d2d",
+          "800": "#1e1e1e",
+          "900": "#121212"
+        }
+      },
+      "fontFamily": {
+        "sans": [
+          "Inter",
+          "sans-serif"
+        ]
+      }
+    }
+  }
+};</script>
+    
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&amp;display=swap"><style>
+      body {
+        font-family: 'Inter', sans-serif !important;
+      }
+      
+      /* Preserve Font Awesome icons */
+      .fa, .fas, .far, .fal, .fab {
+        font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+      }
+    </style><style>
+  .highlighted-section {
+    outline: 2px solid #3F20FB;
+    background-color: rgba(63, 32, 251, 0.1);
+  }
+
+  .edit-button {
+    position: absolute;
+    z-index: 1000;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  html, body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  </style></head>
+<body class="bg-dark-900 text-white font-sans">
+    <div id="cadastros-page" class="min-h-screen flex flex-col">
+        <!-- Status Bar -->
+        <div id="status-bar" class="flex justify-between items-center p-3 bg-dark-800">
+            <div class="text-xs">9:41</div>
+            <div class="flex space-x-2">
+                <i class="fa-solid fa-wifi"></i>
+                <i class="fa-solid fa-signal"></i>
+                <i class="fa-solid fa-battery-three-quarters"></i>
+            </div>
+        </div>
+        
+        <!-- Header -->
+        <div id="header" class="bg-dark-800 px-4 py-3 flex items-center justify-between border-b border-dark-700">
+            <div class="flex items-center">
+                <button id="back-button" class="mr-3">
+                    <i class="fa-solid fa-arrow-left text-gray-400"></i>
+                </button>
+                <h1 class="text-lg font-semibold">Gestão de Cadastros</h1>
+            </div>
+            <div>
+                <button id="user-menu" class="w-8 h-8 rounded-full bg-primary-700 flex items-center justify-center">
+                    <i class="fa-solid fa-user text-sm"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div id="main-content" class="flex-1 px-4 py-5">
+            <!-- Categories -->
+            <div id="cadastros-categories" class="grid grid-cols-3 gap-3 mb-6">
+                <div id="produtos-category" class="bg-dark-700 rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer border-2 border-primary-600">
+                    <i class="fa-solid fa-box text-2xl mb-2 text-primary-500"></i>
+                    <span class="text-xs text-center">Produtos</span>
+                </div>
+                <div id="clientes-category" class="bg-dark-700 rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer border border-dark-600">
+                    <i class="fa-solid fa-users text-2xl mb-2 text-gray-400"></i>
+                    <span class="text-xs text-center">Clientes</span>
+                </div>
+                <div id="usuarios-category" class="bg-dark-700 rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer border border-dark-600">
+                    <i class="fa-solid fa-user-gear text-2xl mb-2 text-gray-400"></i>
+                    <span class="text-xs text-center">Usuários</span>
+                </div>
+            </div>
+            
+            <!-- Search Bar -->
+            <div id="search-container" class="mb-5">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-search text-gray-400"></i>
+                    </div>
+                    <input type="text" id="search-products" class="bg-dark-700 border border-dark-600 rounded-lg py-2.5 px-4 pl-10 block w-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Buscar produtos...">
+                </div>
+            </div>
+            
+            <!-- Filters and Sort -->
+            <div id="filters-container" class="flex justify-between items-center mb-5">
+                <button id="filter-button" class="flex items-center bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-sm">
+                    <i class="fa-solid fa-filter text-gray-400 mr-2"></i>
+                    <span>Filtrar</span>
+                </button>
+                <div class="flex space-x-2">
+                    <button id="sort-button" class="flex items-center bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-sm">
+                        <i class="fa-solid fa-arrow-up-wide-short text-gray-400 mr-2"></i>
+                        <span>Ordenar</span>
+                    </button>
+                    <button id="add-button" class="bg-primary-600 rounded-lg px-3 py-2 text-sm flex items-center">
+                        <i class="fa-solid fa-plus mr-2"></i>
+                        <span>Novo</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Products List -->
+            <div id="products-list" class="space-y-3 mb-6">
+                <!-- Product Item 1 -->
+                <div id="product-1" class="bg-dark-700 rounded-lg p-3 flex border border-dark-600">
+                    <div class="w-16 h-16 bg-dark-600 rounded-lg mr-3 flex items-center justify-center overflow-hidden">
+                        <i class="fa-solid fa-box-open text-2xl text-gray-400"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-medium">Notebook Acer Aspire 5</h3>
+                            <div class="flex space-x-1">
+                                <button class="text-gray-400 hover:text-gray-300">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button class="text-gray-400 hover:text-gray-300">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-1">Eletrônicos</p>
+                        <div class="flex justify-between items-center">
+                            <div class="bg-dark-800 rounded-full px-2 py-0.5 text-xs flex items-center">
+                                <span class="text-primary-500 mr-1">●</span>
+                                <span>Estoque: 15</span>
+                            </div>
+                            <span class="text-sm font-medium text-primary-400">R$ 3.599,00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Product Item 2 -->
+                <div id="product-2" class="bg-dark-700 rounded-lg p-3 flex border border-dark-600">
+                    <div class="w-16 h-16 bg-dark-600 rounded-lg mr-3 flex items-center justify-center overflow-hidden">
+                        <i class="fa-solid fa-mobile-screen text-2xl text-gray-400"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-medium">Smartphone Samsung Galaxy S21</h3>
+                            <div class="flex space-x-1">
+                                <button class="text-gray-400 hover:text-gray-300">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button class="text-gray-400 hover:text-gray-300">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-1">Eletrônicos</p>
+                        <div class="flex justify-between items-center">
+                            <div class="bg-dark-800 rounded-full px-2 py-0.5 text-xs flex items-center">
+                                <span class="text-yellow-500 mr-1">●</span>
+                                <span>Estoque: 8</span>
+                            </div>
+                            <span class="text-sm font-medium text-primary-400">R$ 2.799,00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Product Item 3 -->
+                <div id="product-3" class="bg-dark-700 rounded-lg p-3 flex border border-dark-600">
+                    <div class="w-16 h-16 bg-dark-600 rounded-lg mr-3 flex items-center justify-center overflow-hidden">
+                        <i class="fa-solid fa-headphones text-2xl text-gray-400"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-medium">Fone de Ouvido JBL Tune 510BT</h3>
+                            <div class="flex space-x-1">
+                                <button class="text-gray-400 hover:text-gray-300">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button class="text-gray-400 hover:text-gray-300">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-1">Acessórios</p>
+                        <div class="flex justify-between items-center">
+                            <div class="bg-dark-800 rounded-full px-2 py-0.5 text-xs flex items-center">
+                                <span class="text-red-500 mr-1">●</span>
+                                <span>Estoque: 3</span>
+                            </div>
+                            <span class="text-sm font-medium text-primary-400">R$ 199,90</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Product Detail Modal (Hidden by default) -->
+            <div id="product-detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-end">
+                <div class="bg-dark-800 rounded-t-2xl p-5 w-full max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold">Detalhes do Produto</h2>
+                        <button id="close-modal" class="text-gray-400">
+                            <i class="fa-solid fa-xmark text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="h-40 bg-dark-700 rounded-lg mb-4 flex items-center justify-center">
+                        <i class="fa-solid fa-box-open text-4xl text-gray-400"></i>
+                    </div>
+                    
+                    <form id="product-form" class="space-y-4">
+                        <div class="space-y-2">
+                            <label class="text-sm text-gray-400 block">Nome do Produto</label>
+                            <input type="text" class="bg-dark-700 border border-dark-600 rounded-lg py-2.5 px-4 block w-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" value="Notebook Acer Aspire 5">
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <label class="text-sm text-gray-400 block">Descrição</label>
+                            <textarea class="bg-dark-700 border border-dark-600 rounded-lg py-2.5 px-4 block w-full h-24 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">Notebook com processador Intel Core i5, 8GB RAM, 256GB SSD, tela 15.6" Full HD, Windows 11.</textarea>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-2">
+                                <label class="text-sm text-gray-400 block">Categoria</label>
+                                <select class="bg-dark-700 border border-dark-600 rounded-lg py-2.5 px-4 block w-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    <option>Eletrônicos</option>
+                                    <option>Acessórios</option>
+                                    <option>Periféricos</option>
+                                    <option>Outros</option>
+                                </select>
+                            </div>
+                            
+                            <div class="space-y-2">
+                                <label class="text-sm text-gray-400 block">Estoque Atual</label>
+                                <input type="number" class="bg-dark-700 border border-dark-600 rounded-lg py-2.5 px-4 block w-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" value="15">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-2">
+                                <label class="text-sm text-gray-400 block">Preço (R$)</label>
+                                <input type="text" class="bg-dark-700 border border-dark-600 rounded-lg py-2.5 px-4 block w-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" value="3599.00">
+                            </div>
+                            
+                            <div class="space-y-2">
+                                <label class="text-sm text-gray-400 block">Código SKU</label>
+                                <input type="text" class="bg-dark-700 border border-dark-600 rounded-lg py-2.5 px-4 block w-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" value="NOT-ACR-A5-001">
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <label class="text-sm text-gray-400 block">Informações Complementares</label>
+                            <textarea class="bg-dark-700 border border-dark-600 rounded-lg py-2.5 px-4 block w-full h-24 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">Garantia de 12 meses. Inclui carregador, manual e nota fiscal. Produto importado com garantia nacional.</textarea>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <label class="text-sm text-gray-400 block">Imagem do Produto</label>
+                            <div class="border border-dashed border-dark-500 rounded-lg p-4 text-center">
+                                <i class="fa-solid fa-cloud-arrow-up text-2xl text-gray-400 mb-2"></i>
+                                <p class="text-sm text-gray-400">Clique para fazer upload ou arraste a imagem</p>
+                            </div>
+                        </div>
+                        
+                        <div class="pt-3 flex space-x-3">
+                            <button type="button" class="flex-1 bg-dark-600 text-white py-3 rounded-lg">Cancelar</button>
+                            <button type="submit" class="flex-1 bg-primary-600 text-white py-3 rounded-lg">Salvar Alterações</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Navigation -->
+        <div id="footer" class="bg-dark-800 border-t border-dark-700 py-2 px-4">
+            <div class="flex justify-between items-center">
+                <button class="flex flex-col items-center justify-center w-16">
+                    <i class="fa-solid fa-house text-gray-400 text-lg"></i>
+                    <span class="text-xs text-gray-400 mt-1">Início</span>
+                </button>
+                <button class="flex flex-col items-center justify-center w-16">
+                    <i class="fa-solid fa-clipboard-list text-gray-400 text-lg"></i>
+                    <span class="text-xs text-gray-400 mt-1">Pedidos</span>
+                </button>
+                <button class="flex flex-col items-center justify-center w-16 relative">
+                    <div class="absolute -top-1 -right-1 w-6 h-6 bg-primary-600 rounded-full flex items-center justify-center text-xs">+</div>
+                    <div class="w-12 h-12 bg-primary-600 rounded-full flex items-center justify-center -mt-5">
+                        <i class="fa-solid fa-plus text-white text-lg"></i>
+                    </div>
+                </button>
+                <button class="flex flex-col items-center justify-center w-16">
+                    <i class="fa-solid fa-database text-primary-500 text-lg"></i>
+                    <span class="text-xs text-primary-500 mt-1">Cadastros</span>
+                </button>
+                <button class="flex flex-col items-center justify-center w-16">
+                    <i class="fa-solid fa-truck text-gray-400 text-lg"></i>
+                    <span class="text-xs text-gray-400 mt-1">Entregas</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Toggle product detail modal
+        document.getElementById('product-1').addEventListener('click', function() {
+            document.getElementById('product-detail-modal').classList.remove('hidden');
+        });
+        
+        document.getElementById('close-modal').addEventListener('click', function() {
+            document.getElementById('product-detail-modal').classList.add('hidden');
+        });
+        
+        // Category selection
+        const categoryElements = document.querySelectorAll('#cadastros-categories > div');
+        categoryElements.forEach(element => {
+            element.addEventListener('click', function() {
+                // Remove active class from all
+                categoryElements.forEach(el => {
+                    el.classList.remove('border-primary-600', 'border-2');
+                    el.classList.add('border', 'border-dark-600');
+                    el.querySelector('i').classList.remove('text-primary-500');
+                    el.querySelector('i').classList.add('text-gray-400');
+                });
+                
+                // Add active class to selected
+                this.classList.remove('border', 'border-dark-600');
+                this.classList.add('border-2', 'border-primary-600');
+                this.querySelector('i').classList.remove('text-gray-400');
+                this.querySelector('i').classList.add('text-primary-500');
+                
+                // Update search placeholder based on selected category
+                const searchInput = document.getElementById('search-products');
+                if (this.id === 'produtos-category') {
+                    searchInput.placeholder = 'Buscar produtos...';
+                } else if (this.id === 'clientes-category') {
+                    searchInput.placeholder = 'Buscar clientes...';
+                } else if (this.id === 'usuarios-category') {
+                    searchInput.placeholder = 'Buscar usuários...';
+                }
+            });
+        });
+    </script>
+
+</body></html>

@@ -1,0 +1,490 @@
+<html class="dark"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <style>::-webkit-scrollbar { display: none;}</style>
+    
+    <script>tailwind.config = {
+  "darkMode": "class",
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": {
+          "50": "#f0fdf4",
+          "100": "#dcfce7",
+          "200": "#bbf7d0",
+          "300": "#86efac",
+          "400": "#4ade80",
+          "500": "#22c55e",
+          "600": "#16a34a",
+          "700": "#15803d",
+          "800": "#166534",
+          "900": "#14532d"
+        }
+      },
+      "fontFamily": {
+        "sans": [
+          "Inter",
+          "sans-serif"
+        ]
+      }
+    }
+  }
+};</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&amp;display=swap"><style>
+      body {
+        font-family: 'Inter', sans-serif !important;
+      }
+      
+      /* Preserve Font Awesome icons */
+      .fa, .fas, .far, .fal, .fab {
+        font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+      }
+    </style><style>
+  .highlighted-section {
+    outline: 2px solid #3F20FB;
+    background-color: rgba(63, 32, 251, 0.1);
+  }
+
+  .edit-button {
+    position: absolute;
+    z-index: 1000;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  html, body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  </style></head>
+<body class="bg-gray-900 text-white font-sans">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-gray-800 border-r border-gray-700 flex-shrink-0">
+            <div class="flex items-center justify-center h-16 border-b border-gray-700">
+                <div class="flex items-center">
+                    <i class="fa-solid fa-leaf text-primary-500 text-xl mr-2"></i>
+                    <h1 class="text-xl font-bold text-white">Gestão de Operações</h1>
+                </div>
+            </div>
+            <nav class="mt-5 px-2">
+                <span class="group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer">
+                    <i class="fa-solid fa-chart-line mr-3 text-gray-400 group-hover:text-gray-300"></i>
+                    Dashboard Principal
+                </span>
+                <span class="group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer">
+                    <i class="fa-solid fa-database mr-3 text-gray-400 group-hover:text-gray-300"></i>
+                    Gestão de Cadastros
+                </span>
+                <span class="group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer">
+                    <i class="fa-solid fa-clipboard-list mr-3 text-gray-400 group-hover:text-gray-300"></i>
+                    Gestão de Pedidos
+                </span>
+                <span class="group flex items-center px-2 py-2 text-base font-medium rounded-md bg-gray-700 text-white cursor-pointer">
+                    <i class="fa-solid fa-truck mr-3 text-primary-400"></i>
+                    Jornada da Entrega
+                </span>
+                <span class="group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer">
+                    <i class="fa-solid fa-boxes-stacked mr-3 text-gray-400 group-hover:text-gray-300"></i>
+                    Jornada do Pedido
+                </span>
+                <span class="group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer">
+                    <i class="fa-solid fa-box-open mr-3 text-gray-400 group-hover:text-gray-300"></i>
+                    Jornada do Produto
+                </span>
+                <span class="group flex items-center px-2 py-2 text-base font-medium rounded-md text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer">
+                    <i class="fa-solid fa-gear mr-3 text-gray-400 group-hover:text-gray-300"></i>
+                    Configurações
+                </span>
+            </nav>
+            <div class="absolute bottom-0 w-64 border-t border-gray-700 p-4">
+                <div class="flex items-center">
+                    <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Avatar" class="h-8 w-8 rounded-full border-2 border-primary-500">
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-white">Carlos Silva</p>
+                        <p class="text-xs text-gray-400">Supervisor</p>
+                    </div>
+                    <button class="ml-auto text-gray-400 hover:text-white">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div id="main-content" class="flex-1 overflow-auto">
+            <!-- Header -->
+            <header id="header" class="bg-gray-800 border-b border-gray-700 h-16 flex items-center justify-between px-6">
+                <div class="flex items-center">
+                    <h2 class="text-xl font-semibold text-white">Jornada da Entrega</h2>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="text-gray-400 hover:text-white">
+                        <i class="fa-solid fa-bell"></i>
+                    </button>
+                    <button class="text-gray-400 hover:text-white">
+                        <i class="fa-solid fa-question-circle"></i>
+                    </button>
+                    <div class="relative">
+                        <button class="flex items-center text-sm text-white focus:outline-none">
+                            <span class="mr-2">Carlos Silva</span>
+                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="p-6">
+                <!-- Tabs -->
+                <div id="delivery-tabs" class="mb-6 border-b border-gray-700">
+                    <nav class="flex space-x-8">
+                        <button class="border-b-2 border-primary-500 px-4 py-2 text-primary-400 font-medium">
+                            Selecionar Pedidos
+                        </button>
+                        <button class="px-4 py-2 text-gray-500 font-medium">
+                            Definir Rotas
+                        </button>
+                        <button class="px-4 py-2 text-gray-500 font-medium">
+                            Associar Veículo
+                        </button>
+                        <button class="px-4 py-2 text-gray-500 font-medium">
+                            Visualizar Mapa
+                        </button>
+                        <button class="px-4 py-2 text-gray-500 font-medium">
+                            Finalizar Entrega
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Main Section -->
+                <div id="delivery-content" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Orders List -->
+                    <div id="orders-list" class="lg:col-span-2">
+                        <div class="bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-medium text-white">Pedidos Prontos para Entrega</h3>
+                                <div class="flex space-x-2">
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                            <i class="fa-solid fa-search text-gray-500"></i>
+                                        </div>
+                                        <input type="text" placeholder="Buscar pedido..." class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg pl-10 pr-4 py-2 focus:ring-primary-500 focus:border-primary-500">
+                                    </div>
+                                    <button class="bg-gray-700 hover:bg-gray-600 text-white p-2 rounded-lg">
+                                        <i class="fa-solid fa-filter"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Orders Table -->
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full">
+                                    <thead class="bg-gray-700">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                                <div class="flex items-center">
+                                                    <input type="checkbox" class="w-4 h-4 bg-gray-700 border-gray-600 rounded focus:ring-primary-500 focus:ring-2">
+                                                </div>
+                                            </th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                                Nº Pedido
+                                            </th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                                Cliente
+                                            </th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                                Endereço
+                                            </th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                                Data
+                                            </th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                                Status
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-700">
+                                        <tr class="bg-gray-800 hover:bg-gray-700">
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                <input type="checkbox" class="w-4 h-4 bg-gray-700 border-gray-600 rounded focus:ring-primary-500 focus:ring-2">
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-white">
+                                                #PED-1234
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-white">
+                                                Marcos Oliveira
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                                                Rua das Flores, 123
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                                                15/07/2023
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                <span class="px-2 py-1 text-xs rounded-full bg-primary-900 text-primary-300">
+                                                    Pronto
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr class="bg-gray-800 hover:bg-gray-700">
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                <input type="checkbox" class="w-4 h-4 bg-gray-700 border-gray-600 rounded focus:ring-primary-500 focus:ring-2">
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-white">
+                                                #PED-1235
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-white">
+                                                Ana Silva
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                                                Av. Paulista, 1000
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                                                15/07/2023
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                <span class="px-2 py-1 text-xs rounded-full bg-primary-900 text-primary-300">
+                                                    Pronto
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr class="bg-gray-800 hover:bg-gray-700">
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                <input type="checkbox" class="w-4 h-4 bg-gray-700 border-gray-600 rounded focus:ring-primary-500 focus:ring-2">
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-white">
+                                                #PED-1236
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-white">
+                                                Carlos Mendes
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                                                Rua Augusta, 500
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                                                15/07/2023
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                <span class="px-2 py-1 text-xs rounded-full bg-primary-900 text-primary-300">
+                                                    Pronto
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr class="bg-gray-800 hover:bg-gray-700">
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                <input type="checkbox" class="w-4 h-4 bg-gray-700 border-gray-600 rounded focus:ring-primary-500 focus:ring-2">
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-white">
+                                                #PED-1237
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-white">
+                                                Juliana Costa
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                                                Av. Brasil, 750
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                                                16/07/2023
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                <span class="px-2 py-1 text-xs rounded-full bg-primary-900 text-primary-300">
+                                                    Pronto
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Pagination -->
+                            <div class="flex items-center justify-between mt-4">
+                                <div class="text-sm text-gray-400">
+                                    Mostrando 1-4 de 10 pedidos
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="px-3 py-1 bg-gray-700 text-white rounded-md hover:bg-gray-600">
+                                        <i class="fa-solid fa-chevron-left"></i>
+                                    </button>
+                                    <button class="px-3 py-1 bg-primary-600 text-white rounded-md">1</button>
+                                    <button class="px-3 py-1 bg-gray-700 text-white rounded-md hover:bg-gray-600">2</button>
+                                    <button class="px-3 py-1 bg-gray-700 text-white rounded-md hover:bg-gray-600">3</button>
+                                    <button class="px-3 py-1 bg-gray-700 text-white rounded-md hover:bg-gray-600">
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Map Preview -->
+                        <div id="map-preview" class="bg-gray-800 rounded-lg shadow-sm p-4">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-medium text-white">Visualização de Rota</h3>
+                                <button class="text-xs bg-primary-600 hover:bg-primary-700 text-white px-3 py-1 rounded-md">
+                                    Expandir Mapa
+                                </button>
+                            </div>
+                            <div id="map" class="h-[300px] rounded-lg border border-gray-700"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sidebar -->
+                    <div id="delivery-sidebar" class="lg:col-span-1">
+                        <!-- Selected Orders -->
+                        <div class="bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
+                            <h3 class="text-lg font-medium text-white mb-4">Pedidos Selecionados</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                                    <div>
+                                        <p class="text-sm font-medium text-white">#PED-1234</p>
+                                        <p class="text-xs text-gray-400">Marcos Oliveira</p>
+                                    </div>
+                                    <button class="text-gray-400 hover:text-white">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                                    <div>
+                                        <p class="text-sm font-medium text-white">#PED-1235</p>
+                                        <p class="text-xs text-gray-400">Ana Silva</p>
+                                    </div>
+                                    <button class="text-gray-400 hover:text-white">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-400 mb-2">2 pedidos selecionados</p>
+                                <button class="w-full bg-primary-600 hover:bg-primary-700 text-white py-2 rounded-md text-sm">
+                                    Avançar para Definição de Rotas
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Delivery Options -->
+                        <div class="bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
+                            <h3 class="text-lg font-medium text-white mb-4">Opções de Entrega</h3>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Veículo</label>
+                                <select class="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 p-2.5">
+                                    <option selected="">Selecione um veículo</option>
+                                    <option value="v1">Fiorino - PLA-1234</option>
+                                    <option value="v2">Moto - ABC-5678</option>
+                                    <option value="v3">Van - XYZ-9012</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Operador</label>
+                                <select class="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 p-2.5">
+                                    <option selected="">Selecione um operador</option>
+                                    <option value="o1">João Silva</option>
+                                    <option value="o2">Maria Santos</option>
+                                    <option value="o3">Pedro Oliveira</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Data de Entrega</label>
+                                <input type="date" class="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 p-2.5">
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Horário Estimado</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input type="time" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 p-2.5" placeholder="Início">
+                                    <input type="time" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 p-2.5" placeholder="Fim">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Delivery Status -->
+                        <div class="bg-gray-800 rounded-lg shadow-sm p-4">
+                            <h3 class="text-lg font-medium text-white mb-4">Status de Entrega</h3>
+                            <div class="relative">
+                                <div class="absolute left-5 top-0 bottom-0 w-0.5 bg-gray-700"></div>
+                                
+                                <div class="flex mb-6 relative">
+                                    <div class="h-10 w-10 rounded-full bg-primary-600 flex items-center justify-center text-white z-10">
+                                        <i class="fa-solid fa-check"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-sm font-medium text-white">Pedidos Selecionados</p>
+                                        <p class="text-xs text-gray-400">2 pedidos</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex mb-6 relative">
+                                    <div class="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 z-10">
+                                        <i class="fa-solid fa-route"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-sm font-medium text-gray-400">Rotas Definidas</p>
+                                        <p class="text-xs text-gray-500">Pendente</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex mb-6 relative">
+                                    <div class="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 z-10">
+                                        <i class="fa-solid fa-truck"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-sm font-medium text-gray-400">Veículo Associado</p>
+                                        <p class="text-xs text-gray-500">Pendente</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex relative">
+                                    <div class="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 z-10">
+                                        <i class="fa-solid fa-flag-checkered"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-sm font-medium text-gray-400">Entrega Finalizada</p>
+                                        <p class="text-xs text-gray-500">Pendente</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize map
+        document.addEventListener('DOMContentLoaded', function() {
+            var map = L.map('map').setView([-23.550520, -46.633308], 12);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <span class="cursor-pointer">OpenStreetMap</span> contributors'
+            }).addTo(map);
+            
+            // Add markers for selected orders
+            var marker1 = L.marker([-23.550520, -46.633308]).addTo(map)
+                .bindPopup('<b>#PED-1234</b><br>Marcos Oliveira<br>Rua das Flores, 123');
+                
+            var marker2 = L.marker([-23.557920, -46.639820]).addTo(map)
+                .bindPopup('<b>#PED-1235</b><br>Ana Silva<br>Av. Paulista, 1000');
+                
+            // Draw route line
+            var route = L.polyline([
+                [-23.550520, -46.633308],
+                [-23.557920, -46.639820]
+            ], {color: '#22c55e', weight: 5}).addTo(map);
+            
+            // Fit bounds to show all markers
+            var bounds = L.latLngBounds([[-23.550520, -46.633308], [-23.557920, -46.639820]]);
+            map.fitBounds(bounds);
+        });
+    </script>
+
+</body></html>

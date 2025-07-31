@@ -1,0 +1,315 @@
+<html><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>::-webkit-scrollbar { display: none;}</style>
+    <script>tailwind.config = {
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": {
+          "50": "#f0fdf4",
+          "100": "#dcfce7",
+          "200": "#bbf7d0",
+          "300": "#86efac",
+          "400": "#4ade80",
+          "500": "#22c55e",
+          "600": "#16a34a",
+          "700": "#15803d",
+          "800": "#166534",
+          "900": "#14532d"
+        },
+        "dark": {
+          "500": "#424242",
+          "600": "#383838",
+          "700": "#2d2d2d",
+          "800": "#1e1e1e",
+          "900": "#121212"
+        }
+      },
+      "fontFamily": {
+        "sans": [
+          "Inter",
+          "sans-serif"
+        ]
+      }
+    }
+  }
+};</script>
+    
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&amp;display=swap"><style>
+      body {
+        font-family: 'Inter', sans-serif !important;
+      }
+      
+      /* Preserve Font Awesome icons */
+      .fa, .fas, .far, .fal, .fab {
+        font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+      }
+    </style><style>
+  .highlighted-section {
+    outline: 2px solid #3F20FB;
+    background-color: rgba(63, 32, 251, 0.1);
+  }
+
+  .edit-button {
+    position: absolute;
+    z-index: 1000;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  html, body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  </style></head>
+<body class="bg-dark-900 text-white font-sans">
+    <div id="order-journey-page" class="min-h-screen flex flex-col">
+        <!-- Status Bar -->
+        <div id="status-bar" class="flex justify-between items-center p-3 bg-dark-800">
+            <div class="text-xs">9:41</div>
+            <div class="flex space-x-2">
+                <i class="fa-solid fa-wifi"></i>
+                <i class="fa-solid fa-signal"></i>
+                <i class="fa-solid fa-battery-three-quarters"></i>
+            </div>
+        </div>
+        
+        <!-- App Header -->
+        <div id="header" class="bg-dark-800 px-4 py-3 flex items-center justify-between shadow-md">
+            <div class="flex items-center">
+                <button id="back-button" class="mr-3">
+                    <i class="fa-solid fa-arrow-left text-gray-300"></i>
+                </button>
+                <h1 class="text-lg font-semibold">Jornada do Pedido</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="help-button">
+                    <i class="fa-solid fa-circle-question text-gray-300"></i>
+                </button>
+                <div class="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center">
+                    <span class="text-xs font-medium">OP</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Order Info -->
+        <div id="order-info" class="bg-dark-700 px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div>
+                    <span class="text-xs text-gray-400">Pedido</span>
+                    <h2 class="text-base font-medium">#12345</h2>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-gray-400">Cliente</span>
+                    <h2 class="text-base font-medium">Mercado Central</h2>
+                </div>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div id="progress-container" class="mt-4">
+                <div class="flex justify-between mb-2">
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center">
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </div>
+                        <span class="text-xs ml-1 text-primary-400">Separação</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 rounded-full bg-dark-600 border border-white flex items-center justify-center">
+                            <span class="text-xs">2</span>
+                        </div>
+                        <span class="text-xs ml-1">Etiquetagem</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 rounded-full bg-dark-600 border border-dark-500 flex items-center justify-center">
+                            <span class="text-xs text-gray-400">3</span>
+                        </div>
+                        <span class="text-xs ml-1 text-gray-400">Verificação</span>
+                    </div>
+                </div>
+                <div class="h-1.5 bg-dark-600 rounded-full overflow-hidden">
+                    <div class="h-full bg-primary-600 rounded-full" style="width: 33%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div id="main-content" class="flex-1 px-4 py-6">
+            <!-- Stage Title -->
+            <div id="stage-title" class="mb-4 flex items-center">
+                <div class="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center mr-3">
+                    <i class="fa-solid fa-box text-sm"></i>
+                </div>
+                <h2 class="text-lg font-semibold">Separação de Produtos</h2>
+            </div>
+            
+            <!-- Product Card -->
+            <div id="product-card" class="bg-dark-800 rounded-xl overflow-hidden mb-6">
+                <div class="h-48 bg-dark-700 flex items-center justify-center">
+                    <img class="w-40 h-40 object-contain" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/b4660a46dd-2a7c22b25b41e4511ccc.png" alt="bottle of olive oil product photography on white background, professional product shot">
+                </div>
+                <div class="p-4">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h3 class="text-base font-medium">Azeite Extra Virgem</h3>
+                            <p class="text-sm text-gray-400">500ml - Premium</p>
+                        </div>
+                        <div class="bg-dark-700 px-3 py-1 rounded-lg">
+                            <span class="text-sm font-medium text-primary-400">SKU: AZ500</span>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t border-dark-600 pt-3 mb-3">
+                        <p class="text-sm text-gray-300 mb-1">Quantidade esperada:</p>
+                        <div class="flex items-center">
+                            <span class="text-xl font-semibold">12</span>
+                            <span class="text-sm text-gray-400 ml-2">unidades</span>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <p class="text-sm text-gray-300 mb-2">Quantidade separada:</p>
+                        <div class="flex items-center justify-between bg-dark-700 rounded-lg p-2">
+                            <button id="decrease-btn" class="w-10 h-10 rounded-lg bg-dark-600 flex items-center justify-center">
+                                <i class="fa-solid fa-minus text-sm"></i>
+                            </button>
+                            
+                            <span id="quantity-display" class="text-xl font-bold">0</span>
+                            
+                            <button id="increase-btn" class="w-10 h-10 rounded-lg bg-primary-600 flex items-center justify-center">
+                                <i class="fa-solid fa-plus text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Warning Message -->
+            <div id="warning-message" class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-3 mb-6 flex items-start">
+                <i class="fa-solid fa-triangle-exclamation text-yellow-500 mr-3 mt-0.5"></i>
+                <div>
+                    <h4 class="text-sm font-medium text-yellow-400">Atenção</h4>
+                    <p class="text-xs text-yellow-200/80">Verifique o estado de cada produto antes de separar. Produtos danificados devem ser reportados ao supervisor.</p>
+                </div>
+            </div>
+            
+            <!-- Products Progress -->
+            <div id="products-progress" class="mb-6">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-sm font-medium">Progresso</h3>
+                    <span class="text-xs text-gray-400">1 de 8 produtos</span>
+                </div>
+                <div class="h-1.5 bg-dark-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-primary-600 rounded-full" style="width: 12.5%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Navigation -->
+        <div id="bottom-nav" class="bg-dark-800 p-4 border-t border-dark-700">
+            <div class="grid grid-cols-2 gap-3">
+                <button id="skip-btn" class="py-3 px-4 bg-dark-700 rounded-lg flex items-center justify-center">
+                    <i class="fa-solid fa-forward-step mr-2"></i>
+                    <span>Pular Item</span>
+                </button>
+                <button id="confirm-btn" class="py-3 px-4 bg-primary-600 rounded-lg flex items-center justify-center">
+                    <i class="fa-solid fa-check mr-2"></i>
+                    <span>Confirmar</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Bottom Tab Bar -->
+        <div id="footer" class="bg-dark-800 border-t border-dark-700 py-2 px-4">
+            <div class="flex justify-between items-center">
+                <button class="flex flex-col items-center justify-center w-16">
+                    <i class="fa-solid fa-home text-gray-400"></i>
+                    <span class="text-xs mt-1 text-gray-400">Início</span>
+                </button>
+                <button class="flex flex-col items-center justify-center w-16">
+                    <i class="fa-solid fa-clipboard-list text-gray-400"></i>
+                    <span class="text-xs mt-1 text-gray-400">Pedidos</span>
+                </button>
+                <button class="flex flex-col items-center justify-center w-16">
+                    <i class="fa-solid fa-box text-primary-500"></i>
+                    <span class="text-xs mt-1 text-primary-500">Jornada</span>
+                </button>
+                <button class="flex flex-col items-center justify-center w-16">
+                    <i class="fa-solid fa-truck text-gray-400"></i>
+                    <span class="text-xs mt-1 text-gray-400">Entregas</span>
+                </button>
+                <button class="flex flex-col items-center justify-center w-16">
+                    <i class="fa-solid fa-gear text-gray-400"></i>
+                    <span class="text-xs mt-1 text-gray-400">Config</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Quantity counter functionality
+        const decreaseBtn = document.getElementById('decrease-btn');
+        const increaseBtn = document.getElementById('increase-btn');
+        const quantityDisplay = document.getElementById('quantity-display');
+        let quantity = 0;
+        
+        decreaseBtn.addEventListener('click', () => {
+            if (quantity > 0) {
+                quantity--;
+                quantityDisplay.textContent = quantity;
+                updateButtonStates();
+            }
+        });
+        
+        increaseBtn.addEventListener('click', () => {
+            quantity++;
+            quantityDisplay.textContent = quantity;
+            updateButtonStates();
+        });
+        
+        function updateButtonStates() {
+            if (quantity === 0) {
+                decreaseBtn.classList.add('opacity-50');
+            } else {
+                decreaseBtn.classList.remove('opacity-50');
+            }
+            
+            // Highlight confirm button when quantity matches expected
+            const confirmBtn = document.getElementById('confirm-btn');
+            if (quantity === 12) {
+                confirmBtn.classList.remove('bg-primary-600');
+                confirmBtn.classList.add('bg-primary-500', 'animate-pulse');
+            } else {
+                confirmBtn.classList.add('bg-primary-600');
+                confirmBtn.classList.remove('bg-primary-500', 'animate-pulse');
+            }
+        }
+        
+        // Initialize button states
+        updateButtonStates();
+        
+        // Simulate navigation
+        document.getElementById('confirm-btn').addEventListener('click', function() {
+            if (quantity > 0) {
+                alert('Produto separado com sucesso! Avançando para o próximo item...');
+            } else {
+                alert('Por favor, insira a quantidade separada.');
+            }
+        });
+        
+        document.getElementById('skip-btn').addEventListener('click', function() {
+            alert('Item pulado. Será necessário revisão posterior.');
+        });
+        
+        document.getElementById('back-button').addEventListener('click', function() {
+            alert('Deseja realmente sair da jornada? O progresso atual será perdido.');
+        });
+    </script>
+
+</body></html>

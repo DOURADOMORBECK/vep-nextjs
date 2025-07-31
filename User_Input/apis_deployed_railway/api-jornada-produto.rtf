@@ -1,0 +1,127 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 import \{ Hono \} from "hono";\
+import postgres from "postgres";\
+\
+const db = postgres(process.env.DATABASE_URL!, \{\
+  ssl: \{ rejectUnauthorized: false \},\
+\});\
+const app = new Hono();\
+\
+// Todos os pedidos de venda\
+app.get("/jornada-produto/orders", async (c) => \{\
+  const \{ status, limit, offset \} = c.req.query();\
+  let query;\
+\
+  if (status) \{\
+    query = db`SELECT * FROM pedidos_venda_produtos WHERE status = $\{status\} ORDER BY data_pedido DESC LIMIT $\{\
+      limit || 100\
+    \} OFFSET $\{offset || 0\}`;\
+  \} else \{\
+    query = db`SELECT * FROM pedidos_venda_produtos ORDER BY data_pedido DESC LIMIT $\{\
+      limit || 100\
+    \} OFFSET $\{offset || 0\}`;\
+  \}\
+\
+  const result = await query;\
+  return c.json(result);\
+\});\
+\
+// Pedido espec\'edfico\
+app.get("/jornada-produto/orders/:orderId", async (c) => \{\
+  const \{ orderId \} = c.req.param();\
+  const result =\
+    await db`SELECT * FROM pedidos_venda_produtos WHERE id_pedido = $\{orderId\}`;\
+  return c.json(result[0] || null);\
+\});\
+\
+// Itens de um pedido espec\'edfico\
+app.get("/jornada-produto/orders/:orderId/items", async (c) => \{\
+  const \{ orderId \} = c.req.param();\
+  const result =\
+    await db`SELECT * FROM itens_pedido_venda WHERE id_pedido = $\{orderId\} ORDER BY sequencia`;\
+  return c.json(result);\
+\});\
+\
+// Todos os itens\
+app.get("/jornada-produto/items", async (c) => \{\
+  const \{ status, limit, offset \} = c.req.query();\
+  let query;\
+\
+  if (status) \{\
+    query = db`SELECT * FROM itens_pedido_venda WHERE status = $\{status\} ORDER BY data_criacao DESC LIMIT $\{\
+      limit || 100\
+    \} OFFSET $\{offset || 0\}`;\
+  \} else \{\
+    query = db`SELECT * FROM itens_pedido_venda ORDER BY data_criacao DESC LIMIT $\{\
+      limit || 100\
+    \} OFFSET $\{offset || 0\}`;\
+  \}\
+\
+  const result = await query;\
+  return c.json(result);\
+\});\
+\
+// Item espec\'edfico\
+app.get("/jornada-produto/items/:itemId", async (c) => \{\
+  const \{ itemId \} = c.req.param();\
+  const result =\
+    await db`SELECT * FROM itens_pedido_venda WHERE id_item = $\{itemId\}`;\
+  return c.json(result[0] || null);\
+\});\
+\
+// Estat\'edsticas da jornada\
+app.get("/jornada-produto/stats", async (c) => \{\
+  const totalOrders =\
+    await db`SELECT COUNT(*) AS total FROM pedidos_venda_produtos`;\
+  const totalItems = await db`SELECT COUNT(*) AS total FROM itens_pedido_venda`;\
+  const ordersByStatus =\
+    await db`SELECT status, COUNT(*) as count FROM pedidos_venda_produtos GROUP BY status`;\
+  const itemsByStatus =\
+    await db`SELECT status, COUNT(*) as count FROM itens_pedido_venda GROUP BY status`;\
+\
+  return c.json(\{\
+    totalOrders: totalOrders[0]?.total || 0,\
+    totalItems: totalItems[0]?.total || 0,\
+    ordersByStatus,\
+    itemsByStatus,\
+  \});\
+\});\
+\
+// Atualizar status de um pedido\
+app.put("/jornada-produto/orders/:orderId/status", async (c) => \{\
+  const \{ orderId \} = c.req.param();\
+  const \{ status \} = await c.req.json();\
+\
+  const result = await db`\
+    UPDATE pedidos_venda_produtos \
+    SET status = $\{status\}, data_atualizacao = NOW() \
+    WHERE id_pedido = $\{orderId\} \
+    RETURNING *\
+  `;\
+\
+  return c.json(result[0] || null);\
+\});\
+\
+// Atualizar status de um item\
+app.put("/jornada-produto/items/:itemId/status", async (c) => \{\
+  const \{ itemId \} = c.req.param();\
+  const \{ status \} = await c.req.json();\
+\
+  const result = await db`\
+    UPDATE itens_pedido_venda \
+    SET status = $\{status\}, data_atualizacao = NOW() \
+    WHERE id_item = $\{itemId\} \
+    RETURNING *\
+  `;\
+\
+  return c.json(result[0] || null);\
+\});\
+\
+export default app;\
+}

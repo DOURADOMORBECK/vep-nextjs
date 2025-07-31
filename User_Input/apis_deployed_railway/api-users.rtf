@@ -1,0 +1,165 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 import \{ Hono \} from "hono";\
+import postgres from "postgres";\
+import bcrypt from "bcryptjs";\
+import \{ SignJWT, jwtVerify \} from "jose";\
+\
+// --- DB Connection ---\
+const db = postgres(process.env.DATABASE_URL!, \{\
+  ssl: \{ rejectUnauthorized: false \},\
+\});\
+\
+// --- JWT secret ---\
+const JWT_SECRET = process.env.JWT_SECRET || "my_secret";\
+const jwtSecretBytes = new TextEncoder().encode(JWT_SECRET);\
+\
+// --- App ---\
+const app = new Hono();\
+\
+// --- Cria tabela de usu\'e1rios se n\'e3o existir ---\
+await db`\
+  CREATE TABLE IF NOT EXISTS users (\
+    id SERIAL PRIMARY KEY,\
+    name TEXT NOT NULL,\
+    email TEXT NOT NULL UNIQUE,\
+    password_hash TEXT NOT NULL,\
+    role TEXT DEFAULT 'user',\
+    is_active BOOLEAN DEFAULT TRUE,\
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\
+  )\
+`;\
+\
+// --- Middleware de autentica\'e7\'e3o JWT ---\
+async function requireAuth(c, next) \{\
+  const auth = c.req.header("Authorization") || "";\
+  const token = auth.replace("Bearer ", "");\
+  if (!token) return c.json(\{ error: "Token n\'e3o fornecido" \}, 401);\
+  try \{\
+    const \{ payload \} = await jwtVerify(token, jwtSecretBytes);\
+    c.set("user", payload);\
+    await next();\
+  \} catch \{\
+    return c.json(\{ error: "Token inv\'e1lido ou expirado" \}, 401);\
+  \}\
+\}\
+\
+// --- Cadastro de usu\'e1rio ---\
+app.post("/register", async (c) => \{\
+  const \{ name, email, password \} = await c.req.json();\
+  if (!name || !email || !password)\
+    return c.json(\{ error: "Todos os campos obrigat\'f3rios" \}, 400);\
+\
+  const exists = await db`SELECT 1 FROM users WHERE email = $\{email\}`;\
+  if (exists.length) return c.json(\{ error: "E-mail j\'e1 cadastrado" \}, 400);\
+\
+  const password_hash = await bcrypt.hash(password, 10);\
+\
+  const [user] = await db`\
+    INSERT INTO users (name, email, password_hash)\
+    VALUES ($\{name\}, $\{email.toLowerCase()\}, $\{password_hash\})\
+    RETURNING id, name, email, role, is_active\
+  `;\
+  return c.json(\{ user \});\
+\});\
+\
+// --- Login de usu\'e1rio ---\
+app.post("/login", async (c) => \{\
+  const \{ email, password \} = await c.req.json();\
+  if (!email || !password)\
+    return c.json(\{ error: "E-mail e senha obrigat\'f3rios" \}, 400);\
+\
+  const rows = await db`\
+    SELECT * FROM users WHERE email = $\{email.toLowerCase()\} AND is_active = true\
+  `;\
+  const user = rows[0];\
+  if (!user) return c.json(\{ error: "Usu\'e1rio ou senha inv\'e1lidos" \}, 401);\
+\
+  const valid = await bcrypt.compare(password, user.password_hash);\
+  if (!valid) return c.json(\{ error: "Usu\'e1rio ou senha inv\'e1lidos" \}, 401);\
+\
+  const jwt = await new SignJWT(\{\
+    id: user.id,\
+    email: user.email,\
+    name: user.name,\
+    role: user.role,\
+  \})\
+    .setProtectedHeader(\{ alg: "HS256" \})\
+    .setIssuedAt()\
+    .setExpirationTime("3h")\
+    .sign(jwtSecretBytes);\
+\
+  return c.json(\{\
+    token: jwt,\
+    user: \{ id: user.id, name: user.name, email: user.email, role: user.role \},\
+  \});\
+\});\
+\
+// --- Exemplo de rota protegida ---\
+app.get("/me", requireAuth, async (c) => \{\
+  const user = c.get("user");\
+  return c.json(\{ user \});\
+\});\
+\
+// --- Exemplo: Listar todos usu\'e1rios (admin only) ---\
+app.get("/users", requireAuth, async (c) => \{\
+  const user = c.get("user");\
+  if (user.role !== "admin") return c.json(\{ error: "Acesso negado" \}, 403);\
+\
+  const users = await db`\
+    SELECT id, name, email, role, is_active, created_at FROM users\
+  `;\
+  return c.json(\{ users \});\
+\});\
+\
+// --- Atualizar dados do usu\'e1rio autenticado ---\
+app.put("/me", requireAuth, async (c) => \{\
+  const \{ name, password \} = await c.req.json();\
+  const user = c.get("user");\
+\
+  if (!name && !password) \{\
+    return c.json(\{ error: "Nada para atualizar" \}, 400);\
+  \}\
+\
+  let fields: string[] = [];\
+  let values: any[] = [];\
+  let idx = 1;\
+\
+  if (name) \{\
+    fields.push(`name = $$\{idx++\}`);\
+    values.push(name);\
+  \}\
+  if (password) \{\
+    const password_hash = await bcrypt.hash(password, 10);\
+    fields.push(`password_hash = $$\{idx++\}`);\
+    values.push(password_hash);\
+  \}\
+\
+  values.push(user.id); // Para o WHERE\
+\
+  const sql = `\
+    UPDATE users SET $\{fields.join(", ")\}\
+    WHERE id = $$\{idx\}\
+    RETURNING id, name, email, role, is_active\
+  `;\
+  const result = await db.unsafe(sql, ...values);\
+  const updated = result[0];\
+  if (!updated) return c.json(\{ error: "Usu\'e1rio n\'e3o encontrado" \}, 404);\
+\
+  return c.json(\{ user: updated \});\
+\});\
+\
+// --- Health check ---\
+app.get("/", (c) => c.text("API Users Bun OK \uc0\u55357 \u56960 "));\
+\
+// --- Serve ---\
+Bun.serve(\{\
+  fetch: app.fetch,\
+  port: Number(process.env.PORT || 3000),\
+\});\
+}

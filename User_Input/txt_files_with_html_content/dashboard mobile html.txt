@@ -1,0 +1,458 @@
+<html><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <style>::-webkit-scrollbar { display: none;}</style>
+    <script>tailwind.config = {
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": {
+          "50": "#f0fdf4",
+          "100": "#dcfce7",
+          "200": "#bbf7d0",
+          "300": "#86efac",
+          "400": "#4ade80",
+          "500": "#22c55e",
+          "600": "#16a34a",
+          "700": "#15803d",
+          "800": "#166534",
+          "900": "#14532d"
+        },
+        "dark": {
+          "500": "#424242",
+          "600": "#383838",
+          "700": "#2d2d2d",
+          "800": "#1e1e1e",
+          "900": "#121212"
+        }
+      },
+      "fontFamily": {
+        "sans": [
+          "Inter",
+          "sans-serif"
+        ]
+      }
+    }
+  }
+};</script>
+    
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&amp;display=swap"><style>
+      body {
+        font-family: 'Inter', sans-serif !important;
+      }
+      
+      /* Preserve Font Awesome icons */
+      .fa, .fas, .far, .fal, .fab {
+        font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+      }
+    </style><style>
+  .highlighted-section {
+    outline: 2px solid #3F20FB;
+    background-color: rgba(63, 32, 251, 0.1);
+  }
+
+  .edit-button {
+    position: absolute;
+    z-index: 1000;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  html, body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  </style></head>
+<body class="bg-dark-900 text-white font-sans">
+    <div id="dashboard-page" class="min-h-screen flex flex-col">
+        <!-- Status Bar -->
+        <div id="status-bar" class="flex justify-between items-center p-3 bg-dark-800">
+            <div class="text-xs">9:41</div>
+            <div class="flex space-x-2">
+                <i class="fa-solid fa-wifi"></i>
+                <i class="fa-solid fa-signal"></i>
+                <i class="fa-solid fa-battery-three-quarters"></i>
+            </div>
+        </div>
+        
+        <!-- Header -->
+        <header id="header" class="bg-dark-800 p-4 flex justify-between items-center shadow-md">
+            <div class="flex items-center">
+                <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center mr-3">
+                    <i class="fa-solid fa-truck-fast text-white text-sm"></i>
+                </div>
+                <h1 class="text-lg font-bold">Dashboard</h1>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button class="text-gray-300 hover:text-white">
+                    <i class="fa-solid fa-bell"></i>
+                </button>
+                <div class="w-8 h-8 rounded-full bg-primary-700 flex items-center justify-center">
+                    <span class="text-xs font-medium">JS</span>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main id="dashboard-content" class="flex-1 px-4 py-3 overflow-y-auto">
+            <!-- Welcome Section -->
+            <section id="welcome-section" class="mb-6">
+                <h2 class="text-xl font-bold mb-1">Olá, João</h2>
+                <p class="text-gray-400 text-sm">Supervisor • Último acesso: Hoje, 08:32</p>
+            </section>
+            
+            <!-- Stats Cards -->
+            <section id="stats-cards" class="mb-6 grid grid-cols-2 gap-3">
+                <div id="card-pedidos" class="bg-dark-800 rounded-xl p-4">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="bg-primary-800/30 w-8 h-8 rounded-lg flex items-center justify-center">
+                            <i class="fa-solid fa-box text-primary-400"></i>
+                        </div>
+                        <span class="text-xs bg-primary-800/30 text-primary-400 px-2 py-1 rounded-full">+12%</span>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-1">142</h3>
+                    <p class="text-gray-400 text-xs">Pedidos em andamento</p>
+                </div>
+                
+                <div id="card-entregas" class="bg-dark-800 rounded-xl p-4">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="bg-blue-800/30 w-8 h-8 rounded-lg flex items-center justify-center">
+                            <i class="fa-solid fa-truck-fast text-blue-400"></i>
+                        </div>
+                        <span class="text-xs bg-blue-800/30 text-blue-400 px-2 py-1 rounded-full">+8%</span>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-1">87</h3>
+                    <p class="text-gray-400 text-xs">Entregas hoje</p>
+                </div>
+                
+                <div id="card-estoque" class="bg-dark-800 rounded-xl p-4">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="bg-amber-800/30 w-8 h-8 rounded-lg flex items-center justify-center">
+                            <i class="fa-solid fa-cubes text-amber-400"></i>
+                        </div>
+                        <span class="text-xs bg-amber-800/30 text-amber-400 px-2 py-1 rounded-full">-3%</span>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-1">1.245</h3>
+                    <p class="text-gray-400 text-xs">Produtos em estoque</p>
+                </div>
+                
+                <div id="card-clientes" class="bg-dark-800 rounded-xl p-4">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="bg-purple-800/30 w-8 h-8 rounded-lg flex items-center justify-center">
+                            <i class="fa-solid fa-users text-purple-400"></i>
+                        </div>
+                        <span class="text-xs bg-purple-800/30 text-purple-400 px-2 py-1 rounded-full">+5%</span>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-1">358</h3>
+                    <p class="text-gray-400 text-xs">Clientes ativos</p>
+                </div>
+            </section>
+            
+            <!-- Performance Chart -->
+            <section id="performance-chart" class="mb-6">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-semibold">Desempenho de Pedidos</h3>
+                    <div class="flex space-x-2 text-xs">
+                        <button class="px-2 py-1 bg-primary-600 rounded-full">Semana</button>
+                        <button class="px-2 py-1 text-gray-400">Mês</button>
+                        <button class="px-2 py-1 text-gray-400">Ano</button>
+                    </div>
+                </div>
+                <div id="orders-chart" class="bg-dark-800 rounded-xl p-3 h-[180px]"></div>
+            </section>
+            
+            <!-- Status Distribution -->
+            <section id="status-distribution" class="mb-6">
+                <h3 class="font-semibold mb-3">Distribuição de Status</h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <div id="status-chart" class="bg-dark-800 rounded-xl p-3 h-[150px]"></div>
+                    <div class="bg-dark-800 rounded-xl p-3">
+                        <ul class="space-y-3">
+                            <li class="flex items-center text-sm">
+                                <span class="w-3 h-3 rounded-full bg-primary-500 mr-2"></span>
+                                <span class="text-gray-300">Em produção</span>
+                                <span class="ml-auto font-medium">58</span>
+                            </li>
+                            <li class="flex items-center text-sm">
+                                <span class="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>
+                                <span class="text-gray-300">Prontos</span>
+                                <span class="ml-auto font-medium">37</span>
+                            </li>
+                            <li class="flex items-center text-sm">
+                                <span class="w-3 h-3 rounded-full bg-amber-500 mr-2"></span>
+                                <span class="text-gray-300">Em entrega</span>
+                                <span class="ml-auto font-medium">29</span>
+                            </li>
+                            <li class="flex items-center text-sm">
+                                <span class="w-3 h-3 rounded-full bg-purple-500 mr-2"></span>
+                                <span class="text-gray-300">Concluídos</span>
+                                <span class="ml-auto font-medium">18</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Recent Orders -->
+            <section id="recent-orders" class="mb-6">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-semibold">Pedidos Recentes</h3>
+                    <span class="text-primary-400 text-sm cursor-pointer">Ver todos</span>
+                </div>
+                <div class="space-y-3">
+                    <div id="order-1" class="bg-dark-800 rounded-xl p-3 flex items-center">
+                        <div class="bg-primary-800/30 w-10 h-10 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fa-solid fa-box text-primary-400"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <h4 class="font-medium">Pedido #8742</h4>
+                                <span class="text-primary-400 text-xs">R$ 1.250,00</span>
+                            </div>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-400">Cliente: Empresa ABC</span>
+                                <span class="bg-primary-800/30 text-primary-400 px-2 py-0.5 rounded-full">Em produção</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="order-2" class="bg-dark-800 rounded-xl p-3 flex items-center">
+                        <div class="bg-blue-800/30 w-10 h-10 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fa-solid fa-box-open text-blue-400"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <h4 class="font-medium">Pedido #8741</h4>
+                                <span class="text-primary-400 text-xs">R$ 875,50</span>
+                            </div>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-400">Cliente: João Silva</span>
+                                <span class="bg-blue-800/30 text-blue-400 px-2 py-0.5 rounded-full">Pronto</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="order-3" class="bg-dark-800 rounded-xl p-3 flex items-center">
+                        <div class="bg-amber-800/30 w-10 h-10 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fa-solid fa-truck text-amber-400"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <h4 class="font-medium">Pedido #8740</h4>
+                                <span class="text-primary-400 text-xs">R$ 2.130,00</span>
+                            </div>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-400">Cliente: Comércio XYZ</span>
+                                <span class="bg-amber-800/30 text-amber-400 px-2 py-0.5 rounded-full">Em entrega</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Low Stock Alert -->
+            <section id="low-stock-alert" class="mb-6">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-semibold">Alertas de Estoque Baixo</h3>
+                    <span class="text-primary-400 text-sm cursor-pointer">Ver todos</span>
+                </div>
+                <div class="bg-dark-800 rounded-xl p-3 space-y-3">
+                    <div id="product-1" class="flex items-center">
+                        <div class="w-10 h-10 bg-dark-700 rounded-lg mr-3 flex items-center justify-center">
+                            <i class="fa-solid fa-box-archive text-gray-400"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <h4 class="font-medium">Produto A</h4>
+                                <span class="text-red-400 text-xs font-medium">5 un restantes</span>
+                            </div>
+                            <div class="w-full bg-dark-700 rounded-full h-1.5 mt-1">
+                                <div class="bg-red-500 h-1.5 rounded-full" style="width: 10%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="product-2" class="flex items-center">
+                        <div class="w-10 h-10 bg-dark-700 rounded-lg mr-3 flex items-center justify-center">
+                            <i class="fa-solid fa-box-archive text-gray-400"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <h4 class="font-medium">Produto B</h4>
+                                <span class="text-amber-400 text-xs font-medium">12 un restantes</span>
+                            </div>
+                            <div class="w-full bg-dark-700 rounded-full h-1.5 mt-1">
+                                <div class="bg-amber-500 h-1.5 rounded-full" style="width: 25%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="product-3" class="flex items-center">
+                        <div class="w-10 h-10 bg-dark-700 rounded-lg mr-3 flex items-center justify-center">
+                            <i class="fa-solid fa-box-archive text-gray-400"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <h4 class="font-medium">Produto C</h4>
+                                <span class="text-amber-400 text-xs font-medium">15 un restantes</span>
+                            </div>
+                            <div class="w-full bg-dark-700 rounded-full h-1.5 mt-1">
+                                <div class="bg-amber-500 h-1.5 rounded-full" style="width: 30%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <!-- Bottom Navigation -->
+        <nav id="bottom-nav" class="bg-dark-800 p-2 flex justify-around items-center border-t border-dark-600">
+            <span class="flex flex-col items-center text-primary-500 cursor-pointer">
+                <i class="fa-solid fa-chart-line text-lg"></i>
+                <span class="text-xs mt-1">Dashboard</span>
+            </span>
+            <span class="flex flex-col items-center text-gray-400 cursor-pointer">
+                <i class="fa-solid fa-clipboard-list text-lg"></i>
+                <span class="text-xs mt-1">Pedidos</span>
+            </span>
+            <span class="flex flex-col items-center text-gray-400 cursor-pointer">
+                <i class="fa-solid fa-cubes text-lg"></i>
+                <span class="text-xs mt-1">Produtos</span>
+            </span>
+            <span class="flex flex-col items-center text-gray-400 cursor-pointer">
+                <i class="fa-solid fa-truck-fast text-lg"></i>
+                <span class="text-xs mt-1">Entregas</span>
+            </span>
+            <span class="flex flex-col items-center text-gray-400 cursor-pointer">
+                <i class="fa-solid fa-gear text-lg"></i>
+                <span class="text-xs mt-1">Mais</span>
+            </span>
+        </nav>
+    </div>
+    
+    <script>
+        // Charts initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            // Orders Performance Chart
+            Highcharts.chart('orders-chart', {
+                chart: {
+                    type: 'line',
+                    backgroundColor: '#1e1e1e',
+                    style: {
+                        fontFamily: 'Inter, sans-serif'
+                    }
+                },
+                title: {
+                    text: null
+                },
+                credits: {
+                    enabled: false
+                },
+                xAxis: {
+                    categories: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
+                    lineColor: '#383838',
+                    labels: {
+                        style: {
+                            color: '#9ca3af'
+                        }
+                    }
+                },
+                yAxis: {
+                    title: {
+                        text: null
+                    },
+                    gridLineColor: '#2d2d2d',
+                    labels: {
+                        style: {
+                            color: '#9ca3af'
+                        }
+                    }
+                },
+                legend: {
+                    enabled: false
+                },
+                series: [{
+                    name: 'Pedidos',
+                    data: [28, 35, 42, 38, 47, 53, 45],
+                    color: '#22c55e'
+                }],
+                plotOptions: {
+                    line: {
+                        marker: {
+                            enabled: false
+                        }
+                    }
+                }
+            });
+            
+            // Status Distribution Chart
+            Highcharts.chart('status-chart', {
+                chart: {
+                    type: 'pie',
+                    backgroundColor: '#1e1e1e',
+                    style: {
+                        fontFamily: 'Inter, sans-serif'
+                    }
+                },
+                title: {
+                    text: null
+                },
+                credits: {
+                    enabled: false
+                },
+                tooltip: {
+                    pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
+                },
+                accessibility: {
+                    point: {
+                        valueSuffix: '%'
+                    }
+                },
+                plotOptions: {
+                    pie: {
+                        allowPointSelect: true,
+                        cursor: 'pointer',
+                        dataLabels: {
+                            enabled: false
+                        },
+                        showInLegend: false
+                    }
+                },
+                series: [{
+                    name: 'Status',
+                    colorByPoint: true,
+                    innerSize: '70%',
+                    data: [
+                        {
+                            name: 'Em produção',
+                            y: 58,
+                            color: '#22c55e'
+                        },
+                        {
+                            name: 'Prontos',
+                            y: 37,
+                            color: '#3b82f6'
+                        },
+                        {
+                            name: 'Em entrega',
+                            y: 29,
+                            color: '#f59e0b'
+                        },
+                        {
+                            name: 'Concluídos',
+                            y: 18,
+                            color: '#a855f7'
+                        }
+                    ]
+                }]
+            });
+        });
+    </script>
+
+</body></html>
