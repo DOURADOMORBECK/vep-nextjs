@@ -1,116 +1,102 @@
 import { Hono } from "hono";
 import postgres from "postgres";
-import { jwtVerify } from "jose";
 
 // --- DB Connection ---
 const db = postgres(process.env.DATABASE_URL!, {
   ssl: { rejectUnauthorized: false },
 });
 
-// --- JWT secret ---
-const JWT_SECRET = process.env.JWT_SECRET || "my_secret";
-const jwtSecretBytes = new TextEncoder().encode(JWT_SECRET);
-
 // --- App ---
 const app = new Hono();
 
 // --- Cria tabelas se não existirem ---
 await db`
-  CREATE TABLE IF NOT EXISTS customers (
-    id SERIAL PRIMARY KEY,
-    code TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
-    type TEXT CHECK (type IN ('PJ', 'PF')) NOT NULL,
-    document TEXT UNIQUE NOT NULL,
-    email TEXT NOT NULL,
-    phone TEXT,
-    whatsapp TEXT,
-    address TEXT NOT NULL,
-    number TEXT NOT NULL,
-    complement TEXT,
-    neighborhood TEXT NOT NULL,
-    city TEXT NOT NULL,
-    state TEXT NOT NULL,
-    zip_code TEXT NOT NULL,
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8),
-    delivery_notes TEXT,
-    active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )
+  CREATE TABLE IF NOT EXISTS pessoas (
+    fnc_pes_id INTEGER PRIMARY KEY,
+    fnc_emp_id INTEGER,
+    fnc_pes_data_cadastro DATE,
+    fnc_pes_tipo_cadastro TEXT,
+    fnc_pes_tipo_pessoa TEXT,
+    fnc_pes_nome_fantasia TEXT,
+    fnc_pes_razao_social TEXT,
+    fnc_pes_cpf TEXT,
+    fnc_pes_cnpj TEXT,
+    fnc_pes_ie TEXT,
+    fnc_pes_insc_municipal TEXT,
+    fnc_pes_insc_suframa TEXT,
+    fnc_pes_insc_produtor TEXT,
+    fnc_pes_cep TEXT,
+    fnc_pes_endereco TEXT,
+    fnc_pes_numero TEXT,
+    fnc_pes_complemento TEXT,
+    fnc_pes_bairro TEXT,
+    fnc_pes_cidade TEXT,
+    fnc_pes_uf TEXT,
+    fnc_pes_latitude TEXT,
+    fnc_pes_longitude TEXT,
+    fnc_pes_telefone_1 TEXT,
+    fnc_pes_telefone_2 TEXT,
+    fnc_pes_celular TEXT,
+    fnc_pes_email TEXT,
+    fnc_pes_email_financeiro TEXT,
+    fnc_pes_contato TEXT,
+    fnc_pes_status TEXT,
+    fnc_pes_limite_de_credito NUMERIC,
+    fnc_pes_dh_atualizacao TIMESTAMP
+  );
 `;
 
-await db`
-  CREATE TABLE IF NOT EXISTS suppliers (
-    id SERIAL PRIMARY KEY,
-    code TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
-    type TEXT CHECK (type IN ('PJ', 'PF')) NOT NULL,
-    document TEXT UNIQUE NOT NULL,
-    email TEXT NOT NULL,
-    phone TEXT,
-    whatsapp TEXT,
-    address TEXT NOT NULL,
-    number TEXT NOT NULL,
-    complement TEXT,
-    neighborhood TEXT NOT NULL,
-    city TEXT NOT NULL,
-    state TEXT NOT NULL,
-    zip_code TEXT NOT NULL,
-    contact_name TEXT,
-    categories TEXT[],
-    delivery_days TEXT[],
-    payment_terms TEXT,
-    active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )
-`;
+// Criar índices para melhor performance
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_tipo_cadastro ON pessoas(fnc_pes_tipo_cadastro)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_cnpj ON pessoas(fnc_pes_cnpj)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_cpf ON pessoas(fnc_pes_cpf)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_status ON pessoas(fnc_pes_status)`;
 
-// --- Middleware de autenticação JWT ---
-async function requireAuth(c, next) {
-  const auth = c.req.header("Authorization") || "";
-  const token = auth.replace("Bearer ", "");
-  if (!token) return c.json({ error: "Token não fornecido" }, 401);
-  try {
-    const { payload } = await jwtVerify(token, jwtSecretBytes);
-    c.set("user", payload);
-    await next();
-  } catch {
-    return c.json({ error: "Token inválido ou expirado" }, 401);
-  }
-}
 
 // --- CUSTOMERS ENDPOINTS ---
 
 // Listar todos os clientes
-app.get("/customer", requireAuth, async (c) => {
-  const { active, type, limit, offset } = c.req.query();
+app.get("/customer", async (c) => {
+  const { status, tipo_pessoa, limit, offset } = c.req.query();
   
-  let query = db`
-    SELECT * FROM customers 
-    WHERE 1=1
+  let conditions = [];
+  let values = [];
+  
+  // Filtrar apenas clientes (assumindo que tipo_cadastro = 'CLIENTE')
+  conditions.push("fnc_pes_tipo_cadastro = 'CLIENTE'");
+  
+  if (status) {
+    conditions.push(`fnc_pes_status = $${conditions.length + 1}`);
+    values.push(status);
+  }
+  
+  if (tipo_pessoa) {
+    conditions.push(`fnc_pes_tipo_pessoa = $${conditions.length + 1}`);
+    values.push(tipo_pessoa);
+  }
+  
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  
+  const query = `
+    SELECT * FROM pessoas 
+    ${whereClause}
+    ORDER BY fnc_pes_nome_fantasia ASC 
+    LIMIT ${limit || 100} 
+    OFFSET ${offset || 0}
   `;
   
-  if (active !== undefined) {
-    query = db`${query} AND active = ${active === 'true'}`;
-  }
-  
-  if (type) {
-    query = db`${query} AND type = ${type}`;
-  }
-  
-  query = db`${query} ORDER BY name ASC LIMIT ${limit || 100} OFFSET ${offset || 0}`;
-  
-  const result = await query;
+  const result = await db.unsafe(query, ...values);
   return c.json(result);
 });
 
 // Buscar cliente por ID
-app.get("/customer/:id", requireAuth, async (c) => {
+app.get("/customer/:id", async (c) => {
   const { id } = c.req.param();
-  const result = await db`SELECT * FROM customers WHERE id = ${id}`;
+  const result = await db`
+    SELECT * FROM pessoas 
+    WHERE fnc_pes_id = ${id} 
+    AND fnc_pes_tipo_cadastro = 'CLIENTE'
+  `;
   
   if (!result.length) {
     return c.json({ error: "Cliente não encontrado" }, 404);
@@ -119,10 +105,14 @@ app.get("/customer/:id", requireAuth, async (c) => {
   return c.json(result[0]);
 });
 
-// Buscar cliente por código
-app.get("/customer/code/:code", requireAuth, async (c) => {
-  const { code } = c.req.param();
-  const result = await db`SELECT * FROM customers WHERE code = ${code}`;
+// Buscar cliente por CNPJ/CPF
+app.get("/customer/document/:document", async (c) => {
+  const { document } = c.req.param();
+  const result = await db`
+    SELECT * FROM pessoas 
+    WHERE (fnc_pes_cnpj = ${document} OR fnc_pes_cpf = ${document})
+    AND fnc_pes_tipo_cadastro = 'CLIENTE'
+  `;
   
   if (!result.length) {
     return c.json({ error: "Cliente não encontrado" }, 404);
@@ -132,116 +122,188 @@ app.get("/customer/code/:code", requireAuth, async (c) => {
 });
 
 // Criar novo cliente
-app.post("/customer", requireAuth, async (c) => {
+app.post("/customer", async (c) => {
   const data = await c.req.json();
   
   // Validação básica
-  const requiredFields = ['code', 'name', 'type', 'document', 'email', 'address', 'number', 'neighborhood', 'city', 'state', 'zip_code'];
+  const requiredFields = ['tipo_pessoa', 'nome_fantasia', 'email', 'endereco', 'numero', 'bairro', 'cidade', 'uf', 'cep'];
   for (const field of requiredFields) {
     if (!data[field]) {
       return c.json({ error: `Campo ${field} é obrigatório` }, 400);
     }
   }
   
-  // Verifica se código ou documento já existe
+  // Validação de documento
+  if (data.tipo_pessoa === 'PJ' && !data.cnpj) {
+    return c.json({ error: "CNPJ é obrigatório para pessoa jurídica" }, 400);
+  }
+  if (data.tipo_pessoa === 'PF' && !data.cpf) {
+    return c.json({ error: "CPF é obrigatório para pessoa física" }, 400);
+  }
+  
+  // Verifica se documento já existe
   const existing = await db`
-    SELECT id FROM customers 
-    WHERE code = ${data.code} OR document = ${data.document}
+    SELECT fnc_pes_id FROM pessoas 
+    WHERE (fnc_pes_cnpj = ${data.cnpj || null} OR fnc_pes_cpf = ${data.cpf || null})
+    AND fnc_pes_tipo_cadastro = 'CLIENTE'
   `;
   
   if (existing.length) {
-    return c.json({ error: "Cliente com este código ou documento já existe" }, 400);
+    return c.json({ error: "Cliente com este documento já existe" }, 400);
   }
   
   try {
     const [customer] = await db`
-      INSERT INTO customers (
-        code, name, type, document, email, phone, whatsapp,
-        address, number, complement, neighborhood, city, state, zip_code,
-        latitude, longitude, delivery_notes, active
+      INSERT INTO pessoas (
+        fnc_emp_id,
+        fnc_pes_data_cadastro,
+        fnc_pes_tipo_cadastro,
+        fnc_pes_tipo_pessoa,
+        fnc_pes_nome_fantasia,
+        fnc_pes_razao_social,
+        fnc_pes_cpf,
+        fnc_pes_cnpj,
+        fnc_pes_ie,
+        fnc_pes_insc_municipal,
+        fnc_pes_cep,
+        fnc_pes_endereco,
+        fnc_pes_numero,
+        fnc_pes_complemento,
+        fnc_pes_bairro,
+        fnc_pes_cidade,
+        fnc_pes_uf,
+        fnc_pes_latitude,
+        fnc_pes_longitude,
+        fnc_pes_telefone_1,
+        fnc_pes_telefone_2,
+        fnc_pes_celular,
+        fnc_pes_email,
+        fnc_pes_email_financeiro,
+        fnc_pes_contato,
+        fnc_pes_status,
+        fnc_pes_limite_de_credito,
+        fnc_pes_dh_atualizacao
       ) VALUES (
-        ${data.code}, ${data.name}, ${data.type}, ${data.document}, 
-        ${data.email}, ${data.phone || null}, ${data.whatsapp || null},
-        ${data.address}, ${data.number}, ${data.complement || null}, 
-        ${data.neighborhood}, ${data.city}, ${data.state}, ${data.zip_code},
-        ${data.latitude || null}, ${data.longitude || null}, 
-        ${data.delivery_notes || null}, ${data.active !== false}
+        ${data.emp_id || 1},
+        CURRENT_DATE,
+        'CLIENTE',
+        ${data.tipo_pessoa},
+        ${data.nome_fantasia},
+        ${data.razao_social || data.nome_fantasia},
+        ${data.cpf || null},
+        ${data.cnpj || null},
+        ${data.ie || null},
+        ${data.insc_municipal || null},
+        ${data.cep},
+        ${data.endereco},
+        ${data.numero},
+        ${data.complemento || null},
+        ${data.bairro},
+        ${data.cidade},
+        ${data.uf},
+        ${data.latitude || null},
+        ${data.longitude || null},
+        ${data.telefone_1 || null},
+        ${data.telefone_2 || null},
+        ${data.celular || null},
+        ${data.email},
+        ${data.email_financeiro || null},
+        ${data.contato || null},
+        ${data.status || 'ATIVO'},
+        ${data.limite_credito || 0},
+        CURRENT_TIMESTAMP
       )
       RETURNING *
     `;
     
     return c.json(customer, 201);
   } catch (error) {
+    console.error(error);
     return c.json({ error: "Erro ao criar cliente" }, 500);
   }
 });
 
 // Atualizar cliente
-app.put("/customer/:id", requireAuth, async (c) => {
+app.put("/customer/:id", async (c) => {
   const { id } = c.req.param();
   const data = await c.req.json();
   
   // Verifica se cliente existe
-  const existing = await db`SELECT id FROM customers WHERE id = ${id}`;
+  const existing = await db`
+    SELECT fnc_pes_id FROM pessoas 
+    WHERE fnc_pes_id = ${id} 
+    AND fnc_pes_tipo_cadastro = 'CLIENTE'
+  `;
+  
   if (!existing.length) {
     return c.json({ error: "Cliente não encontrado" }, 404);
   }
   
-  // Se mudando código ou documento, verifica duplicação
-  if (data.code || data.document) {
+  // Se mudando documento, verifica duplicação
+  if (data.cpf || data.cnpj) {
     const duplicate = await db`
-      SELECT id FROM customers 
-      WHERE (code = ${data.code} OR document = ${data.document})
-      AND id != ${id}
+      SELECT fnc_pes_id FROM pessoas 
+      WHERE (fnc_pes_cnpj = ${data.cnpj || null} OR fnc_pes_cpf = ${data.cpf || null})
+      AND fnc_pes_id != ${id}
+      AND fnc_pes_tipo_cadastro = 'CLIENTE'
     `;
     
     if (duplicate.length) {
-      return c.json({ error: "Código ou documento já em uso" }, 400);
+      return c.json({ error: "Documento já em uso" }, 400);
     }
   }
   
   try {
     const [updated] = await db`
-      UPDATE customers
+      UPDATE pessoas
       SET 
-        code = COALESCE(${data.code}, code),
-        name = COALESCE(${data.name}, name),
-        type = COALESCE(${data.type}, type),
-        document = COALESCE(${data.document}, document),
-        email = COALESCE(${data.email}, email),
-        phone = COALESCE(${data.phone}, phone),
-        whatsapp = COALESCE(${data.whatsapp}, whatsapp),
-        address = COALESCE(${data.address}, address),
-        number = COALESCE(${data.number}, number),
-        complement = COALESCE(${data.complement}, complement),
-        neighborhood = COALESCE(${data.neighborhood}, neighborhood),
-        city = COALESCE(${data.city}, city),
-        state = COALESCE(${data.state}, state),
-        zip_code = COALESCE(${data.zip_code}, zip_code),
-        latitude = COALESCE(${data.latitude}, latitude),
-        longitude = COALESCE(${data.longitude}, longitude),
-        delivery_notes = COALESCE(${data.delivery_notes}, delivery_notes),
-        active = COALESCE(${data.active}, active),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${id}
+        fnc_pes_tipo_pessoa = COALESCE(${data.tipo_pessoa}, fnc_pes_tipo_pessoa),
+        fnc_pes_nome_fantasia = COALESCE(${data.nome_fantasia}, fnc_pes_nome_fantasia),
+        fnc_pes_razao_social = COALESCE(${data.razao_social}, fnc_pes_razao_social),
+        fnc_pes_cpf = COALESCE(${data.cpf}, fnc_pes_cpf),
+        fnc_pes_cnpj = COALESCE(${data.cnpj}, fnc_pes_cnpj),
+        fnc_pes_ie = COALESCE(${data.ie}, fnc_pes_ie),
+        fnc_pes_insc_municipal = COALESCE(${data.insc_municipal}, fnc_pes_insc_municipal),
+        fnc_pes_cep = COALESCE(${data.cep}, fnc_pes_cep),
+        fnc_pes_endereco = COALESCE(${data.endereco}, fnc_pes_endereco),
+        fnc_pes_numero = COALESCE(${data.numero}, fnc_pes_numero),
+        fnc_pes_complemento = COALESCE(${data.complemento}, fnc_pes_complemento),
+        fnc_pes_bairro = COALESCE(${data.bairro}, fnc_pes_bairro),
+        fnc_pes_cidade = COALESCE(${data.cidade}, fnc_pes_cidade),
+        fnc_pes_uf = COALESCE(${data.uf}, fnc_pes_uf),
+        fnc_pes_latitude = COALESCE(${data.latitude}, fnc_pes_latitude),
+        fnc_pes_longitude = COALESCE(${data.longitude}, fnc_pes_longitude),
+        fnc_pes_telefone_1 = COALESCE(${data.telefone_1}, fnc_pes_telefone_1),
+        fnc_pes_telefone_2 = COALESCE(${data.telefone_2}, fnc_pes_telefone_2),
+        fnc_pes_celular = COALESCE(${data.celular}, fnc_pes_celular),
+        fnc_pes_email = COALESCE(${data.email}, fnc_pes_email),
+        fnc_pes_email_financeiro = COALESCE(${data.email_financeiro}, fnc_pes_email_financeiro),
+        fnc_pes_contato = COALESCE(${data.contato}, fnc_pes_contato),
+        fnc_pes_status = COALESCE(${data.status}, fnc_pes_status),
+        fnc_pes_limite_de_credito = COALESCE(${data.limite_credito}, fnc_pes_limite_de_credito),
+        fnc_pes_dh_atualizacao = CURRENT_TIMESTAMP
+      WHERE fnc_pes_id = ${id}
+      AND fnc_pes_tipo_cadastro = 'CLIENTE'
       RETURNING *
     `;
     
     return c.json(updated);
   } catch (error) {
+    console.error(error);
     return c.json({ error: "Erro ao atualizar cliente" }, 500);
   }
 });
 
 // Deletar cliente (soft delete)
-app.delete("/customer/:id", requireAuth, async (c) => {
+app.delete("/customer/:id", async (c) => {
   const { id } = c.req.param();
   
   const [result] = await db`
-    UPDATE customers 
-    SET active = false, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ${id}
-    RETURNING id
+    UPDATE pessoas 
+    SET fnc_pes_status = 'INATIVO', fnc_pes_dh_atualizacao = CURRENT_TIMESTAMP
+    WHERE fnc_pes_id = ${id}
+    AND fnc_pes_tipo_cadastro = 'CLIENTE'
+    RETURNING fnc_pes_id
   `;
   
   if (!result) {
@@ -254,36 +316,47 @@ app.delete("/customer/:id", requireAuth, async (c) => {
 // --- SUPPLIERS ENDPOINTS ---
 
 // Listar todos os fornecedores
-app.get("/supplier", requireAuth, async (c) => {
-  const { active, type, category, limit, offset } = c.req.query();
+app.get("/supplier", async (c) => {
+  const { status, tipo_pessoa, limit, offset } = c.req.query();
   
-  let query = db`
-    SELECT * FROM suppliers 
-    WHERE 1=1
+  let conditions = [];
+  let values = [];
+  
+  // Filtrar apenas fornecedores
+  conditions.push("fnc_pes_tipo_cadastro = 'FORNECEDOR'");
+  
+  if (status) {
+    conditions.push(`fnc_pes_status = $${conditions.length + 1}`);
+    values.push(status);
+  }
+  
+  if (tipo_pessoa) {
+    conditions.push(`fnc_pes_tipo_pessoa = $${conditions.length + 1}`);
+    values.push(tipo_pessoa);
+  }
+  
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  
+  const query = `
+    SELECT * FROM pessoas 
+    ${whereClause}
+    ORDER BY fnc_pes_nome_fantasia ASC 
+    LIMIT ${limit || 100} 
+    OFFSET ${offset || 0}
   `;
   
-  if (active !== undefined) {
-    query = db`${query} AND active = ${active === 'true'}`;
-  }
-  
-  if (type) {
-    query = db`${query} AND type = ${type}`;
-  }
-  
-  if (category) {
-    query = db`${query} AND ${category} = ANY(categories)`;
-  }
-  
-  query = db`${query} ORDER BY name ASC LIMIT ${limit || 100} OFFSET ${offset || 0}`;
-  
-  const result = await query;
+  const result = await db.unsafe(query, ...values);
   return c.json(result);
 });
 
 // Buscar fornecedor por ID
-app.get("/supplier/:id", requireAuth, async (c) => {
+app.get("/supplier/:id", async (c) => {
   const { id } = c.req.param();
-  const result = await db`SELECT * FROM suppliers WHERE id = ${id}`;
+  const result = await db`
+    SELECT * FROM pessoas 
+    WHERE fnc_pes_id = ${id} 
+    AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+  `;
   
   if (!result.length) {
     return c.json({ error: "Fornecedor não encontrado" }, 404);
@@ -292,10 +365,14 @@ app.get("/supplier/:id", requireAuth, async (c) => {
   return c.json(result[0]);
 });
 
-// Buscar fornecedor por código
-app.get("/supplier/code/:code", requireAuth, async (c) => {
-  const { code } = c.req.param();
-  const result = await db`SELECT * FROM suppliers WHERE code = ${code}`;
+// Buscar fornecedor por CNPJ/CPF
+app.get("/supplier/document/:document", async (c) => {
+  const { document } = c.req.param();
+  const result = await db`
+    SELECT * FROM pessoas 
+    WHERE (fnc_pes_cnpj = ${document} OR fnc_pes_cpf = ${document})
+    AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+  `;
   
   if (!result.length) {
     return c.json({ error: "Fornecedor não encontrado" }, 404);
@@ -305,118 +382,188 @@ app.get("/supplier/code/:code", requireAuth, async (c) => {
 });
 
 // Criar novo fornecedor
-app.post("/supplier", requireAuth, async (c) => {
+app.post("/supplier", async (c) => {
   const data = await c.req.json();
   
   // Validação básica
-  const requiredFields = ['code', 'name', 'type', 'document', 'email', 'address', 'number', 'neighborhood', 'city', 'state', 'zip_code'];
+  const requiredFields = ['tipo_pessoa', 'nome_fantasia', 'email', 'endereco', 'numero', 'bairro', 'cidade', 'uf', 'cep'];
   for (const field of requiredFields) {
     if (!data[field]) {
       return c.json({ error: `Campo ${field} é obrigatório` }, 400);
     }
   }
   
-  // Verifica se código ou documento já existe
+  // Validação de documento
+  if (data.tipo_pessoa === 'PJ' && !data.cnpj) {
+    return c.json({ error: "CNPJ é obrigatório para pessoa jurídica" }, 400);
+  }
+  if (data.tipo_pessoa === 'PF' && !data.cpf) {
+    return c.json({ error: "CPF é obrigatório para pessoa física" }, 400);
+  }
+  
+  // Verifica se documento já existe
   const existing = await db`
-    SELECT id FROM suppliers 
-    WHERE code = ${data.code} OR document = ${data.document}
+    SELECT fnc_pes_id FROM pessoas 
+    WHERE (fnc_pes_cnpj = ${data.cnpj || null} OR fnc_pes_cpf = ${data.cpf || null})
+    AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
   `;
   
   if (existing.length) {
-    return c.json({ error: "Fornecedor com este código ou documento já existe" }, 400);
+    return c.json({ error: "Fornecedor com este documento já existe" }, 400);
   }
   
   try {
     const [supplier] = await db`
-      INSERT INTO suppliers (
-        code, name, type, document, email, phone, whatsapp,
-        address, number, complement, neighborhood, city, state, zip_code,
-        contact_name, categories, delivery_days, payment_terms, active
+      INSERT INTO pessoas (
+        fnc_emp_id,
+        fnc_pes_data_cadastro,
+        fnc_pes_tipo_cadastro,
+        fnc_pes_tipo_pessoa,
+        fnc_pes_nome_fantasia,
+        fnc_pes_razao_social,
+        fnc_pes_cpf,
+        fnc_pes_cnpj,
+        fnc_pes_ie,
+        fnc_pes_insc_municipal,
+        fnc_pes_cep,
+        fnc_pes_endereco,
+        fnc_pes_numero,
+        fnc_pes_complemento,
+        fnc_pes_bairro,
+        fnc_pes_cidade,
+        fnc_pes_uf,
+        fnc_pes_latitude,
+        fnc_pes_longitude,
+        fnc_pes_telefone_1,
+        fnc_pes_telefone_2,
+        fnc_pes_celular,
+        fnc_pes_email,
+        fnc_pes_email_financeiro,
+        fnc_pes_contato,
+        fnc_pes_status,
+        fnc_pes_limite_de_credito,
+        fnc_pes_dh_atualizacao
       ) VALUES (
-        ${data.code}, ${data.name}, ${data.type}, ${data.document}, 
-        ${data.email}, ${data.phone || null}, ${data.whatsapp || null},
-        ${data.address}, ${data.number}, ${data.complement || null}, 
-        ${data.neighborhood}, ${data.city}, ${data.state}, ${data.zip_code},
-        ${data.contact_name || null}, ${data.categories || []}, 
-        ${data.delivery_days || []}, ${data.payment_terms || null}, 
-        ${data.active !== false}
+        ${data.emp_id || 1},
+        CURRENT_DATE,
+        'FORNECEDOR',
+        ${data.tipo_pessoa},
+        ${data.nome_fantasia},
+        ${data.razao_social || data.nome_fantasia},
+        ${data.cpf || null},
+        ${data.cnpj || null},
+        ${data.ie || null},
+        ${data.insc_municipal || null},
+        ${data.cep},
+        ${data.endereco},
+        ${data.numero},
+        ${data.complemento || null},
+        ${data.bairro},
+        ${data.cidade},
+        ${data.uf},
+        ${data.latitude || null},
+        ${data.longitude || null},
+        ${data.telefone_1 || null},
+        ${data.telefone_2 || null},
+        ${data.celular || null},
+        ${data.email},
+        ${data.email_financeiro || null},
+        ${data.contato || null},
+        ${data.status || 'ATIVO'},
+        ${data.limite_credito || 0},
+        CURRENT_TIMESTAMP
       )
       RETURNING *
     `;
     
     return c.json(supplier, 201);
   } catch (error) {
+    console.error(error);
     return c.json({ error: "Erro ao criar fornecedor" }, 500);
   }
 });
 
 // Atualizar fornecedor
-app.put("/supplier/:id", requireAuth, async (c) => {
+app.put("/supplier/:id", async (c) => {
   const { id } = c.req.param();
   const data = await c.req.json();
   
   // Verifica se fornecedor existe
-  const existing = await db`SELECT id FROM suppliers WHERE id = ${id}`;
+  const existing = await db`
+    SELECT fnc_pes_id FROM pessoas 
+    WHERE fnc_pes_id = ${id} 
+    AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+  `;
+  
   if (!existing.length) {
     return c.json({ error: "Fornecedor não encontrado" }, 404);
   }
   
-  // Se mudando código ou documento, verifica duplicação
-  if (data.code || data.document) {
+  // Se mudando documento, verifica duplicação
+  if (data.cpf || data.cnpj) {
     const duplicate = await db`
-      SELECT id FROM suppliers 
-      WHERE (code = ${data.code} OR document = ${data.document})
-      AND id != ${id}
+      SELECT fnc_pes_id FROM pessoas 
+      WHERE (fnc_pes_cnpj = ${data.cnpj || null} OR fnc_pes_cpf = ${data.cpf || null})
+      AND fnc_pes_id != ${id}
+      AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
     `;
     
     if (duplicate.length) {
-      return c.json({ error: "Código ou documento já em uso" }, 400);
+      return c.json({ error: "Documento já em uso" }, 400);
     }
   }
   
   try {
     const [updated] = await db`
-      UPDATE suppliers
+      UPDATE pessoas
       SET 
-        code = COALESCE(${data.code}, code),
-        name = COALESCE(${data.name}, name),
-        type = COALESCE(${data.type}, type),
-        document = COALESCE(${data.document}, document),
-        email = COALESCE(${data.email}, email),
-        phone = COALESCE(${data.phone}, phone),
-        whatsapp = COALESCE(${data.whatsapp}, whatsapp),
-        address = COALESCE(${data.address}, address),
-        number = COALESCE(${data.number}, number),
-        complement = COALESCE(${data.complement}, complement),
-        neighborhood = COALESCE(${data.neighborhood}, neighborhood),
-        city = COALESCE(${data.city}, city),
-        state = COALESCE(${data.state}, state),
-        zip_code = COALESCE(${data.zip_code}, zip_code),
-        contact_name = COALESCE(${data.contact_name}, contact_name),
-        categories = COALESCE(${data.categories}, categories),
-        delivery_days = COALESCE(${data.delivery_days}, delivery_days),
-        payment_terms = COALESCE(${data.payment_terms}, payment_terms),
-        active = COALESCE(${data.active}, active),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${id}
+        fnc_pes_tipo_pessoa = COALESCE(${data.tipo_pessoa}, fnc_pes_tipo_pessoa),
+        fnc_pes_nome_fantasia = COALESCE(${data.nome_fantasia}, fnc_pes_nome_fantasia),
+        fnc_pes_razao_social = COALESCE(${data.razao_social}, fnc_pes_razao_social),
+        fnc_pes_cpf = COALESCE(${data.cpf}, fnc_pes_cpf),
+        fnc_pes_cnpj = COALESCE(${data.cnpj}, fnc_pes_cnpj),
+        fnc_pes_ie = COALESCE(${data.ie}, fnc_pes_ie),
+        fnc_pes_insc_municipal = COALESCE(${data.insc_municipal}, fnc_pes_insc_municipal),
+        fnc_pes_cep = COALESCE(${data.cep}, fnc_pes_cep),
+        fnc_pes_endereco = COALESCE(${data.endereco}, fnc_pes_endereco),
+        fnc_pes_numero = COALESCE(${data.numero}, fnc_pes_numero),
+        fnc_pes_complemento = COALESCE(${data.complemento}, fnc_pes_complemento),
+        fnc_pes_bairro = COALESCE(${data.bairro}, fnc_pes_bairro),
+        fnc_pes_cidade = COALESCE(${data.cidade}, fnc_pes_cidade),
+        fnc_pes_uf = COALESCE(${data.uf}, fnc_pes_uf),
+        fnc_pes_latitude = COALESCE(${data.latitude}, fnc_pes_latitude),
+        fnc_pes_longitude = COALESCE(${data.longitude}, fnc_pes_longitude),
+        fnc_pes_telefone_1 = COALESCE(${data.telefone_1}, fnc_pes_telefone_1),
+        fnc_pes_telefone_2 = COALESCE(${data.telefone_2}, fnc_pes_telefone_2),
+        fnc_pes_celular = COALESCE(${data.celular}, fnc_pes_celular),
+        fnc_pes_email = COALESCE(${data.email}, fnc_pes_email),
+        fnc_pes_email_financeiro = COALESCE(${data.email_financeiro}, fnc_pes_email_financeiro),
+        fnc_pes_contato = COALESCE(${data.contato}, fnc_pes_contato),
+        fnc_pes_status = COALESCE(${data.status}, fnc_pes_status),
+        fnc_pes_limite_de_credito = COALESCE(${data.limite_credito}, fnc_pes_limite_de_credito),
+        fnc_pes_dh_atualizacao = CURRENT_TIMESTAMP
+      WHERE fnc_pes_id = ${id}
+      AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
       RETURNING *
     `;
     
     return c.json(updated);
   } catch (error) {
+    console.error(error);
     return c.json({ error: "Erro ao atualizar fornecedor" }, 500);
   }
 });
 
 // Deletar fornecedor (soft delete)
-app.delete("/supplier/:id", requireAuth, async (c) => {
+app.delete("/supplier/:id", async (c) => {
   const { id } = c.req.param();
   
   const [result] = await db`
-    UPDATE suppliers 
-    SET active = false, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ${id}
-    RETURNING id
+    UPDATE pessoas 
+    SET fnc_pes_status = 'INATIVO', fnc_pes_dh_atualizacao = CURRENT_TIMESTAMP
+    WHERE fnc_pes_id = ${id}
+    AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+    RETURNING fnc_pes_id
   `;
   
   if (!result) {
