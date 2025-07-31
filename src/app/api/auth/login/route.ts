@@ -28,14 +28,15 @@ export async function POST(request: NextRequest) {
     const { email, password } = body;
 
     // Use internal Railway URL only when deployed on Railway
-    const isRailwayProduction = process.env.RAILWAY_ENVIRONMENT === 'production';
-    const apiUrl = isRailwayProduction 
-      ? 'http://api-users.railway.internal:3000/login'
-      : 'https://api-users-production-54ed.up.railway.app/login';
+    const isRailwayProduction = process.env.RAILWAY_ENV === 'production';
+    // Fallback to public URL if internal fails
+    const publicUrl = 'https://api-users-production-54ed.up.railway.app/login';
+    const internalUrl = 'http://api-users.railway.internal:3000/login';
+    const apiUrl = isRailwayProduction ? internalUrl : publicUrl;
 
     console.log(`[API Route] Login attempt for: ${email}`);
     console.log(`[API Route] Using API URL: ${apiUrl}`);
-    console.log(`[API Route] Environment:`, { NODE_ENV: process.env.NODE_ENV, RAILWAY_ENV: process.env.RAILWAY_ENVIRONMENT });
+    console.log(`[API Route] Environment:`, { NODE_ENV: process.env.NODE_ENV, RAILWAY_ENV: process.env.RAILWAY_ENV, isRailwayProduction });
 
     let response;
     try {
@@ -57,25 +58,57 @@ export async function POST(request: NextRequest) {
       
       clearTimeout(timeoutId);
     } catch (fetchError: any) {
-      console.error('[API Route] Network error:', {
-        name: fetchError.name,
-        message: fetchError.message,
-        apiUrl,
-        timestamp: new Date().toISOString()
-      });
+      console.error('[API Route] Network error:', fetchError);
       
-      // Diferenciar tipos de erro
-      if (fetchError.name === 'AbortError') {
+      // Se estamos em produção e a URL interna falhou, tenta a pública
+      if (isRailwayProduction && apiUrl === internalUrl) {
+        console.log('[API Route] Internal URL failed, trying public URL...');
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
+          
+          response = await fetch(publicUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              email: email.toLowerCase().trim(),
+              password 
+            }),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+        } catch (fallbackError: any) {
+          console.error('[API Route] Fallback to public URL also failed:', fallbackError);
+          
+          if (fallbackError.name === 'AbortError') {
+            return NextResponse.json(
+              { error: 'A requisição demorou muito para responder. Por favor, tente novamente.' },
+              { status: 504, headers: corsHeaders }
+            );
+          }
+          
+          return NextResponse.json(
+            { error: 'Não foi possível conectar ao servidor de autenticação. Por favor, tente novamente.' },
+            { status: 503, headers: corsHeaders }
+          );
+        }
+      } else {
+        // Não estamos em produção ou já tentamos a URL pública
+        if (fetchError.name === 'AbortError') {
+          return NextResponse.json(
+            { error: 'A requisição demorou muito para responder. Por favor, tente novamente.' },
+            { status: 504, headers: corsHeaders }
+          );
+        }
+        
         return NextResponse.json(
-          { error: 'A requisição demorou muito para responder. Por favor, tente novamente.' },
-          { status: 504, headers: corsHeaders }
+          { error: 'Não foi possível conectar ao servidor de autenticação. Por favor, tente novamente.' },
+          { status: 503, headers: corsHeaders }
         );
       }
-      
-      return NextResponse.json(
-        { error: 'Não foi possível conectar ao servidor de autenticação. Por favor, tente novamente.' },
-        { status: 503, headers: corsHeaders }
-      );
     }
 
     let data;

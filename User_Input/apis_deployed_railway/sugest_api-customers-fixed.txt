@@ -1,0 +1,982 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import postgres from "postgres";
+
+// --- DB Connection ---
+const db = postgres(process.env.DATABASE_URL!, {
+  ssl: { rejectUnauthorized: false },
+});
+
+// --- App ---
+const app = new Hono();
+
+// --- CORS Middleware (IMPORTANTE!) ---
+app.use("/*", cors());
+
+// --- Cria tabelas se não existirem ---
+await db`
+  CREATE TABLE IF NOT EXISTS pessoas (
+    fnc_pes_id SERIAL PRIMARY KEY,
+    fnc_emp_id INTEGER DEFAULT 1,
+    fnc_pes_data_cadastro DATE DEFAULT CURRENT_DATE,
+    fnc_pes_tipo_cadastro TEXT NOT NULL,
+    fnc_pes_tipo_pessoa TEXT NOT NULL CHECK (fnc_pes_tipo_pessoa IN ('PF', 'PJ')),
+    fnc_pes_nome_fantasia TEXT NOT NULL,
+    fnc_pes_razao_social TEXT,
+    fnc_pes_cpf TEXT,
+    fnc_pes_cnpj TEXT,
+    fnc_pes_ie TEXT,
+    fnc_pes_insc_municipal TEXT,
+    fnc_pes_insc_suframa TEXT,
+    fnc_pes_insc_produtor TEXT,
+    fnc_pes_cep TEXT NOT NULL,
+    fnc_pes_endereco TEXT NOT NULL,
+    fnc_pes_numero TEXT NOT NULL,
+    fnc_pes_complemento TEXT,
+    fnc_pes_bairro TEXT NOT NULL,
+    fnc_pes_cidade TEXT NOT NULL,
+    fnc_pes_uf TEXT NOT NULL CHECK (LENGTH(fnc_pes_uf) = 2),
+    fnc_pes_latitude TEXT,
+    fnc_pes_longitude TEXT,
+    fnc_pes_telefone_1 TEXT,
+    fnc_pes_telefone_2 TEXT,
+    fnc_pes_celular TEXT,
+    fnc_pes_email TEXT NOT NULL,
+    fnc_pes_email_financeiro TEXT,
+    fnc_pes_contato TEXT,
+    fnc_pes_status TEXT DEFAULT 'ATIVO' CHECK (fnc_pes_status IN ('ATIVO', 'INATIVO', 'BLOQUEADO')),
+    fnc_pes_limite_de_credito NUMERIC(15,2) DEFAULT 0,
+    fnc_pes_dh_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fnc_pes_observacoes TEXT,
+    fnc_pes_tags TEXT[],
+    CONSTRAINT chk_documento CHECK (
+      (fnc_pes_tipo_pessoa = 'PF' AND fnc_pes_cpf IS NOT NULL) OR
+      (fnc_pes_tipo_pessoa = 'PJ' AND fnc_pes_cnpj IS NOT NULL)
+    ),
+    CONSTRAINT unq_cpf_tipo UNIQUE (fnc_pes_cpf, fnc_pes_tipo_cadastro),
+    CONSTRAINT unq_cnpj_tipo UNIQUE (fnc_pes_cnpj, fnc_pes_tipo_cadastro)
+  );
+`;
+
+// Criar índices para melhor performance
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_tipo_cadastro ON pessoas(fnc_pes_tipo_cadastro)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_cnpj ON pessoas(fnc_pes_cnpj)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_cpf ON pessoas(fnc_pes_cpf)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_status ON pessoas(fnc_pes_status)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_email ON pessoas(fnc_pes_email)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_nome ON pessoas(fnc_pes_nome_fantasia)`;
+
+// --- Health check ---
+app.get("/", (c) => c.text("API Customers Bun OK 🚀"));
+
+// --- Funções auxiliares ---
+function validateCPF(cpf: string): boolean {
+  cpf = cpf.replace(/[^\d]/g, '');
+  if (cpf.length !== 11) return false;
+  
+  // Verifica se todos os dígitos são iguais
+  if (/^(\d)\1+$/.test(cpf)) return false;
+  
+  // Validação do CPF
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(cpf.charAt(i)) * (10 - i);
+  }
+  let rev = 11 - (sum % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(cpf.charAt(9))) return false;
+  
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(cpf.charAt(i)) * (11 - i);
+  }
+  rev = 11 - (sum % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  return rev === parseInt(cpf.charAt(10));
+}
+
+function validateCNPJ(cnpj: string): boolean {
+  cnpj = cnpj.replace(/[^\d]/g, '');
+  if (cnpj.length !== 14) return false;
+  
+  // Verifica se todos os dígitos são iguais
+  if (/^(\d)\1+$/.test(cnpj)) return false;
+  
+  // Validação do CNPJ
+  let size = cnpj.length - 2;
+  let numbers = cnpj.substring(0, size);
+  let digits = cnpj.substring(size);
+  let sum = 0;
+  let pos = size - 7;
+  
+  for (let i = size; i >= 1; i--) {
+    sum += parseInt(numbers.charAt(size - i)) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  
+  let result = sum % 11 < 2 ? 0 : 11 - sum % 11;
+  if (result !== parseInt(digits.charAt(0))) return false;
+  
+  size = size + 1;
+  numbers = cnpj.substring(0, size);
+  sum = 0;
+  pos = size - 7;
+  
+  for (let i = size; i >= 1; i--) {
+    sum += parseInt(numbers.charAt(size - i)) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  
+  result = sum % 11 < 2 ? 0 : 11 - sum % 11;
+  return result === parseInt(digits.charAt(1));
+}
+
+function validateEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function formatCPF(cpf: string): string {
+  return cpf.replace(/[^\d]/g, '');
+}
+
+function formatCNPJ(cnpj: string): string {
+  return cnpj.replace(/[^\d]/g, '');
+}
+
+// --- CUSTOMERS ENDPOINTS ---
+
+// Listar todos os clientes
+app.get("/customer", async (c) => {
+  try {
+    const { status, tipo_pessoa, search, limit, offset, order_by } = c.req.query();
+    
+    let conditions = [];
+    let values = [];
+    let valueIndex = 1;
+    
+    // Filtrar apenas clientes
+    conditions.push("fnc_pes_tipo_cadastro = 'CLIENTE'");
+    
+    if (status) {
+      conditions.push(`fnc_pes_status = $${valueIndex++}`);
+      values.push(status);
+    }
+    
+    if (tipo_pessoa) {
+      conditions.push(`fnc_pes_tipo_pessoa = $${valueIndex++}`);
+      values.push(tipo_pessoa);
+    }
+    
+    if (search) {
+      conditions.push(`(
+        fnc_pes_nome_fantasia ILIKE $${valueIndex} OR 
+        fnc_pes_razao_social ILIKE $${valueIndex} OR 
+        fnc_pes_email ILIKE $${valueIndex} OR
+        fnc_pes_cpf LIKE $${valueIndex + 1} OR
+        fnc_pes_cnpj LIKE $${valueIndex + 1}
+      )`);
+      values.push(`%${search}%`);
+      values.push(search.replace(/[^\d]/g, '') + '%');
+      valueIndex += 2;
+    }
+    
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const orderBy = order_by || 'fnc_pes_nome_fantasia';
+    
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM pessoas ${whereClause}`;
+    const [{ total }] = await db.unsafe(countQuery, ...values);
+    
+    // Get paginated results
+    const query = `
+      SELECT * FROM pessoas 
+      ${whereClause}
+      ORDER BY ${orderBy} ASC 
+      LIMIT ${limit || 100} 
+      OFFSET ${offset || 0}
+    `;
+    
+    const result = await db.unsafe(query, ...values);
+    
+    return c.json({
+      data: result,
+      pagination: {
+        total,
+        limit: limit || 100,
+        offset: offset || 0,
+        pages: Math.ceil(total / (limit || 100))
+      }
+    });
+  } catch (error) {
+    console.error("Error listing customers:", error);
+    return c.json({ error: "Erro ao listar clientes" }, 500);
+  }
+});
+
+// Buscar cliente por ID
+app.get("/customer/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    const result = await db`
+      SELECT * FROM pessoas 
+      WHERE fnc_pes_id = ${id} 
+      AND fnc_pes_tipo_cadastro = 'CLIENTE'
+    `;
+    
+    if (!result.length) {
+      return c.json({ error: "Cliente não encontrado" }, 404);
+    }
+    
+    return c.json(result[0]);
+  } catch (error) {
+    console.error("Error getting customer:", error);
+    return c.json({ error: "Erro ao buscar cliente" }, 500);
+  }
+});
+
+// Buscar cliente por CNPJ/CPF
+app.get("/customer/document/:document", async (c) => {
+  try {
+    const { document } = c.req.param();
+    const cleanDoc = document.replace(/[^\d]/g, '');
+    
+    const result = await db`
+      SELECT * FROM pessoas 
+      WHERE (fnc_pes_cnpj = ${cleanDoc} OR fnc_pes_cpf = ${cleanDoc})
+      AND fnc_pes_tipo_cadastro = 'CLIENTE'
+    `;
+    
+    if (!result.length) {
+      return c.json({ error: "Cliente não encontrado" }, 404);
+    }
+    
+    return c.json(result[0]);
+  } catch (error) {
+    console.error("Error getting customer by document:", error);
+    return c.json({ error: "Erro ao buscar cliente" }, 500);
+  }
+});
+
+// Estatísticas de clientes
+app.get("/customer/stats/summary", async (c) => {
+  try {
+    const [stats] = await db`
+      SELECT 
+        COUNT(*) FILTER (WHERE fnc_pes_tipo_cadastro = 'CLIENTE') as total_clientes,
+        COUNT(*) FILTER (WHERE fnc_pes_tipo_cadastro = 'CLIENTE' AND fnc_pes_status = 'ATIVO') as clientes_ativos,
+        COUNT(*) FILTER (WHERE fnc_pes_tipo_cadastro = 'CLIENTE' AND fnc_pes_tipo_pessoa = 'PF') as clientes_pf,
+        COUNT(*) FILTER (WHERE fnc_pes_tipo_cadastro = 'CLIENTE' AND fnc_pes_tipo_pessoa = 'PJ') as clientes_pj,
+        COUNT(*) FILTER (WHERE fnc_pes_tipo_cadastro = 'CLIENTE' AND fnc_pes_data_cadastro >= CURRENT_DATE - INTERVAL '30 days') as novos_ultimos_30_dias,
+        COALESCE(SUM(fnc_pes_limite_de_credito) FILTER (WHERE fnc_pes_tipo_cadastro = 'CLIENTE'), 0) as limite_credito_total
+      FROM pessoas
+    `;
+    
+    return c.json(stats);
+  } catch (error) {
+    console.error("Error getting customer stats:", error);
+    return c.json({ error: "Erro ao buscar estatísticas" }, 500);
+  }
+});
+
+// Criar novo cliente
+app.post("/customer", async (c) => {
+  try {
+    const data = await c.req.json();
+    
+    // Validação básica
+    const requiredFields = ['tipo_pessoa', 'nome_fantasia', 'email', 'endereco', 'numero', 'bairro', 'cidade', 'uf', 'cep'];
+    const missingFields = requiredFields.filter(field => !data[field]);
+    
+    if (missingFields.length > 0) {
+      return c.json({ 
+        error: "Campos obrigatórios faltando", 
+        missing_fields: missingFields 
+      }, 400);
+    }
+    
+    // Validação de email
+    if (!validateEmail(data.email)) {
+      return c.json({ error: "Email inválido" }, 400);
+    }
+    
+    // Validação de UF
+    if (data.uf.length !== 2) {
+      return c.json({ error: "UF deve ter 2 caracteres" }, 400);
+    }
+    
+    // Validação de documento
+    if (data.tipo_pessoa === 'PJ') {
+      if (!data.cnpj) {
+        return c.json({ error: "CNPJ é obrigatório para pessoa jurídica" }, 400);
+      }
+      data.cnpj = formatCNPJ(data.cnpj);
+      if (!validateCNPJ(data.cnpj)) {
+        return c.json({ error: "CNPJ inválido" }, 400);
+      }
+    } else if (data.tipo_pessoa === 'PF') {
+      if (!data.cpf) {
+        return c.json({ error: "CPF é obrigatório para pessoa física" }, 400);
+      }
+      data.cpf = formatCPF(data.cpf);
+      if (!validateCPF(data.cpf)) {
+        return c.json({ error: "CPF inválido" }, 400);
+      }
+    } else {
+      return c.json({ error: "Tipo de pessoa deve ser PF ou PJ" }, 400);
+    }
+    
+    // Verifica se documento já existe
+    const existing = await db`
+      SELECT fnc_pes_id FROM pessoas 
+      WHERE (fnc_pes_cnpj = ${data.cnpj || null} OR fnc_pes_cpf = ${data.cpf || null})
+      AND fnc_pes_tipo_cadastro = 'CLIENTE'
+    `;
+    
+    if (existing.length) {
+      return c.json({ error: "Cliente com este documento já existe" }, 400);
+    }
+    
+    // Verifica se email já existe
+    const emailExists = await db`
+      SELECT fnc_pes_id FROM pessoas 
+      WHERE fnc_pes_email = ${data.email.toLowerCase()}
+      AND fnc_pes_tipo_cadastro = 'CLIENTE'
+    `;
+    
+    if (emailExists.length) {
+      return c.json({ error: "Cliente com este email já existe" }, 400);
+    }
+    
+    const [customer] = await db`
+      INSERT INTO pessoas (
+        fnc_emp_id,
+        fnc_pes_tipo_cadastro,
+        fnc_pes_tipo_pessoa,
+        fnc_pes_nome_fantasia,
+        fnc_pes_razao_social,
+        fnc_pes_cpf,
+        fnc_pes_cnpj,
+        fnc_pes_ie,
+        fnc_pes_insc_municipal,
+        fnc_pes_cep,
+        fnc_pes_endereco,
+        fnc_pes_numero,
+        fnc_pes_complemento,
+        fnc_pes_bairro,
+        fnc_pes_cidade,
+        fnc_pes_uf,
+        fnc_pes_latitude,
+        fnc_pes_longitude,
+        fnc_pes_telefone_1,
+        fnc_pes_telefone_2,
+        fnc_pes_celular,
+        fnc_pes_email,
+        fnc_pes_email_financeiro,
+        fnc_pes_contato,
+        fnc_pes_status,
+        fnc_pes_limite_de_credito,
+        fnc_pes_observacoes,
+        fnc_pes_tags
+      ) VALUES (
+        ${data.emp_id || 1},
+        'CLIENTE',
+        ${data.tipo_pessoa},
+        ${data.nome_fantasia},
+        ${data.razao_social || data.nome_fantasia},
+        ${data.cpf || null},
+        ${data.cnpj || null},
+        ${data.ie || null},
+        ${data.insc_municipal || null},
+        ${data.cep.replace(/[^\d]/g, '')},
+        ${data.endereco},
+        ${data.numero},
+        ${data.complemento || null},
+        ${data.bairro},
+        ${data.cidade},
+        ${data.uf.toUpperCase()},
+        ${data.latitude || null},
+        ${data.longitude || null},
+        ${data.telefone_1 || null},
+        ${data.telefone_2 || null},
+        ${data.celular || null},
+        ${data.email.toLowerCase()},
+        ${data.email_financeiro?.toLowerCase() || null},
+        ${data.contato || null},
+        ${data.status || 'ATIVO'},
+        ${data.limite_credito || 0},
+        ${data.observacoes || null},
+        ${data.tags || null}
+      )
+      RETURNING *
+    `;
+    
+    return c.json(customer, 201);
+  } catch (error) {
+    console.error("Error creating customer:", error);
+    return c.json({ error: "Erro ao criar cliente" }, 500);
+  }
+});
+
+// Atualizar cliente
+app.put("/customer/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const data = await c.req.json();
+    
+    // Verifica se cliente existe
+    const [existing] = await db`
+      SELECT fnc_pes_id, fnc_pes_tipo_pessoa FROM pessoas 
+      WHERE fnc_pes_id = ${id} 
+      AND fnc_pes_tipo_cadastro = 'CLIENTE'
+    `;
+    
+    if (!existing) {
+      return c.json({ error: "Cliente não encontrado" }, 404);
+    }
+    
+    // Validação de email se fornecido
+    if (data.email && !validateEmail(data.email)) {
+      return c.json({ error: "Email inválido" }, 400);
+    }
+    
+    // Se mudando documento, valida e verifica duplicação
+    if (data.cpf || data.cnpj) {
+      // Valida CPF
+      if (data.cpf) {
+        data.cpf = formatCPF(data.cpf);
+        if (!validateCPF(data.cpf)) {
+          return c.json({ error: "CPF inválido" }, 400);
+        }
+      }
+      
+      // Valida CNPJ
+      if (data.cnpj) {
+        data.cnpj = formatCNPJ(data.cnpj);
+        if (!validateCNPJ(data.cnpj)) {
+          return c.json({ error: "CNPJ inválido" }, 400);
+        }
+      }
+      
+      const duplicate = await db`
+        SELECT fnc_pes_id FROM pessoas 
+        WHERE (fnc_pes_cnpj = ${data.cnpj || null} OR fnc_pes_cpf = ${data.cpf || null})
+        AND fnc_pes_id != ${id}
+        AND fnc_pes_tipo_cadastro = 'CLIENTE'
+      `;
+      
+      if (duplicate.length) {
+        return c.json({ error: "Documento já em uso por outro cliente" }, 400);
+      }
+    }
+    
+    // Se mudando email, verifica duplicação
+    if (data.email) {
+      const emailDuplicate = await db`
+        SELECT fnc_pes_id FROM pessoas 
+        WHERE fnc_pes_email = ${data.email.toLowerCase()}
+        AND fnc_pes_id != ${id}
+        AND fnc_pes_tipo_cadastro = 'CLIENTE'
+      `;
+      
+      if (emailDuplicate.length) {
+        return c.json({ error: "Email já em uso por outro cliente" }, 400);
+      }
+    }
+    
+    // Constrói update dinâmico
+    const updates: any = {
+      fnc_pes_dh_atualizacao: new Date()
+    };
+    
+    // Campos que podem ser atualizados
+    const updateableFields = [
+      'tipo_pessoa', 'nome_fantasia', 'razao_social', 'cpf', 'cnpj',
+      'ie', 'insc_municipal', 'cep', 'endereco', 'numero', 'complemento',
+      'bairro', 'cidade', 'uf', 'latitude', 'longitude', 'telefone_1',
+      'telefone_2', 'celular', 'email', 'email_financeiro', 'contato',
+      'status', 'limite_credito', 'observacoes', 'tags'
+    ];
+    
+    for (const field of updateableFields) {
+      if (data[field] !== undefined) {
+        const dbField = `fnc_pes_${field}`;
+        
+        // Tratamentos especiais
+        if (field === 'email' || field === 'email_financeiro') {
+          updates[dbField] = data[field]?.toLowerCase() || null;
+        } else if (field === 'uf') {
+          updates[dbField] = data[field]?.toUpperCase() || null;
+        } else if (field === 'cep') {
+          updates[dbField] = data[field]?.replace(/[^\d]/g, '') || null;
+        } else {
+          updates[dbField] = data[field];
+        }
+      }
+    }
+    
+    const [updated] = await db`
+      UPDATE pessoas
+      SET ${db(updates)}
+      WHERE fnc_pes_id = ${id}
+      AND fnc_pes_tipo_cadastro = 'CLIENTE'
+      RETURNING *
+    `;
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error updating customer:", error);
+    return c.json({ error: "Erro ao atualizar cliente" }, 500);
+  }
+});
+
+// Deletar cliente (soft delete)
+app.delete("/customer/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    const [result] = await db`
+      UPDATE pessoas 
+      SET 
+        fnc_pes_status = 'INATIVO', 
+        fnc_pes_dh_atualizacao = CURRENT_TIMESTAMP
+      WHERE fnc_pes_id = ${id}
+      AND fnc_pes_tipo_cadastro = 'CLIENTE'
+      RETURNING fnc_pes_id, fnc_pes_nome_fantasia
+    `;
+    
+    if (!result) {
+      return c.json({ error: "Cliente não encontrado" }, 404);
+    }
+    
+    return c.json({ 
+      message: "Cliente desativado com sucesso",
+      cliente: result
+    });
+  } catch (error) {
+    console.error("Error deleting customer:", error);
+    return c.json({ error: "Erro ao desativar cliente" }, 500);
+  }
+});
+
+// --- SUPPLIERS ENDPOINTS ---
+
+// Listar todos os fornecedores
+app.get("/supplier", async (c) => {
+  try {
+    const { status, tipo_pessoa, search, limit, offset, order_by } = c.req.query();
+    
+    let conditions = [];
+    let values = [];
+    let valueIndex = 1;
+    
+    // Filtrar apenas fornecedores
+    conditions.push("fnc_pes_tipo_cadastro = 'FORNECEDOR'");
+    
+    if (status) {
+      conditions.push(`fnc_pes_status = $${valueIndex++}`);
+      values.push(status);
+    }
+    
+    if (tipo_pessoa) {
+      conditions.push(`fnc_pes_tipo_pessoa = $${valueIndex++}`);
+      values.push(tipo_pessoa);
+    }
+    
+    if (search) {
+      conditions.push(`(
+        fnc_pes_nome_fantasia ILIKE $${valueIndex} OR 
+        fnc_pes_razao_social ILIKE $${valueIndex} OR 
+        fnc_pes_email ILIKE $${valueIndex} OR
+        fnc_pes_cpf LIKE $${valueIndex + 1} OR
+        fnc_pes_cnpj LIKE $${valueIndex + 1}
+      )`);
+      values.push(`%${search}%`);
+      values.push(search.replace(/[^\d]/g, '') + '%');
+      valueIndex += 2;
+    }
+    
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const orderBy = order_by || 'fnc_pes_nome_fantasia';
+    
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM pessoas ${whereClause}`;
+    const [{ total }] = await db.unsafe(countQuery, ...values);
+    
+    // Get paginated results
+    const query = `
+      SELECT * FROM pessoas 
+      ${whereClause}
+      ORDER BY ${orderBy} ASC 
+      LIMIT ${limit || 100} 
+      OFFSET ${offset || 0}
+    `;
+    
+    const result = await db.unsafe(query, ...values);
+    
+    return c.json({
+      data: result,
+      pagination: {
+        total,
+        limit: limit || 100,
+        offset: offset || 0,
+        pages: Math.ceil(total / (limit || 100))
+      }
+    });
+  } catch (error) {
+    console.error("Error listing suppliers:", error);
+    return c.json({ error: "Erro ao listar fornecedores" }, 500);
+  }
+});
+
+// Buscar fornecedor por ID
+app.get("/supplier/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    const result = await db`
+      SELECT * FROM pessoas 
+      WHERE fnc_pes_id = ${id} 
+      AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+    `;
+    
+    if (!result.length) {
+      return c.json({ error: "Fornecedor não encontrado" }, 404);
+    }
+    
+    return c.json(result[0]);
+  } catch (error) {
+    console.error("Error getting supplier:", error);
+    return c.json({ error: "Erro ao buscar fornecedor" }, 500);
+  }
+});
+
+// Buscar fornecedor por CNPJ/CPF
+app.get("/supplier/document/:document", async (c) => {
+  try {
+    const { document } = c.req.param();
+    const cleanDoc = document.replace(/[^\d]/g, '');
+    
+    const result = await db`
+      SELECT * FROM pessoas 
+      WHERE (fnc_pes_cnpj = ${cleanDoc} OR fnc_pes_cpf = ${cleanDoc})
+      AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+    `;
+    
+    if (!result.length) {
+      return c.json({ error: "Fornecedor não encontrado" }, 404);
+    }
+    
+    return c.json(result[0]);
+  } catch (error) {
+    console.error("Error getting supplier by document:", error);
+    return c.json({ error: "Erro ao buscar fornecedor" }, 500);
+  }
+});
+
+// Estatísticas de fornecedores
+app.get("/supplier/stats/summary", async (c) => {
+  try {
+    const [stats] = await db`
+      SELECT 
+        COUNT(*) FILTER (WHERE fnc_pes_tipo_cadastro = 'FORNECEDOR') as total_fornecedores,
+        COUNT(*) FILTER (WHERE fnc_pes_tipo_cadastro = 'FORNECEDOR' AND fnc_pes_status = 'ATIVO') as fornecedores_ativos,
+        COUNT(*) FILTER (WHERE fnc_pes_tipo_cadastro = 'FORNECEDOR' AND fnc_pes_tipo_pessoa = 'PF') as fornecedores_pf,
+        COUNT(*) FILTER (WHERE fnc_pes_tipo_cadastro = 'FORNECEDOR' AND fnc_pes_tipo_pessoa = 'PJ') as fornecedores_pj,
+        COUNT(*) FILTER (WHERE fnc_pes_tipo_cadastro = 'FORNECEDOR' AND fnc_pes_data_cadastro >= CURRENT_DATE - INTERVAL '30 days') as novos_ultimos_30_dias
+      FROM pessoas
+    `;
+    
+    return c.json(stats);
+  } catch (error) {
+    console.error("Error getting supplier stats:", error);
+    return c.json({ error: "Erro ao buscar estatísticas" }, 500);
+  }
+});
+
+// Criar novo fornecedor
+app.post("/supplier", async (c) => {
+  try {
+    const data = await c.req.json();
+    
+    // Validação básica
+    const requiredFields = ['tipo_pessoa', 'nome_fantasia', 'email', 'endereco', 'numero', 'bairro', 'cidade', 'uf', 'cep'];
+    const missingFields = requiredFields.filter(field => !data[field]);
+    
+    if (missingFields.length > 0) {
+      return c.json({ 
+        error: "Campos obrigatórios faltando", 
+        missing_fields: missingFields 
+      }, 400);
+    }
+    
+    // Validação de email
+    if (!validateEmail(data.email)) {
+      return c.json({ error: "Email inválido" }, 400);
+    }
+    
+    // Validação de UF
+    if (data.uf.length !== 2) {
+      return c.json({ error: "UF deve ter 2 caracteres" }, 400);
+    }
+    
+    // Validação de documento
+    if (data.tipo_pessoa === 'PJ') {
+      if (!data.cnpj) {
+        return c.json({ error: "CNPJ é obrigatório para pessoa jurídica" }, 400);
+      }
+      data.cnpj = formatCNPJ(data.cnpj);
+      if (!validateCNPJ(data.cnpj)) {
+        return c.json({ error: "CNPJ inválido" }, 400);
+      }
+    } else if (data.tipo_pessoa === 'PF') {
+      if (!data.cpf) {
+        return c.json({ error: "CPF é obrigatório para pessoa física" }, 400);
+      }
+      data.cpf = formatCPF(data.cpf);
+      if (!validateCPF(data.cpf)) {
+        return c.json({ error: "CPF inválido" }, 400);
+      }
+    } else {
+      return c.json({ error: "Tipo de pessoa deve ser PF ou PJ" }, 400);
+    }
+    
+    // Verifica se documento já existe
+    const existing = await db`
+      SELECT fnc_pes_id FROM pessoas 
+      WHERE (fnc_pes_cnpj = ${data.cnpj || null} OR fnc_pes_cpf = ${data.cpf || null})
+      AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+    `;
+    
+    if (existing.length) {
+      return c.json({ error: "Fornecedor com este documento já existe" }, 400);
+    }
+    
+    // Verifica se email já existe
+    const emailExists = await db`
+      SELECT fnc_pes_id FROM pessoas 
+      WHERE fnc_pes_email = ${data.email.toLowerCase()}
+      AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+    `;
+    
+    if (emailExists.length) {
+      return c.json({ error: "Fornecedor com este email já existe" }, 400);
+    }
+    
+    const [supplier] = await db`
+      INSERT INTO pessoas (
+        fnc_emp_id,
+        fnc_pes_tipo_cadastro,
+        fnc_pes_tipo_pessoa,
+        fnc_pes_nome_fantasia,
+        fnc_pes_razao_social,
+        fnc_pes_cpf,
+        fnc_pes_cnpj,
+        fnc_pes_ie,
+        fnc_pes_insc_municipal,
+        fnc_pes_cep,
+        fnc_pes_endereco,
+        fnc_pes_numero,
+        fnc_pes_complemento,
+        fnc_pes_bairro,
+        fnc_pes_cidade,
+        fnc_pes_uf,
+        fnc_pes_latitude,
+        fnc_pes_longitude,
+        fnc_pes_telefone_1,
+        fnc_pes_telefone_2,
+        fnc_pes_celular,
+        fnc_pes_email,
+        fnc_pes_email_financeiro,
+        fnc_pes_contato,
+        fnc_pes_status,
+        fnc_pes_limite_de_credito,
+        fnc_pes_observacoes,
+        fnc_pes_tags
+      ) VALUES (
+        ${data.emp_id || 1},
+        'FORNECEDOR',
+        ${data.tipo_pessoa},
+        ${data.nome_fantasia},
+        ${data.razao_social || data.nome_fantasia},
+        ${data.cpf || null},
+        ${data.cnpj || null},
+        ${data.ie || null},
+        ${data.insc_municipal || null},
+        ${data.cep.replace(/[^\d]/g, '')},
+        ${data.endereco},
+        ${data.numero},
+        ${data.complemento || null},
+        ${data.bairro},
+        ${data.cidade},
+        ${data.uf.toUpperCase()},
+        ${data.latitude || null},
+        ${data.longitude || null},
+        ${data.telefone_1 || null},
+        ${data.telefone_2 || null},
+        ${data.celular || null},
+        ${data.email.toLowerCase()},
+        ${data.email_financeiro?.toLowerCase() || null},
+        ${data.contato || null},
+        ${data.status || 'ATIVO'},
+        ${data.limite_credito || 0},
+        ${data.observacoes || null},
+        ${data.tags || null}
+      )
+      RETURNING *
+    `;
+    
+    return c.json(supplier, 201);
+  } catch (error) {
+    console.error("Error creating supplier:", error);
+    return c.json({ error: "Erro ao criar fornecedor" }, 500);
+  }
+});
+
+// Atualizar fornecedor
+app.put("/supplier/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    const data = await c.req.json();
+    
+    // Verifica se fornecedor existe
+    const [existing] = await db`
+      SELECT fnc_pes_id, fnc_pes_tipo_pessoa FROM pessoas 
+      WHERE fnc_pes_id = ${id} 
+      AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+    `;
+    
+    if (!existing) {
+      return c.json({ error: "Fornecedor não encontrado" }, 404);
+    }
+    
+    // Validação de email se fornecido
+    if (data.email && !validateEmail(data.email)) {
+      return c.json({ error: "Email inválido" }, 400);
+    }
+    
+    // Se mudando documento, valida e verifica duplicação
+    if (data.cpf || data.cnpj) {
+      // Valida CPF
+      if (data.cpf) {
+        data.cpf = formatCPF(data.cpf);
+        if (!validateCPF(data.cpf)) {
+          return c.json({ error: "CPF inválido" }, 400);
+        }
+      }
+      
+      // Valida CNPJ
+      if (data.cnpj) {
+        data.cnpj = formatCNPJ(data.cnpj);
+        if (!validateCNPJ(data.cnpj)) {
+          return c.json({ error: "CNPJ inválido" }, 400);
+        }
+      }
+      
+      const duplicate = await db`
+        SELECT fnc_pes_id FROM pessoas 
+        WHERE (fnc_pes_cnpj = ${data.cnpj || null} OR fnc_pes_cpf = ${data.cpf || null})
+        AND fnc_pes_id != ${id}
+        AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+      `;
+      
+      if (duplicate.length) {
+        return c.json({ error: "Documento já em uso por outro fornecedor" }, 400);
+      }
+    }
+    
+    // Se mudando email, verifica duplicação
+    if (data.email) {
+      const emailDuplicate = await db`
+        SELECT fnc_pes_id FROM pessoas 
+        WHERE fnc_pes_email = ${data.email.toLowerCase()}
+        AND fnc_pes_id != ${id}
+        AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+      `;
+      
+      if (emailDuplicate.length) {
+        return c.json({ error: "Email já em uso por outro fornecedor" }, 400);
+      }
+    }
+    
+    // Constrói update dinâmico
+    const updates: any = {
+      fnc_pes_dh_atualizacao: new Date()
+    };
+    
+    // Campos que podem ser atualizados
+    const updateableFields = [
+      'tipo_pessoa', 'nome_fantasia', 'razao_social', 'cpf', 'cnpj',
+      'ie', 'insc_municipal', 'cep', 'endereco', 'numero', 'complemento',
+      'bairro', 'cidade', 'uf', 'latitude', 'longitude', 'telefone_1',
+      'telefone_2', 'celular', 'email', 'email_financeiro', 'contato',
+      'status', 'limite_credito', 'observacoes', 'tags'
+    ];
+    
+    for (const field of updateableFields) {
+      if (data[field] !== undefined) {
+        const dbField = `fnc_pes_${field}`;
+        
+        // Tratamentos especiais
+        if (field === 'email' || field === 'email_financeiro') {
+          updates[dbField] = data[field]?.toLowerCase() || null;
+        } else if (field === 'uf') {
+          updates[dbField] = data[field]?.toUpperCase() || null;
+        } else if (field === 'cep') {
+          updates[dbField] = data[field]?.replace(/[^\d]/g, '') || null;
+        } else {
+          updates[dbField] = data[field];
+        }
+      }
+    }
+    
+    const [updated] = await db`
+      UPDATE pessoas
+      SET ${db(updates)}
+      WHERE fnc_pes_id = ${id}
+      AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+      RETURNING *
+    `;
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error updating supplier:", error);
+    return c.json({ error: "Erro ao atualizar fornecedor" }, 500);
+  }
+});
+
+// Deletar fornecedor (soft delete)
+app.delete("/supplier/:id", async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    const [result] = await db`
+      UPDATE pessoas 
+      SET 
+        fnc_pes_status = 'INATIVO', 
+        fnc_pes_dh_atualizacao = CURRENT_TIMESTAMP
+      WHERE fnc_pes_id = ${id}
+      AND fnc_pes_tipo_cadastro = 'FORNECEDOR'
+      RETURNING fnc_pes_id, fnc_pes_nome_fantasia
+    `;
+    
+    if (!result) {
+      return c.json({ error: "Fornecedor não encontrado" }, 404);
+    }
+    
+    return c.json({ 
+      message: "Fornecedor desativado com sucesso",
+      fornecedor: result
+    });
+  } catch (error) {
+    console.error("Error deleting supplier:", error);
+    return c.json({ error: "Erro ao desativar fornecedor" }, 500);
+  }
+});
+
+// --- Serve ---
+Bun.serve({
+  fetch: app.fetch,
+  port: Number(process.env.PORT || 3000),
+});

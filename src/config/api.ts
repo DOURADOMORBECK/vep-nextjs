@@ -134,7 +134,7 @@ const PROD_API_URLS = {
 };
 
 // Determina se está deployado no Railway em produção
-const isRailwayProduction = process.env.RAILWAY_ENVIRONMENT === 'production';
+const isRailwayProduction = process.env.RAILWAY_ENV === 'production';
 
 // Configuração das APIs reais no Railway (Bun Services)
 // Em desenvolvimento: usa URLs públicas (.up.railway.app)
@@ -147,7 +147,7 @@ if (process.env.NODE_ENV === 'development') {
   console.log('🚀 VEP NEXTJS - API CONFIGURATION STATUS');
   console.log('============================================');
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📍 Railway Environment: ${process.env.RAILWAY_ENVIRONMENT || 'not set'}`);
+  console.log(`📍 Railway Environment: ${process.env.RAILWAY_ENV || 'not set'}`);
   console.log(`📍 Mode: ${isRailwayProduction ? 'PRODUCTION (Internal URLs)' : 'DEVELOPMENT (Public URLs)'}`);
   console.log('--------------------------------------------');
   
