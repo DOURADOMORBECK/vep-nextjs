@@ -6,14 +6,14 @@ interface ApiLogEntry {
   status: number;
   statusText: string;
   headers: Record<string, string>;
-  requestBody?: any;
-  responseBody: any;
+  requestBody?: unknown;
+  responseBody: unknown;
   duration: number;
 }
 
 class ApiInterceptor {
   private logs: Record<string, ApiLogEntry[]> = {};
-  private enabled: boolean = process.env.NODE_ENV === 'development';
+  private enabled = process.env.NODE_ENV === 'development';
 
   constructor() {
     if (this.enabled) {
@@ -66,7 +66,7 @@ class ApiInterceptor {
 
       // Clona a resposta para ler o body sem consumir
       const responseClone = response.clone();
-      let responseBody: any;
+      let responseBody: unknown;
 
       try {
         responseBody = await responseClone.json();
@@ -145,7 +145,14 @@ class ApiInterceptor {
 
   // Obtém estatísticas dos logs
   getStats() {
-    const stats: Record<string, any> = {};
+    const stats: Record<string, {
+      count: number;
+      avgDuration: number;
+      minDuration: number;
+      maxDuration: number;
+      successRate: number;
+      lastCall: string;
+    }> = {};
     
     Object.entries(this.logs).forEach(([endpoint, entries]) => {
       const durations = entries.map(e => e.duration);
@@ -231,7 +238,7 @@ export const railwayApi = {
     });
   },
   
-  async createProduct(data: any) {
+  async createProduct(data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, '/produto'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
@@ -239,7 +246,7 @@ export const railwayApi = {
     });
   },
   
-  async updateProduct(id: string, data: any) {
+  async updateProduct(id: string, data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/produto/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
@@ -267,7 +274,7 @@ export const railwayApi = {
     });
   },
   
-  async createClient(data: any) {
+  async createClient(data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, '/customer'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
@@ -275,7 +282,7 @@ export const railwayApi = {
     });
   },
   
-  async updateClient(id: string, data: any) {
+  async updateClient(id: string, data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/customer/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
@@ -303,7 +310,7 @@ export const railwayApi = {
     });
   },
   
-  async createOrder(data: any) {
+  async createOrder(data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/order'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
@@ -311,7 +318,7 @@ export const railwayApi = {
     });
   },
   
-  async updateOrder(id: string, data: any) {
+  async updateOrder(id: string, data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, `/order/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
@@ -320,7 +327,7 @@ export const railwayApi = {
   },
 
   // UserLogs
-  async logUserAction(action: string, details: any) {
+  async logUserAction(action: string, details: Record<string, unknown>) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.USERLOGS_API, '/logs'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
@@ -329,7 +336,7 @@ export const railwayApi = {
         details,
         timestamp: new Date().toISOString(),
         userId: localStorage.getItem('userId') || 'anonymous',
-        module: details.module || 'GENERAL'
+        module: (details.module as string) || 'GENERAL'
       })
     });
   },
@@ -347,7 +354,7 @@ export const railwayApi = {
     });
   },
   
-  async createOperator(data: any) {
+  async createOperator(data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, '/users'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
@@ -355,7 +362,7 @@ export const railwayApi = {
     });
   },
   
-  async updateOperator(id: string, data: any) {
+  async updateOperator(id: string, data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, `/users/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
@@ -383,7 +390,7 @@ export const railwayApi = {
     });
   },
   
-  async createSupplier(data: any) {
+  async createSupplier(data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, '/supplier'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
@@ -391,7 +398,7 @@ export const railwayApi = {
     });
   },
   
-  async updateSupplier(id: string, data: any) {
+  async updateSupplier(id: string, data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/supplier/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
@@ -440,7 +447,7 @@ export const railwayApi = {
     });
   },
   
-  async createVehicle(data: any) {
+  async createVehicle(data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, '/vehicle'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
@@ -448,7 +455,7 @@ export const railwayApi = {
     });
   },
   
-  async updateVehicle(id: string, data: any) {
+  async updateVehicle(id: string, data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/vehicle/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
@@ -476,7 +483,7 @@ export const railwayApi = {
     });
   },
   
-  async createUser(data: any) {
+  async createUser(data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/users'), {
       method: 'POST',
       headers: getDefaultHeaders(getAuthToken()),
@@ -484,7 +491,7 @@ export const railwayApi = {
     });
   },
   
-  async updateUser(id: string, data: any) {
+  async updateUser(id: string, data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, `/users/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(getAuthToken()),
@@ -501,6 +508,3 @@ export const railwayApi = {
 };
 
 export default apiInterceptor;
-
-// Re-export ApiDebugPanel from its new location for backward compatibility
-export { ApiDebugPanel } from '@/components/ApiDebugPanel';

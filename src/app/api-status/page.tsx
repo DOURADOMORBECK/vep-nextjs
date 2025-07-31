@@ -32,14 +32,15 @@ export default function ApiStatusPage() {
     // Inicializar status
     const initialStatuses = apis.map(api => ({
       name: api.name,
-      url: (API_CONFIG as any)[api.key],
+      url: (API_CONFIG as Record<string, string>)[api.key],
       status: 'checking' as const
     }));
     setApiStatuses(initialStatuses);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkApiStatus = async (api: { name: string; key: string }, index: number) => {
-    const url = (API_CONFIG as any)[api.key];
+    const url = (API_CONFIG as Record<string, string>)[api.key];
     const startTime = Date.now();
     
     try {
@@ -71,11 +72,11 @@ export default function ApiStatusPage() {
         };
         return newStatuses;
       });
-    } catch (error: any) {
+    } catch (error) {
       const responseTime = Date.now() - startTime;
       
       // Se for erro de CORS, provavelmente a API está online mas não permite requisições do browser
-      const isCorsError = error.message?.includes('CORS') || error.message?.includes('Failed to fetch');
+      const isCorsError = (error as Error).message?.includes('CORS') || (error as Error).message?.includes('Failed to fetch');
       
       setApiStatuses(prev => {
         const newStatuses = [...prev];
@@ -84,7 +85,7 @@ export default function ApiStatusPage() {
           url,
           status: isCorsError ? 'online' : 'offline',
           responseTime,
-          error: isCorsError ? 'CORS (API provavelmente online)' : error.message
+          error: isCorsError ? 'CORS (API provavelmente online)' : (error as Error).message
         };
         return newStatuses;
       });
@@ -97,7 +98,7 @@ export default function ApiStatusPage() {
     // Resetar status
     setApiStatuses(apis.map(api => ({
       name: api.name,
-      url: (API_CONFIG as any)[api.key],
+      url: (API_CONFIG as Record<string, string>)[api.key],
       status: 'checking'
     })));
     
@@ -242,7 +243,7 @@ export default function ApiStatusPage() {
               <div>
                 <p className="font-medium">Sobre CORS</p>
                 <p className="text-gray-400">
-                  Se aparecer "CORS", significa que a API está online mas não permite requisições diretas do navegador. 
+                  Se aparecer &quot;CORS&quot;, significa que a API está online mas não permite requisições diretas do navegador. 
                   Isso é normal e esperado para APIs de produção.
                 </p>
               </div>

@@ -205,7 +205,7 @@ export const api = {
     },
 
     // POST /customer
-    create: async (data: any) => {
+    create: async (data: unknown) => {
       const response = await fetchWithInterceptor('https://api-customers-production.up.railway.app/customer', {
         method: 'POST',
         headers: getHeaders(),
@@ -215,7 +215,7 @@ export const api = {
     },
 
     // PUT /customer/:id
-    update: async (id: string, data: any) => {
+    update: async (id: string, data: unknown) => {
       const response = await fetchWithInterceptor(
         `https://api-customers-production.up.railway.app/customer/${id}`, {
         method: 'PUT',
@@ -273,7 +273,7 @@ export const api = {
     },
 
     // POST /supplier
-    create: async (data: any) => {
+    create: async (data: unknown) => {
       const response = await fetchWithInterceptor('https://api-customers-production.up.railway.app/supplier', {
         method: 'POST',
         headers: getHeaders(),
@@ -283,7 +283,7 @@ export const api = {
     },
 
     // PUT /supplier/:id
-    update: async (id: string, data: any) => {
+    update: async (id: string, data: unknown) => {
       const response = await fetchWithInterceptor(
         `https://api-customers-production.up.railway.app/supplier/${id}`, {
         method: 'PUT',
