@@ -64,3 +64,36 @@ pids
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Flow / Hive Mind
+.hive-mind/
+.claude-flow/
+hive-mind-sessions/
+*.hive-session
+*.hive-db
+*.hive-db-shm
+*.hive-db-wal
+
+# AI/LLM Development Tools
+.claude/
+.copilot/
+.ai-sessions/
+.llm-cache/
+*.ai-session
+*.llm-session
+
+# Development Sessions
+.sessions/
+*-session-*.json
+*-auto-save-*.json
+session-*.log
+hive-mind-prompt-*.txt
+
+# Temporary Development Files
+.tmp/
+.temp/
+*.tmp
+*.temp
+*.cache
+*.swarm
+*.agent-state
