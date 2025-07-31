@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { railwayApi } from '@/lib/api-interceptor';
+import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 
 interface Product {
   id: string;
@@ -22,6 +23,7 @@ interface Product {
 }
 
 export default function ProdutosPage() {
+  const { logAction } = useUserLogger();
   const [products, setProducts] = useState<Product[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -107,7 +109,11 @@ export default function ProdutosPage() {
           setProducts(products.map(p => 
             p.id === editingProduct.id ? updatedProduct : p
           ));
-          logUserAction('UPDATE_PRODUCT', { productId: editingProduct.id, ...formData });
+          logAction({ 
+            action: USER_ACTIONS.UPDATE_PRODUCT,
+            module: MODULES.PRODUCTS,
+            details: { productId: editingProduct.id, ...formData }
+          });
           alert('Produto atualizado com sucesso!');
         } else {
           alert('Erro ao atualizar produto');
@@ -118,7 +124,11 @@ export default function ProdutosPage() {
         if (response.ok) {
           const newProduct = await response.json();
           setProducts([...products, newProduct]);
-          logUserAction('CREATE_PRODUCT', newProduct);
+          logAction({ 
+            action: USER_ACTIONS.CREATE_PRODUCT,
+            module: MODULES.PRODUCTS,
+            details: newProduct
+          });
           alert('Produto cadastrado com sucesso!');
         } else {
           alert('Erro ao cadastrar produto');
@@ -148,13 +158,32 @@ export default function ProdutosPage() {
       active: product.active
     });
     setIsModalOpen(true);
-    logUserAction('OPEN_EDIT_PRODUCT', { productId: product.id });
+    logAction({ 
+      action: USER_ACTIONS.VIEW,
+      module: MODULES.PRODUCTS,
+      details: { productId: product.id, action: 'open_edit' }
+    });
   };
 
   const handleDelete = async (productId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este produto?')) {
-      setProducts(products.filter(p => p.id !== productId));
-      logUserAction('DELETE_PRODUCT', { productId });
+      try {
+        const response = await railwayApi.deleteProduct(productId);
+        if (response.ok) {
+          setProducts(products.filter(p => p.id !== productId));
+          logAction({ 
+            action: USER_ACTIONS.DELETE_PRODUCT,
+            module: MODULES.PRODUCTS,
+            details: { productId }
+          });
+          alert('Produto excluído com sucesso!');
+        } else {
+          alert('Erro ao excluir produto');
+        }
+      } catch (error) {
+        console.error('Erro ao excluir produto:', error);
+        alert('Erro ao excluir produto. Tente novamente.');
+      }
     }
   };
 

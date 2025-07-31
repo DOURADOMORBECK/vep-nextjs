@@ -19,3 +19,89 @@ body {
 .fa, .fas, .far, .fal, .fab {
   font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
 }
+
+/* Custom Client Map Markers */
+.custom-client-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.client-marker {
+  width: 32px;
+  height: 32px;
+  background: #3b82f6;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  border: 2px solid white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.client-marker i {
+  transform: rotate(45deg);
+  font-size: 14px;
+}
+
+/* Leaflet Popup Styles */
+.leaflet-popup-content-wrapper {
+  background: #1f2937 !important;
+  color: #f3f4f6 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+.leaflet-popup-tip {
+  background: #1f2937 !important;
+}
+
+.leaflet-popup-close-button {
+  color: #9ca3af !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #f3f4f6 !important;
+}
+
+/* Map container for better visibility */
+.leaflet-container {
+  background: #111827;
+}
+
+/* Cluster Markers */
+.custom-cluster-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.cluster-marker {
+  background: #22c55e;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.cluster-small {
+  width: 30px;
+  height: 30px;
+}
+
+.cluster-medium {
+  width: 35px;
+  height: 35px;
+  font-size: 16px;
+}
+
+.cluster-large {
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+}

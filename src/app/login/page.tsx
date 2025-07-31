@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 
 export default function LoginPage() {
+  const { logAction } = useUserLogger();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('');
@@ -38,13 +40,36 @@ export default function LoginPage() {
         // Store token and user data
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('userId', data.user?.id || email);
+        
+        // Log successful login
+        logAction({
+          action: USER_ACTIONS.LOGIN,
+          module: MODULES.AUTH,
+          details: { email, role, userId: data.user?.id }
+        });
+        
         // Redirect to dashboard
         router.push('/dashboard');
       } else {
         setError('Credenciais inválidas. Por favor, tente novamente.');
+        
+        // Log failed login attempt
+        logAction({
+          action: USER_ACTIONS.LOGIN_FAILED,
+          module: MODULES.AUTH,
+          details: { email, role, reason: 'invalid_credentials' }
+        });
       }
     } catch (err) {
       setError('Erro de conexão. Tente novamente.');
+      
+      // Log connection error
+      logAction({
+        action: USER_ACTIONS.LOGIN_FAILED,
+        module: MODULES.AUTH,
+        details: { email, role, reason: 'connection_error', error: (err as Error).message }
+      });
     }
 
     setIsLoading(false);

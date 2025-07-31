@@ -22,7 +22,8 @@ export default function Sidebar({ isCollapsed = false }: SidebarProps) {
     { icon: 'fa-truck', label: 'Jornada da Entrega', path: '/jornada-entrega' },
     { icon: 'fa-box-open', label: 'Jornada do Pedido', path: '/jornada-pedido' },
     { icon: 'fa-industry', label: 'Jornada do Produto', path: '/jornada-produto' },
-    { icon: 'fa-flask', label: 'Teste de APIs', path: '/api-test' },
+    { icon: 'fa-clock-rotate-left', label: 'Histórico de Ações', path: '/userlogs' },
+    { icon: 'fa-server', label: 'Status das APIs', path: '/api-status' },
   ];
 
   const handleLogout = () => {

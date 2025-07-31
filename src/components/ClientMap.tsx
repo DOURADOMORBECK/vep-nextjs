@@ -140,6 +140,32 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
     });
   };
 
+  // Criar ícone de cluster customizado
+  const createClusterIcon = (cluster: any) => {
+    const count = cluster.getChildCount();
+    let size = 'small';
+    let bgColor = '#22c55e';
+    
+    if (count > 10) {
+      size = 'medium';
+      bgColor = '#f59e0b';
+    }
+    if (count > 20) {
+      size = 'large';
+      bgColor = '#ef4444';
+    }
+    
+    return window.L.divIcon({
+      html: `
+        <div class="cluster-marker cluster-${size}" style="background-color: ${bgColor}">
+          <span>${count}</span>
+        </div>
+      `,
+      className: 'custom-cluster-marker',
+      iconSize: size === 'small' ? [30, 30] : size === 'medium' ? [35, 35] : [40, 40]
+    });
+  };
+
   const addClientsToMap = useCallback(() => {
     if (!mapInstanceRef.current || !window.L) return;
 
