@@ -218,10 +218,10 @@ const getAuthToken = () => {
 // API Railway Real - Integração com APIs deployadas (Bun Services)
 export const railwayApi = {
   // Autenticação (Users Service)
-  async login(email: string, password: string, role: string) {
+  async login(email: string, password: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/login'), {
       method: 'POST',
-      body: JSON.stringify({ email, password, role })
+      body: JSON.stringify({ email, password })
     });
   },
 

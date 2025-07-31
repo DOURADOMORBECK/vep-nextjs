@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
+import { railwayApi } from '@/lib/api-interceptor';
 
 export default function LoginPage() {
   const { logAction } = useUserLogger();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -19,56 +19,60 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
 
-    if (!email || !password || role === 'Selecione seu nível de acesso') {
-      setError('Todos os campos são obrigatórios');
+    if (!email || !password) {
+      setError('Email e senha são obrigatórios');
       setIsLoading(false);
       return;
     }
 
     try {
-      // Call the Railway API for login
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, role }),
-      });
+      console.log('Attempting login for:', email);
+      
+      // Call the Railway Users API using the interceptor
+      const response = await railwayApi.login(email, password);
+      
+      console.log('Login response status:', response.status);
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Login successful:', data);
+        
         // Store token and user data
-        localStorage.setItem('token', data.token);
+        localStorage.setItem('authToken', data.token); // Use authToken para consistência
         localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('userId', data.user?.id || email);
+        localStorage.setItem('userId', data.user?.id?.toString() || email);
         
         // Log successful login
         logAction({
           action: USER_ACTIONS.LOGIN,
           module: MODULES.AUTH,
-          details: { email, role, userId: data.user?.id }
+          details: { email, role: data.user?.role, userId: data.user?.id }
         });
         
         // Redirect to dashboard
         router.push('/dashboard');
       } else {
-        setError('Credenciais inválidas. Por favor, tente novamente.');
+        const errorData = await response.json().catch(() => ({ error: 'Credenciais inválidas' }));
+        console.error('Login failed:', errorData);
+        
+        setError(errorData.error || 'Credenciais inválidas. Por favor, tente novamente.');
         
         // Log failed login attempt
         logAction({
           action: USER_ACTIONS.LOGIN_FAILED,
           module: MODULES.AUTH,
-          details: { email, role, reason: 'invalid_credentials' }
+          details: { email, reason: errorData.error || 'invalid_credentials' }
         });
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError('Erro de conexão. Tente novamente.');
       
       // Log connection error
       logAction({
         action: USER_ACTIONS.LOGIN_FAILED,
         module: MODULES.AUTH,
-        details: { email, role, reason: 'connection_error', error: (err as Error).message }
+        details: { email, reason: 'connection_error', error: (err as Error).message }
       });
     }
 
@@ -159,28 +163,6 @@ export default function LoginPage() {
               <span className="text-sm text-primary-400 hover:text-primary-300 cursor-pointer">
                 Esqueceu a senha?
               </span>
-            </div>
-            
-            <div className="mb-6">
-              <label htmlFor="user-role" className="block text-sm font-medium text-gray-300 mb-1">
-                Tipo de Acesso
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <i className="fa-solid fa-user-shield text-gray-500"></i>
-                </div>
-                <select
-                  id="user-role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full pl-10 p-2.5"
-                >
-                  <option value="">Selecione seu nível de acesso</option>
-                  <option value="admin">Administrador</option>
-                  <option value="supervisor">Supervisor</option>
-                  <option value="operator">Operador</option>
-                </select>
-              </div>
             </div>
             
             <button
