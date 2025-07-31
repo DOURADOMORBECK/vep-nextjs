@@ -27,10 +27,15 @@ export default function LoginPage() {
 
     try {
       console.log('Attempting login for:', email);
-      console.log('Using Railway API at:', 'https://api-users-production-54ed.up.railway.app/login');
       
-      // Call the Railway Users API using the interceptor
-      const response = await railwayApi.login(email, password);
+      // Call the local API route which will proxy to Railway API
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
       
       console.log('Login response status:', response.status);
       console.log('Login response ok:', response.ok);

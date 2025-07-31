@@ -9,6 +9,46 @@ export async function fetchWithInterceptor(
     ...options.headers
   };
 
+  // Se estamos no browser, use proxy routes locais para evitar CORS
+  if (typeof window !== 'undefined' && url.includes('.railway.app')) {
+    // Mapeamento de serviços Railway para rotas proxy
+    const serviceMap = {
+      'api-users': '/api/proxy/users',
+      'api-userlog': '/api/logs', // UserLogs tem rota especial
+      'api-jornada-produto': '/api/proxy/products',
+      'api-customers': '/api/proxy/customers',
+      'api-dashboard': '/api/proxy/orders',
+      'api-delivery': '/api/proxy/delivery',
+      'api-vehicles': '/api/proxy/vehicles',
+    };
+    
+    // Tratamento especial para login
+    if (url.includes('/login')) {
+      console.log(`[Interceptor] Proxying login to /api/auth/login`);
+      return fetch('/api/auth/login', {
+        ...options,
+        headers: defaultHeaders
+      });
+    }
+    
+    // Encontra o serviço na URL
+    let proxyUrl = url;
+    for (const [service, proxyPath] of Object.entries(serviceMap)) {
+      if (url.includes(service)) {
+        const urlParts = new URL(url);
+        proxyUrl = `${proxyPath}${urlParts.pathname}${urlParts.search}`;
+        break;
+      }
+    }
+    
+    console.log(`[Interceptor] Proxying ${url} to ${proxyUrl}`);
+    
+    return fetch(proxyUrl, {
+      ...options,
+      headers: defaultHeaders
+    });
+  }
+
   return fetch(url, {
     ...options,
     headers: defaultHeaders
