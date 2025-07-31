@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { ApiDebugPanel } from '@/lib/api-interceptor';
+import { ApiDebugPanel } from '@/components/ApiDebugPanel';
 
 interface ApiTestResult {
   endpoint: string;
