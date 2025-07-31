@@ -1,36 +1,171 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VepLim - Sistema de Gestão de Operações
 
-## Getting Started
+Sistema completo de gestão de operações para VepLim, desenvolvido com Next.js 15, TypeScript e integração com APIs Railway.
 
-First, run the development server:
+## 🚀 Funcionalidades Principais
 
+### Jornadas Operacionais
+- **Jornada do Pedido**: Fluxo completo desde a criação até a preparação (Separação → Etiquetagem → Verificação)
+- **Jornada da Entrega**: Gestão logística com rastreamento em tempo real via GPS
+- **Jornada do Produto**: Controle de produção (Recebimento → Limpeza → Preparação → Embalagem)
+
+### Módulos de Cadastro (CRUD)
+- **Produtos**: Gestão completa com categorias, estoque e fornecedores
+- **Clientes**: Cadastro com geolocalização (lat/lng) e visualização em mapa
+- **Pedidos**: Integração com jornadas e controle de status
+- **Operadores**: Gestão de permissões e papéis
+- **Usuários**: Controle de acesso por departamento
+- **Fornecedores**: Cadastro com dias de entrega e categorias
+
+### Recursos Técnicos
+- 🔐 Autenticação JWT com controle de acesso baseado em papéis
+- 🗺️ Mapas interativos com Leaflet.js
+- 📊 Dashboard com métricas em tempo real
+- 🔍 Interceptor de API para debug e análise
+- 🧪 Sistema automatizado de testes de API
+- 🌍 Interface totalmente em PT-BR
+- 🌙 Tema dark responsivo
+
+## 📋 Pré-requisitos
+
+- Node.js 18+ 
+- npm ou yarn
+- Conta no Railway com as APIs deployadas
+
+## 🛠️ Instalação
+
+1. Clone o repositório
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/seu-usuario/vep-nextjs.git
+cd vep-nextjs
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Instale as dependências
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Configure as variáveis de ambiente
+```bash
+cp .env.local.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Edite `.env.local` com as URLs das suas APIs Railway:
+```env
+BUN_USERS_SERVICE_URL=https://sua-api-users.railway.app
+BUN_CUSTOMERS_SERVICE_URL=https://sua-api-customers.railway.app
+BUN_DASHBOARD_SERVICE_URL=https://sua-api-dashboard.railway.app
+# ... outras APIs
+```
 
-## Learn More
+5. Execute o projeto
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Acesse http://localhost:3000
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🔑 Credenciais de Acesso
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+Email: admin@veplim.com
+Senha: admin123
+```
 
-## Deploy on Vercel
+## 🗂️ Estrutura do Projeto
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+vep-nextjs/
+├── src/
+│   ├── app/              # Páginas do Next.js (App Router)
+│   ├── components/       # Componentes React reutilizáveis
+│   ├── lib/             # Utilitários e interceptors
+│   └── config/          # Configurações de API
+├── public/              # Assets estáticos
+├── scripts/             # Scripts utilitários
+└── api-test-results/    # Resultados dos testes de API
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🧪 Testes de API
+
+### Interface Web
+Acesse `/api-test` para executar testes pela interface gráfica.
+
+### Linha de Comando
+```bash
+npm run test-apis
+```
+
+Os resultados são salvos em `api-test-results/`.
+
+## 📡 APIs Integradas
+
+- **Users Service**: Autenticação e gestão de usuários/operadores
+- **Customers Service**: Clientes e fornecedores
+- **Dashboard Service**: Pedidos e métricas
+- **Delivery Service**: Entregas e rastreamento
+- **Jornada Produto Service**: Produtos e estoque
+- **UserLog Service**: Auditoria e logs
+- **Vehicles Service**: Veículos de entrega
+- **Audit Service**: Auditoria do sistema
+
+## 🎨 Tecnologias Utilizadas
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Estilização**: Tailwind CSS 4
+- **Mapas**: Leaflet.js
+- **Ícones**: Font Awesome 6
+- **APIs**: REST com Railway/Bun
+- **Autenticação**: JWT
+
+## 📱 Funcionalidades por Página
+
+### Dashboard
+- Métricas de pedidos, clientes e produtos
+- Gráficos de desempenho
+- Alertas e notificações
+
+### Jornada do Pedido
+- Criação e gestão de pedidos
+- Fluxo de separação com scanner
+- Etiquetagem automática
+- Verificação com checklist
+
+### Jornada da Entrega
+- Atribuição de motoristas
+- Otimização de rotas
+- Rastreamento em tempo real
+- Confirmação de entrega com foto
+
+### Jornada do Produto  
+- Recebimento com conferência
+- Processo de higienização
+- Preparação e porcionamento
+- Embalagem com rastreabilidade
+
+## 🔒 Segurança
+
+- Autenticação JWT em todas as rotas
+- Controle de acesso baseado em papéis (RBAC)
+- Interceptor de API para monitoramento
+- Logs de auditoria em todas as ações
+
+## 🤝 Contribuindo
+
+1. Faça um fork do projeto
+2. Crie sua feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto é proprietário da VepLim.
+
+## 📞 Suporte
+
+Para suporte, entre em contato com a equipe de desenvolvimento.
+
+---
+
+Desenvolvido com ❤️ para VepLim
