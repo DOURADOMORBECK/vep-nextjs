@@ -32,5 +32,19 @@ export const API_ENDPOINTS = {
     logs: '/audit/logs',
     logsByUser: (userId: string) => `/audit/logs/user/${userId}`,
     logsByAction: (action: string) => `/audit/logs/action/${action}`,
+  },
+  
+  // Customers API endpoints
+  customers: {
+    all: '/customer',
+    byId: (id: string) => `/customer/${id}`,
+    byCode: (code: string) => `/customer/code/${code}`,
+  },
+  
+  // Suppliers API endpoints (also on customers API)
+  suppliers: {
+    all: '/supplier',
+    byId: (id: string) => `/supplier/${id}`,
+    byCode: (code: string) => `/supplier/code/${code}`,
   }
 };

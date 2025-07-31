@@ -167,6 +167,141 @@ export const api = {
       });
       return response;
     }
+  },
+
+  // Customers API (api-customers-production.up.railway.app)
+  customers: {
+    // GET /customer
+    getAll: async (params?: { active?: boolean; type?: 'PJ' | 'PF'; limit?: number; offset?: number }) => {
+      const queryParams = new URLSearchParams();
+      if (params?.active !== undefined) queryParams.append('active', String(params.active));
+      if (params?.type) queryParams.append('type', params.type);
+      if (params?.limit) queryParams.append('limit', String(params.limit));
+      if (params?.offset) queryParams.append('offset', String(params.offset));
+      
+      const response = await fetchWithInterceptor(
+        `https://api-customers-production.up.railway.app/customer${queryParams.toString() ? '?' + queryParams : ''}`, {
+        headers: getHeaders()
+      });
+      return response;
+    },
+
+    // GET /customer/:id
+    getById: async (id: string) => {
+      const response = await fetchWithInterceptor(
+        `https://api-customers-production.up.railway.app/customer/${id}`, {
+        headers: getHeaders()
+      });
+      return response;
+    },
+
+    // GET /customer/code/:code
+    getByCode: async (code: string) => {
+      const response = await fetchWithInterceptor(
+        `https://api-customers-production.up.railway.app/customer/code/${code}`, {
+        headers: getHeaders()
+      });
+      return response;
+    },
+
+    // POST /customer
+    create: async (data: any) => {
+      const response = await fetchWithInterceptor('https://api-customers-production.up.railway.app/customer', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(data)
+      });
+      return response;
+    },
+
+    // PUT /customer/:id
+    update: async (id: string, data: any) => {
+      const response = await fetchWithInterceptor(
+        `https://api-customers-production.up.railway.app/customer/${id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(data)
+      });
+      return response;
+    },
+
+    // DELETE /customer/:id
+    delete: async (id: string) => {
+      const response = await fetchWithInterceptor(
+        `https://api-customers-production.up.railway.app/customer/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      return response;
+    }
+  },
+
+  // Suppliers API (also uses api-customers-production.up.railway.app)
+  suppliers: {
+    // GET /supplier
+    getAll: async (params?: { active?: boolean; type?: 'PJ' | 'PF'; category?: string; limit?: number; offset?: number }) => {
+      const queryParams = new URLSearchParams();
+      if (params?.active !== undefined) queryParams.append('active', String(params.active));
+      if (params?.type) queryParams.append('type', params.type);
+      if (params?.category) queryParams.append('category', params.category);
+      if (params?.limit) queryParams.append('limit', String(params.limit));
+      if (params?.offset) queryParams.append('offset', String(params.offset));
+      
+      const response = await fetchWithInterceptor(
+        `https://api-customers-production.up.railway.app/supplier${queryParams.toString() ? '?' + queryParams : ''}`, {
+        headers: getHeaders()
+      });
+      return response;
+    },
+
+    // GET /supplier/:id
+    getById: async (id: string) => {
+      const response = await fetchWithInterceptor(
+        `https://api-customers-production.up.railway.app/supplier/${id}`, {
+        headers: getHeaders()
+      });
+      return response;
+    },
+
+    // GET /supplier/code/:code
+    getByCode: async (code: string) => {
+      const response = await fetchWithInterceptor(
+        `https://api-customers-production.up.railway.app/supplier/code/${code}`, {
+        headers: getHeaders()
+      });
+      return response;
+    },
+
+    // POST /supplier
+    create: async (data: any) => {
+      const response = await fetchWithInterceptor('https://api-customers-production.up.railway.app/supplier', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(data)
+      });
+      return response;
+    },
+
+    // PUT /supplier/:id
+    update: async (id: string, data: any) => {
+      const response = await fetchWithInterceptor(
+        `https://api-customers-production.up.railway.app/supplier/${id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(data)
+      });
+      return response;
+    },
+
+    // DELETE /supplier/:id
+    delete: async (id: string) => {
+      const response = await fetchWithInterceptor(
+        `https://api-customers-production.up.railway.app/supplier/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      return response;
+    }
   }
 };
 

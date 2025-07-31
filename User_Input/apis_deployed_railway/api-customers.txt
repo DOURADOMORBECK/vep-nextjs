@@ -1,0 +1,438 @@
+import { Hono } from "hono";
+import postgres from "postgres";
+import { jwtVerify } from "jose";
+
+// --- DB Connection ---
+const db = postgres(process.env.DATABASE_URL!, {
+  ssl: { rejectUnauthorized: false },
+});
+
+// --- JWT secret ---
+const JWT_SECRET = process.env.JWT_SECRET || "my_secret";
+const jwtSecretBytes = new TextEncoder().encode(JWT_SECRET);
+
+// --- App ---
+const app = new Hono();
+
+// --- Cria tabelas se não existirem ---
+await db`
+  CREATE TABLE IF NOT EXISTS customers (
+    id SERIAL PRIMARY KEY,
+    code TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT CHECK (type IN ('PJ', 'PF')) NOT NULL,
+    document TEXT UNIQUE NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT,
+    whatsapp TEXT,
+    address TEXT NOT NULL,
+    number TEXT NOT NULL,
+    complement TEXT,
+    neighborhood TEXT NOT NULL,
+    city TEXT NOT NULL,
+    state TEXT NOT NULL,
+    zip_code TEXT NOT NULL,
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    delivery_notes TEXT,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
+await db`
+  CREATE TABLE IF NOT EXISTS suppliers (
+    id SERIAL PRIMARY KEY,
+    code TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT CHECK (type IN ('PJ', 'PF')) NOT NULL,
+    document TEXT UNIQUE NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT,
+    whatsapp TEXT,
+    address TEXT NOT NULL,
+    number TEXT NOT NULL,
+    complement TEXT,
+    neighborhood TEXT NOT NULL,
+    city TEXT NOT NULL,
+    state TEXT NOT NULL,
+    zip_code TEXT NOT NULL,
+    contact_name TEXT,
+    categories TEXT[],
+    delivery_days TEXT[],
+    payment_terms TEXT,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
+// --- Middleware de autenticação JWT ---
+async function requireAuth(c, next) {
+  const auth = c.req.header("Authorization") || "";
+  const token = auth.replace("Bearer ", "");
+  if (!token) return c.json({ error: "Token não fornecido" }, 401);
+  try {
+    const { payload } = await jwtVerify(token, jwtSecretBytes);
+    c.set("user", payload);
+    await next();
+  } catch {
+    return c.json({ error: "Token inválido ou expirado" }, 401);
+  }
+}
+
+// --- CUSTOMERS ENDPOINTS ---
+
+// Listar todos os clientes
+app.get("/customer", requireAuth, async (c) => {
+  const { active, type, limit, offset } = c.req.query();
+  
+  let query = db`
+    SELECT * FROM customers 
+    WHERE 1=1
+  `;
+  
+  if (active !== undefined) {
+    query = db`${query} AND active = ${active === 'true'}`;
+  }
+  
+  if (type) {
+    query = db`${query} AND type = ${type}`;
+  }
+  
+  query = db`${query} ORDER BY name ASC LIMIT ${limit || 100} OFFSET ${offset || 0}`;
+  
+  const result = await query;
+  return c.json(result);
+});
+
+// Buscar cliente por ID
+app.get("/customer/:id", requireAuth, async (c) => {
+  const { id } = c.req.param();
+  const result = await db`SELECT * FROM customers WHERE id = ${id}`;
+  
+  if (!result.length) {
+    return c.json({ error: "Cliente não encontrado" }, 404);
+  }
+  
+  return c.json(result[0]);
+});
+
+// Buscar cliente por código
+app.get("/customer/code/:code", requireAuth, async (c) => {
+  const { code } = c.req.param();
+  const result = await db`SELECT * FROM customers WHERE code = ${code}`;
+  
+  if (!result.length) {
+    return c.json({ error: "Cliente não encontrado" }, 404);
+  }
+  
+  return c.json(result[0]);
+});
+
+// Criar novo cliente
+app.post("/customer", requireAuth, async (c) => {
+  const data = await c.req.json();
+  
+  // Validação básica
+  const requiredFields = ['code', 'name', 'type', 'document', 'email', 'address', 'number', 'neighborhood', 'city', 'state', 'zip_code'];
+  for (const field of requiredFields) {
+    if (!data[field]) {
+      return c.json({ error: `Campo ${field} é obrigatório` }, 400);
+    }
+  }
+  
+  // Verifica se código ou documento já existe
+  const existing = await db`
+    SELECT id FROM customers 
+    WHERE code = ${data.code} OR document = ${data.document}
+  `;
+  
+  if (existing.length) {
+    return c.json({ error: "Cliente com este código ou documento já existe" }, 400);
+  }
+  
+  try {
+    const [customer] = await db`
+      INSERT INTO customers (
+        code, name, type, document, email, phone, whatsapp,
+        address, number, complement, neighborhood, city, state, zip_code,
+        latitude, longitude, delivery_notes, active
+      ) VALUES (
+        ${data.code}, ${data.name}, ${data.type}, ${data.document}, 
+        ${data.email}, ${data.phone || null}, ${data.whatsapp || null},
+        ${data.address}, ${data.number}, ${data.complement || null}, 
+        ${data.neighborhood}, ${data.city}, ${data.state}, ${data.zip_code},
+        ${data.latitude || null}, ${data.longitude || null}, 
+        ${data.delivery_notes || null}, ${data.active !== false}
+      )
+      RETURNING *
+    `;
+    
+    return c.json(customer, 201);
+  } catch (error) {
+    return c.json({ error: "Erro ao criar cliente" }, 500);
+  }
+});
+
+// Atualizar cliente
+app.put("/customer/:id", requireAuth, async (c) => {
+  const { id } = c.req.param();
+  const data = await c.req.json();
+  
+  // Verifica se cliente existe
+  const existing = await db`SELECT id FROM customers WHERE id = ${id}`;
+  if (!existing.length) {
+    return c.json({ error: "Cliente não encontrado" }, 404);
+  }
+  
+  // Se mudando código ou documento, verifica duplicação
+  if (data.code || data.document) {
+    const duplicate = await db`
+      SELECT id FROM customers 
+      WHERE (code = ${data.code} OR document = ${data.document})
+      AND id != ${id}
+    `;
+    
+    if (duplicate.length) {
+      return c.json({ error: "Código ou documento já em uso" }, 400);
+    }
+  }
+  
+  try {
+    const [updated] = await db`
+      UPDATE customers
+      SET 
+        code = COALESCE(${data.code}, code),
+        name = COALESCE(${data.name}, name),
+        type = COALESCE(${data.type}, type),
+        document = COALESCE(${data.document}, document),
+        email = COALESCE(${data.email}, email),
+        phone = COALESCE(${data.phone}, phone),
+        whatsapp = COALESCE(${data.whatsapp}, whatsapp),
+        address = COALESCE(${data.address}, address),
+        number = COALESCE(${data.number}, number),
+        complement = COALESCE(${data.complement}, complement),
+        neighborhood = COALESCE(${data.neighborhood}, neighborhood),
+        city = COALESCE(${data.city}, city),
+        state = COALESCE(${data.state}, state),
+        zip_code = COALESCE(${data.zip_code}, zip_code),
+        latitude = COALESCE(${data.latitude}, latitude),
+        longitude = COALESCE(${data.longitude}, longitude),
+        delivery_notes = COALESCE(${data.delivery_notes}, delivery_notes),
+        active = COALESCE(${data.active}, active),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+      RETURNING *
+    `;
+    
+    return c.json(updated);
+  } catch (error) {
+    return c.json({ error: "Erro ao atualizar cliente" }, 500);
+  }
+});
+
+// Deletar cliente (soft delete)
+app.delete("/customer/:id", requireAuth, async (c) => {
+  const { id } = c.req.param();
+  
+  const [result] = await db`
+    UPDATE customers 
+    SET active = false, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ${id}
+    RETURNING id
+  `;
+  
+  if (!result) {
+    return c.json({ error: "Cliente não encontrado" }, 404);
+  }
+  
+  return c.json({ message: "Cliente desativado com sucesso" });
+});
+
+// --- SUPPLIERS ENDPOINTS ---
+
+// Listar todos os fornecedores
+app.get("/supplier", requireAuth, async (c) => {
+  const { active, type, category, limit, offset } = c.req.query();
+  
+  let query = db`
+    SELECT * FROM suppliers 
+    WHERE 1=1
+  `;
+  
+  if (active !== undefined) {
+    query = db`${query} AND active = ${active === 'true'}`;
+  }
+  
+  if (type) {
+    query = db`${query} AND type = ${type}`;
+  }
+  
+  if (category) {
+    query = db`${query} AND ${category} = ANY(categories)`;
+  }
+  
+  query = db`${query} ORDER BY name ASC LIMIT ${limit || 100} OFFSET ${offset || 0}`;
+  
+  const result = await query;
+  return c.json(result);
+});
+
+// Buscar fornecedor por ID
+app.get("/supplier/:id", requireAuth, async (c) => {
+  const { id } = c.req.param();
+  const result = await db`SELECT * FROM suppliers WHERE id = ${id}`;
+  
+  if (!result.length) {
+    return c.json({ error: "Fornecedor não encontrado" }, 404);
+  }
+  
+  return c.json(result[0]);
+});
+
+// Buscar fornecedor por código
+app.get("/supplier/code/:code", requireAuth, async (c) => {
+  const { code } = c.req.param();
+  const result = await db`SELECT * FROM suppliers WHERE code = ${code}`;
+  
+  if (!result.length) {
+    return c.json({ error: "Fornecedor não encontrado" }, 404);
+  }
+  
+  return c.json(result[0]);
+});
+
+// Criar novo fornecedor
+app.post("/supplier", requireAuth, async (c) => {
+  const data = await c.req.json();
+  
+  // Validação básica
+  const requiredFields = ['code', 'name', 'type', 'document', 'email', 'address', 'number', 'neighborhood', 'city', 'state', 'zip_code'];
+  for (const field of requiredFields) {
+    if (!data[field]) {
+      return c.json({ error: `Campo ${field} é obrigatório` }, 400);
+    }
+  }
+  
+  // Verifica se código ou documento já existe
+  const existing = await db`
+    SELECT id FROM suppliers 
+    WHERE code = ${data.code} OR document = ${data.document}
+  `;
+  
+  if (existing.length) {
+    return c.json({ error: "Fornecedor com este código ou documento já existe" }, 400);
+  }
+  
+  try {
+    const [supplier] = await db`
+      INSERT INTO suppliers (
+        code, name, type, document, email, phone, whatsapp,
+        address, number, complement, neighborhood, city, state, zip_code,
+        contact_name, categories, delivery_days, payment_terms, active
+      ) VALUES (
+        ${data.code}, ${data.name}, ${data.type}, ${data.document}, 
+        ${data.email}, ${data.phone || null}, ${data.whatsapp || null},
+        ${data.address}, ${data.number}, ${data.complement || null}, 
+        ${data.neighborhood}, ${data.city}, ${data.state}, ${data.zip_code},
+        ${data.contact_name || null}, ${data.categories || []}, 
+        ${data.delivery_days || []}, ${data.payment_terms || null}, 
+        ${data.active !== false}
+      )
+      RETURNING *
+    `;
+    
+    return c.json(supplier, 201);
+  } catch (error) {
+    return c.json({ error: "Erro ao criar fornecedor" }, 500);
+  }
+});
+
+// Atualizar fornecedor
+app.put("/supplier/:id", requireAuth, async (c) => {
+  const { id } = c.req.param();
+  const data = await c.req.json();
+  
+  // Verifica se fornecedor existe
+  const existing = await db`SELECT id FROM suppliers WHERE id = ${id}`;
+  if (!existing.length) {
+    return c.json({ error: "Fornecedor não encontrado" }, 404);
+  }
+  
+  // Se mudando código ou documento, verifica duplicação
+  if (data.code || data.document) {
+    const duplicate = await db`
+      SELECT id FROM suppliers 
+      WHERE (code = ${data.code} OR document = ${data.document})
+      AND id != ${id}
+    `;
+    
+    if (duplicate.length) {
+      return c.json({ error: "Código ou documento já em uso" }, 400);
+    }
+  }
+  
+  try {
+    const [updated] = await db`
+      UPDATE suppliers
+      SET 
+        code = COALESCE(${data.code}, code),
+        name = COALESCE(${data.name}, name),
+        type = COALESCE(${data.type}, type),
+        document = COALESCE(${data.document}, document),
+        email = COALESCE(${data.email}, email),
+        phone = COALESCE(${data.phone}, phone),
+        whatsapp = COALESCE(${data.whatsapp}, whatsapp),
+        address = COALESCE(${data.address}, address),
+        number = COALESCE(${data.number}, number),
+        complement = COALESCE(${data.complement}, complement),
+        neighborhood = COALESCE(${data.neighborhood}, neighborhood),
+        city = COALESCE(${data.city}, city),
+        state = COALESCE(${data.state}, state),
+        zip_code = COALESCE(${data.zip_code}, zip_code),
+        contact_name = COALESCE(${data.contact_name}, contact_name),
+        categories = COALESCE(${data.categories}, categories),
+        delivery_days = COALESCE(${data.delivery_days}, delivery_days),
+        payment_terms = COALESCE(${data.payment_terms}, payment_terms),
+        active = COALESCE(${data.active}, active),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+      RETURNING *
+    `;
+    
+    return c.json(updated);
+  } catch (error) {
+    return c.json({ error: "Erro ao atualizar fornecedor" }, 500);
+  }
+});
+
+// Deletar fornecedor (soft delete)
+app.delete("/supplier/:id", requireAuth, async (c) => {
+  const { id } = c.req.param();
+  
+  const [result] = await db`
+    UPDATE suppliers 
+    SET active = false, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ${id}
+    RETURNING id
+  `;
+  
+  if (!result) {
+    return c.json({ error: "Fornecedor não encontrado" }, 404);
+  }
+  
+  return c.json({ message: "Fornecedor desativado com sucesso" });
+});
+
+// --- Health check ---
+app.get("/", (c) => c.text("API Customers Bun OK 🚀"));
+
+// --- Serve ---
+Bun.serve({
+  fetch: app.fetch,
+  port: Number(process.env.PORT || 3000),
+});
+
+export default app;
