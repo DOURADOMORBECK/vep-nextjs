@@ -25,55 +25,6 @@ export default function UserLogsPage() {
   const [selectedAction, setSelectedAction] = useState('all');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  // Mock data para demonstração
-  const mockLogs: UserLog[] = [
-    {
-      id: '1',
-      userId: 'user-123',
-      userName: 'João Silva',
-      action: 'LOGIN',
-      details: { email: 'joao@veplim.com', role: 'admin' },
-      module: 'AUTH',
-      timestamp: new Date().toISOString(),
-      ip: '192.168.1.100'
-    },
-    {
-      id: '2',
-      userId: 'user-123',
-      userName: 'João Silva',
-      action: 'CREATE_PRODUCT',
-      details: { productName: 'Banana Prata', code: 'BAN001' },
-      module: 'PRODUCTS',
-      timestamp: new Date(Date.now() - 3600000).toISOString()
-    },
-    {
-      id: '3',
-      userId: 'user-456',
-      userName: 'Maria Santos',
-      action: 'UPDATE_ORDER',
-      details: { orderId: 'ORD-2024-001', status: 'confirmed' },
-      module: 'ORDERS',
-      timestamp: new Date(Date.now() - 7200000).toISOString()
-    },
-    {
-      id: '4',
-      userId: 'user-789',
-      userName: 'Pedro Oliveira',
-      action: 'START_DELIVERY',
-      details: { deliveryId: 'DEL-001', route: 'Rota Centro' },
-      module: 'DELIVERY',
-      timestamp: new Date(Date.now() - 10800000).toISOString()
-    },
-    {
-      id: '5',
-      userId: 'user-123',
-      userName: 'João Silva',
-      action: 'DELETE_CLIENT',
-      details: { clientName: 'Cliente Teste', clientId: 'CLI-999' },
-      module: 'CLIENTS',
-      timestamp: new Date(Date.now() - 14400000).toISOString()
-    }
-  ];
 
   useEffect(() => {
     loadLogs();
@@ -86,16 +37,19 @@ export default function UserLogsPage() {
   const loadLogs = async () => {
     setLoading(true);
     try {
-      // Por enquanto usar mock data
-      // TODO: Implementar quando a API UserLogs estiver disponível
-      // const response = await railwayApi.getUserLogs();
-      // const data = await response.json();
-      // setLogs(data);
+      // API UserLogs ainda não está implementada no railwayApi
+      // Por enquanto retornar array vazio até a API estar disponível
+      setLogs([]);
       
-      setLogs(mockLogs);
+      // Quando a API estiver disponível:
+      // const response = await railwayApi.getUserLogs();
+      // if (response.ok) {
+      //   const data = await response.json();
+      //   setLogs(data.logs || []);
+      // }
     } catch (error) {
       console.error('Erro ao carregar logs:', error);
-      setLogs(mockLogs);
+      setLogs([]);
     } finally {
       setLoading(false);
     }
