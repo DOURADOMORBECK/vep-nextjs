@@ -29,9 +29,16 @@ const getAuthToken = () => {
 export const railwayApi = {
   // Autenticação (Users Service)
   async login(email: string, password: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/login'), {
+    const loginUrl = buildUrl(API_CONFIG.AUTH_API, '/login');
+    console.log('Login URL:', loginUrl);
+    console.log('Login payload:', { email: email.toLowerCase(), password: '***' });
+    
+    return fetchWithInterceptor(loginUrl, {
       method: 'POST',
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ 
+        email: email.toLowerCase(), // Garantir que o email está em lowercase
+        password 
+      })
     });
   },
 
