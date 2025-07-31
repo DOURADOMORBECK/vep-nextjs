@@ -34,9 +34,15 @@ export async function POST(request: NextRequest) {
         email: email.toLowerCase(),
         password 
       }),
+    }).catch(error => {
+      console.error('[API Route] Network error:', error);
+      throw new Error('Network error - unable to reach authentication service');
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => {
+      console.error('[API Route] Invalid JSON response');
+      return { error: 'Invalid response from authentication service' };
+    });
 
     if (!response.ok) {
       console.error(`[API Route] Login failed:`, data);

@@ -36,7 +36,12 @@ export async function fetchWithInterceptor(
     for (const [service, proxyPath] of Object.entries(serviceMap)) {
       if (url.includes(service)) {
         const urlParts = new URL(url);
-        proxyUrl = `${proxyPath}${urlParts.pathname}${urlParts.search}`;
+        // Para UserLog API, remova o /logs do pathname já que está no proxyPath
+        if (service === 'api-userlog' && urlParts.pathname === '/logs') {
+          proxyUrl = `${proxyPath}${urlParts.search}`;
+        } else {
+          proxyUrl = `${proxyPath}${urlParts.pathname}${urlParts.search}`;
+        }
         break;
       }
     }
