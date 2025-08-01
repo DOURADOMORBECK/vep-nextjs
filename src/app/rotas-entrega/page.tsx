@@ -15,11 +15,6 @@ export default function RotasEntregaPage() {
   const [selectedRoute, setSelectedRoute] = useState<DeliveryRoute | null>(null);
   const [driverStats, setDriverStats] = useState<DriverStats | null>(null);
 
-  useEffect(() => {
-    fetchRoutes();
-    fetchStats();
-  }, [selectedStatus, selectedDriver, fetchRoutes]);
-
   const fetchRoutes = useCallback(async () => {
     setLoading(true);
     try {
@@ -27,8 +22,11 @@ export default function RotasEntregaPage() {
       if (selectedStatus) params.status = selectedStatus;
       if (selectedDriver) params.driver_id = selectedDriver;
       
-      const data = await railwayApi.getDeliveries(params);
-      setRoutes(data);
+      const response = await railwayApi.getDeliveries(params);
+      if (response.ok) {
+        const data = await response.json();
+        setRoutes(data);
+      }
     } catch (error) {
       console.error('Error fetching routes:', error);
       toast.error('Erro ao buscar rotas');
@@ -39,8 +37,11 @@ export default function RotasEntregaPage() {
 
   const fetchStats = async () => {
     try {
-      const data = await railwayApi.getDeliveryStats();
-      setStats(data);
+      const response = await railwayApi.getDeliveryStats();
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -48,8 +49,11 @@ export default function RotasEntregaPage() {
 
   const fetchDriverStats = async (driverId: string) => {
     try {
-      const data = await railwayApi.getDriverDeliveryStats(driverId);
-      setDriverStats(data);
+      const response = await railwayApi.getDriverDeliveryStats(driverId);
+      if (response.ok) {
+        const data = await response.json();
+        setDriverStats(data);
+      }
     } catch (error) {
       console.error('Error fetching driver stats:', error);
     }
@@ -84,6 +88,11 @@ export default function RotasEntregaPage() {
         return 'fa-question-circle';
     }
   };
+
+  useEffect(() => {
+    fetchRoutes();
+    fetchStats();
+  }, [selectedStatus, selectedDriver, fetchRoutes]);
 
   return (
     <DashboardLayout title="Rotas de Entrega" subtitle="Gestão de Rotas">

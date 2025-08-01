@@ -2,22 +2,45 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 
-// Leaflet types
+// Tipos do Leaflet expandidos
 interface LeafletMap {
   setView: (coords: [number, number], zoom: number) => LeafletMap;
   remove: () => void;
   eachLayer: (fn: (layer: LeafletLayer) => void) => void;
   removeLayer: (layer: LeafletLayer) => void;
   fitBounds: (bounds: [number, number][], options?: Record<string, unknown>) => void;
+  addControl: (control: LeafletControl) => void;
+  on: (event: string, handler: (...args: unknown[]) => void) => void;
 }
 
 interface LeafletLayer {
   options?: { type?: string };
 }
 
-interface LeafletMarker {
+interface LeafletMarker extends LeafletLayer {
   addTo: (map: LeafletMap) => LeafletMarker;
   bindPopup: (content: string) => LeafletMarker;
+  bindTooltip: (content: string, options?: Record<string, unknown>) => LeafletMarker;
+  setIcon: (icon: LeafletIcon) => LeafletMarker;
+  on: (event: string, handler: (...args: unknown[]) => void) => LeafletMarker;
+}
+
+interface LeafletIcon {
+  iconSize: [number, number];
+  iconAnchor: [number, number];
+  popupAnchor: [number, number];
+  shadowSize?: [number, number];
+}
+
+interface LeafletDivIcon extends LeafletIcon {
+  html: string;
+  className: string;
+}
+
+interface LeafletControl {
+  addTo: (map: LeafletMap) => LeafletControl;
+  remove: () => LeafletControl;
+  onAdd?: (map: LeafletMap) => HTMLElement;
 }
 
 interface LeafletPolyline {
@@ -28,18 +51,9 @@ interface LeafletTileLayer {
   addTo: (map: LeafletMap) => LeafletTileLayer;
 }
 
-interface LeafletStatic {
-  map: (element: HTMLElement) => LeafletMap;
-  marker: (coords: [number, number], options?: Record<string, unknown>) => LeafletMarker;
-  tileLayer: (url: string, options?: Record<string, unknown>) => LeafletTileLayer;
-  polyline: (coords: [number, number][], options?: Record<string, unknown>) => LeafletPolyline;
-}
+// LeafletStatic interface is defined in ClientMap.tsx
 
-declare global {
-  interface Window {
-    L: LeafletStatic;
-  }
-}
+// LeafletStatic is already declared globally in ClientMap.tsx
 
 interface DeliveryMapProps {
   orders?: Array<{

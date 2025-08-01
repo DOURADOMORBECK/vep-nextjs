@@ -103,7 +103,12 @@ export default function ProdutosPage() {
     try {
       if (editingProduct) {
         // Atualizar produto via API
-        const response = await railwayApi.updateProduct(editingProduct.id, formData);
+        const response = await railwayApi.updateProduct(editingProduct.id, {
+          nome: formData.name,
+          descricao: formData.description,
+          preco: formData.price,
+          estoque: formData.stock
+        });
         if (response.ok) {
           const updatedProduct = await response.json();
           setProducts(products.map(p => 
@@ -120,7 +125,12 @@ export default function ProdutosPage() {
         }
       } else {
         // Criar novo produto via API
-        const response = await railwayApi.createProduct(formData);
+        const response = await railwayApi.createProduct({
+          nome: formData.name,
+          descricao: formData.description,
+          preco: formData.price,
+          estoque: formData.stock
+        });
         if (response.ok) {
           const newProduct = await response.json();
           setProducts([...products, newProduct]);

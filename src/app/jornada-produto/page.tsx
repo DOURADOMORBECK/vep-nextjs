@@ -16,7 +16,7 @@ interface Product {
 
 export default function JornadaProdutoPage() {
   const [currentStep, setCurrentStep] = useState(1); // 1: Montagem, 2: Embalagem, 3: Verificação Final
-  const [currentItem, setCurrentItem] = useState(0);
+  const [currentItem] = useState(0);
   const [assembledQuantity, setAssembledQuantity] = useState(0);
   const [observations, setObservations] = useState('');
   const [assemblyStartTime] = useState(new Date());
@@ -44,7 +44,7 @@ export default function JornadaProdutoPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await railwayApi.getProducts({ status: 'in_production' });
+      const response = await railwayApi.getProducts();
       if (response.ok) {
         const data = await response.json();
         setProducts(data);
@@ -565,7 +565,7 @@ export default function JornadaProdutoPage() {
             </div>
           </div>
           
-          {progressSteps.map((step, index) => (
+          {progressSteps.map((step) => (
             <div 
               key={step.id}
               className={`p-4 border-b border-gray-700 flex items-center justify-between cursor-pointer ${

@@ -100,7 +100,7 @@ export const searchSchema = z.object({
 // API response validation
 export const apiErrorSchema = z.object({
   error: z.string(),
-  details: z.record(z.string()).optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
   code: z.string().optional()
 });
 
@@ -121,7 +121,7 @@ export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): {
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errors: Record<string, string> = {};
-      error.errors.forEach((err) => {
+      error.issues.forEach((err) => {
         const path = err.path.join('.');
         errors[path] = err.message;
       });

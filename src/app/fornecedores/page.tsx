@@ -136,13 +136,13 @@ export default function FornecedoresPage() {
     }
   };
 
-  const generateSupplierCode = () => {
-    const prefix = 'FOR';
-    const date = new Date();
-    const year = date.getFullYear().toString().slice(-2);
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `${prefix}${year}${random}`;
-  };
+  // const generateSupplierCode = () => {
+  //   const prefix = 'FOR';
+  //   const date = new Date();
+  //   const year = date.getFullYear().toString().slice(-2);
+  //   const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  //   return `${prefix}${year}${random}`;
+  // };
 
   const formatDocument = (doc: string, type: 'PJ' | 'PF') => {
     const cleaned = doc.replace(/\D/g, '');
@@ -197,13 +197,25 @@ export default function FornecedoresPage() {
     e.preventDefault();
     
     try {
+      // Transform data to match API expected format
       const supplierData = {
-        ...formData,
-        code: formData.code || generateSupplierCode(),
-        document: formData.document.replace(/\D/g, ''),
-        phone: formData.phone.replace(/\D/g, ''),
-        whatsapp: formData.whatsapp.replace(/\D/g, ''),
-        zipCode: formData.zipCode.replace(/\D/g, '')
+        tipo_pessoa: formData.type,
+        nome_fantasia: formData.name,
+        razao_social: formData.name,
+        cpf: formData.type === 'PF' ? formData.document.replace(/\D/g, '') : undefined,
+        cnpj: formData.type === 'PJ' ? formData.document.replace(/\D/g, '') : undefined,
+        cep: formData.zipCode.replace(/\D/g, ''),
+        endereco: formData.address,
+        numero: formData.number,
+        complemento: formData.complement,
+        bairro: formData.neighborhood,
+        cidade: formData.city,
+        uf: formData.state,
+        telefone_1: formData.phone.replace(/\D/g, ''),
+        celular: formData.whatsapp.replace(/\D/g, ''),
+        email: formData.email,
+        contato: formData.contact,
+        status: formData.active ? 'ATIVO' : 'INATIVO'
       };
 
       if (editingSupplier) {

@@ -66,7 +66,7 @@ export default function JornadaEntregaPage() {
 
   const fetchPendingOrders = async () => {
     try {
-      const response = await railwayApi.getOrders({ status: 'verified' });
+      const response = await railwayApi.getOrders();
       if (response.ok) {
         const data = await response.json();
         setPendingOrders(data);
@@ -82,7 +82,7 @@ export default function JornadaEntregaPage() {
 
   const fetchVehicles = async () => {
     try {
-      const response = await railwayApi.getVehicles({ status: 'available' });
+      const response = await railwayApi.getVehicles();
       if (response.ok) {
         const data = await response.json();
         setVehicles(data);
@@ -166,7 +166,7 @@ export default function JornadaEntregaPage() {
   const getTotalItems = () => {
     return selectedOrders.reduce((total, orderId) => {
       const order = pendingOrders.find(o => o.id === orderId);
-      return total + (order ? order.items : 0);
+      return total + (order ? Number(order.items) || 0 : 0);
     }, 0);
   };
 
@@ -181,7 +181,7 @@ export default function JornadaEntregaPage() {
       // Create route
       const routeResponse = await railwayApi.createDeliveryRoute({
         route_code: routeCode,
-        driver_id: vehicle?.driver_id,
+        driver_id: vehicle?.driver_id ? Number(vehicle.driver_id) : undefined,
         driver_name: vehicle?.driver,
         vehicle_id: selectedVehicle,
         total_points: selectedOrders.length,
@@ -336,7 +336,7 @@ export default function JornadaEntregaPage() {
                         <div className="flex items-center space-x-4 text-xs text-gray-400">
                           <span><i className="fa-solid fa-box mr-1"></i>{order.items} itens</span>
                           <span><i className="fa-solid fa-weight-hanging mr-1"></i>{order.weight}</span>
-                          <span><i className="fa-solid fa-calendar mr-1"></i>{order.date}</span>
+                          <span><i className="fa-solid fa-truck mr-1"></i>{order.status}</span>
                         </div>
                       </div>
                     </div>
@@ -528,7 +528,7 @@ export default function JornadaEntregaPage() {
                     />
                     <div className="flex-1">
                       <div className="flex justify-between items-center mb-1">
-                        <p className="font-medium text-white">{vehicle.name}</p>
+                        <p className="font-medium text-white">{vehicle.plate}</p>
                         <span className="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">
                           {vehicle.capacity}
                         </span>
@@ -615,7 +615,7 @@ export default function JornadaEntregaPage() {
               <div className="flex justify-between">
                 <span className="text-gray-300">Veículo:</span>
                 <span className="text-white">
-                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.name : 'N/A'}
+                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.plate : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -868,7 +868,7 @@ export default function JornadaEntregaPage() {
               <div className="flex justify-between">
                 <span className="text-gray-300">Veículo utilizado:</span>
                 <span className="text-white">
-                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.name : 'N/A'}
+                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.plate : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -898,7 +898,7 @@ export default function JornadaEntregaPage() {
         <div className="p-6">
           <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto">
             {selectedOrders.map((orderId) => {
-              const order = pendingOrders.find(o => (o as Record<string, unknown>).id === orderId);
+              const order = pendingOrders.find(o => o.id === orderId);
               return order ? (
                 <div key={orderId} className="p-3 bg-green-900/20 border border-green-800 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
@@ -985,7 +985,7 @@ export default function JornadaEntregaPage() {
             <div>
               <span className="text-xs text-gray-400">Veículo</span>
               <div className="font-medium">
-                {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.name : 'Não selecionado'}
+                {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.plate : 'Não selecionado'}
               </div>
             </div>
             <div>

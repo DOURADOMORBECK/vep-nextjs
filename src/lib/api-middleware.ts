@@ -27,7 +27,7 @@ export const AUTH_RATE_LIMIT: RateLimitConfig = {
   maxAttempts: 5,
   keyGenerator: (request) => {
     // Use IP + User-Agent for more granular limiting
-    const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
     return `${ip}:${userAgent.slice(0, 50)}`;
   }
@@ -39,7 +39,7 @@ export const AUTH_RATE_LIMIT: RateLimitConfig = {
 export function rateLimit(config: RateLimitConfig = DEFAULT_RATE_LIMIT) {
   return (request: NextRequest): { allowed: boolean; remaining: number; resetTime: number } => {
     const key = config.keyGenerator ? config.keyGenerator(request) : 
-                 request.ip || request.headers.get('x-forwarded-for') || 'unknown';
+                 request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     
     const now = Date.now();
     const limit = rateLimitStore.get(key);
@@ -80,7 +80,7 @@ export function rateLimit(config: RateLimitConfig = DEFAULT_RATE_LIMIT) {
 /**
  * API middleware wrapper that handles common concerns
  */
-export function withApiMiddleware<T = any>(
+export function withApiMiddleware<T = unknown>(
   handler: (request: NextRequest, validatedData?: T) => Promise<NextResponse>,
   options: {
     validationSchema?: z.ZodSchema<T>;
@@ -91,7 +91,7 @@ export function withApiMiddleware<T = any>(
 ) {
   return async (request: NextRequest): Promise<NextResponse> => {
     const origin = request.headers.get('origin');
-    const corsHeaders = createCorsHeaders(origin);
+    const corsHeaders = createCorsHeaders(origin || null);
     
     try {
       // Ensure startup validation has been performed
@@ -157,7 +157,7 @@ export function withApiMiddleware<T = any>(
           }
           
           validatedData = validation.data;
-        } catch (jsonError) {
+        } catch {
           return NextResponse.json(
             { error: 'JSON inválido' },
             { status: 400, headers: corsHeaders }
@@ -197,10 +197,10 @@ export function withApiMiddleware<T = any>(
 export function createErrorResponse(
   message: string,
   status: number = 400,
-  details?: Record<string, any>,
+  details?: Record<string, unknown>,
   origin?: string | null
 ): NextResponse {
-  const corsHeaders = createCorsHeaders(origin);
+  const corsHeaders = createCorsHeaders(origin || null);
   
   return NextResponse.json(
     { 
@@ -215,12 +215,12 @@ export function createErrorResponse(
  * Success response helper
  */
 export function createSuccessResponse(
-  data: any,
+  data: unknown,
   message?: string,
   status: number = 200,
   origin?: string | null
 ): NextResponse {
-  const corsHeaders = createCorsHeaders(origin);
+  const corsHeaders = createCorsHeaders(origin || null);
   
   return NextResponse.json(
     {

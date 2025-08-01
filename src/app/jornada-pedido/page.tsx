@@ -32,7 +32,7 @@ export default function JornadaPedidoPage() {
   const [labelingQuantity, setLabelingQuantity] = useState(0);
   const [verificationStatus, setVerificationStatus] = useState('pending'); // pending, approved, blocked
   const [hasDiscrepancy, setHasDiscrepancy] = useState(false);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -48,7 +48,7 @@ export default function JornadaPedidoPage() {
 
   const fetchOrders = async () => {
     try {
-      const response = await railwayApi.getOrders({ status: 'pending' });
+      const response = await railwayApi.getOrders();
       if (response.ok) {
         const data = await response.json();
         setOrders(data);

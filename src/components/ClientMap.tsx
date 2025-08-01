@@ -17,7 +17,12 @@ interface LeafletLayer {
   options?: { type?: string };
 }
 
-interface LeafletMarker {
+interface LeafletLayerGroup extends LeafletLayer {
+  addTo: (map: LeafletMap) => LeafletLayerGroup;
+  addLayer: (layer: LeafletLayer) => void;
+}
+
+interface LeafletMarker extends LeafletLayer {
   addTo: (map: LeafletMap) => LeafletMarker;
   bindPopup: (content: string) => LeafletMarker;
   bindTooltip: (content: string, options?: Record<string, unknown>) => LeafletMarker;
@@ -40,6 +45,7 @@ interface LeafletDivIcon extends LeafletIcon {
 interface LeafletControl {
   addTo: (map: LeafletMap) => LeafletControl;
   remove: () => LeafletControl;
+  onAdd?: (map: LeafletMap) => HTMLElement;
 }
 
 interface LeafletPolyline {
@@ -50,9 +56,6 @@ interface LeafletTileLayer {
   addTo: (map: LeafletMap) => LeafletTileLayer;
 }
 
-interface LeafletControl {
-  addTo: (map: LeafletMap) => void;
-}
 
 interface LeafletStatic {
   map: (element: HTMLElement) => LeafletMap;
@@ -63,8 +66,11 @@ interface LeafletStatic {
   icon: (options: Partial<LeafletIcon>) => LeafletIcon;
   control: {
     layers: (baseLayers?: Record<string, LeafletLayer>, overlays?: Record<string, LeafletLayer>, options?: Record<string, unknown>) => LeafletControl;
+  } & ((options?: Record<string, unknown>) => LeafletControl);
+  DomUtil: {
+    create: (tagName: string, className?: string) => HTMLElement;
   };
-  layerGroup: () => LeafletLayer;
+  layerGroup: () => LeafletLayerGroup;
 }
 
 declare global {
@@ -120,7 +126,7 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
       }).addTo(mapInstanceRef.current);
 
       // Adiciona controles
-      const layerControl = window.L.control.layers(null, null, {
+      const layerControl = window.L.control.layers({}, {}, {
         position: 'topright'
       });
       layerControl.addTo(mapInstanceRef.current);
@@ -128,7 +134,7 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
       // Adiciona clientes ao mapa
       addClientsToMap();
     }
-  }, [clients]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const createClientIcon = (client: Client) => {
     const color = client.type === 'PJ' ? '#3b82f6' : '#8b5cf6'; // Azul para PJ, Roxo para PF
@@ -151,42 +157,42 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
     });
   };
 
-  // Criar ícone de cluster customizado
-  const createClusterIcon = (cluster: { getChildCount: () => number }) => {
-    const count = cluster.getChildCount();
-    let size = 'small';
-    let bgColor = '#22c55e';
-    
-    if (count > 10) {
-      size = 'medium';
-      bgColor = '#f59e0b';
-    }
-    if (count > 20) {
-      size = 'large';
-      bgColor = '#ef4444';
-    }
-    
-    const container = document.createElement('div');
-    container.className = `cluster-marker cluster-${size}`;
-    container.style.backgroundColor = bgColor;
-    
-    const span = document.createElement('span');
-    span.textContent = count.toString();
-    container.appendChild(span);
-    
-    return window.L.divIcon({
-      html: container.outerHTML,
-      className: 'custom-cluster-marker',
-      iconSize: size === 'small' ? [30, 30] : size === 'medium' ? [35, 35] : [40, 40]
-    });
-  };
+  // Criar ícone de cluster customizado - função removida por não estar sendo usada
+  // const createClusterIcon = (cluster: { getChildCount: () => number }) => {
+  //   const count = cluster.getChildCount();
+  //   let size = 'small';
+  //   let bgColor = '#22c55e';
+  //   
+  //   if (count > 10) {
+  //     size = 'medium';
+  //     bgColor = '#f59e0b';
+  //   }
+  //   if (count > 20) {
+  //     size = 'large';
+  //     bgColor = '#ef4444';
+  //   }
+  //   
+  //   const container = document.createElement('div');
+  //   container.className = `cluster-marker cluster-${size}`;
+  //   container.style.backgroundColor = bgColor;
+  //   
+  //   const span = document.createElement('span');
+  //   span.textContent = count.toString();
+  //   container.appendChild(span);
+  //   
+  //   return window.L.divIcon({
+  //     html: container.outerHTML,
+  //     className: 'custom-cluster-marker',
+  //     iconSize: size === 'small' ? [30, 30] : size === 'medium' ? [35, 35] : [40, 40]
+  //   });
+  // };
 
   const addClientsToMap = useCallback(() => {
     if (!mapInstanceRef.current || !window.L) return;
 
     // Limpa marcadores existentes
     markersRef.current.forEach(marker => {
-      mapInstanceRef.current!.removeLayer(marker);
+      mapInstanceRef.current!.removeLayer(marker as LeafletLayer);
     });
     markersRef.current = [];
 
@@ -297,11 +303,12 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
         offset: [0, -32]
       });
 
-      // Adiciona ao grupo correto
+      // Adiciona ao mapa e grupo correto
+      marker.addTo(mapInstanceRef.current!);
       if (client.type === 'PJ') {
-        marker.addTo(clientesPJ);
+        clientesPJ.addLayer(marker);
       } else {
-        marker.addTo(clientesPF);
+        clientesPF.addLayer(marker);
       }
 
       markersRef.current.push(marker);
@@ -455,7 +462,7 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
         delete (window as typeof window & { handleClientEdit?: (clientId: string) => void }).handleClientEdit;
       }
     };
-  }, [initializeMap]);
+  }, [initializeMap, clients, onClientClick]);
 
   useEffect(() => {
     if (mapInstanceRef.current) {

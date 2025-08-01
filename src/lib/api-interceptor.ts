@@ -1,3 +1,50 @@
+// Enhanced error handling with user-friendly messages
+async function getErrorMessage(response: Response): Promise<string> {
+  try {
+    const contentType = response.headers.get('content-type');
+    let errorDetails = '';
+    
+    if (contentType && contentType.includes('application/json')) {
+      const errorData = await response.json();
+      errorDetails = errorData.message || errorData.error || errorData.details || '';
+    } else {
+      errorDetails = await response.text();
+    }
+    
+    // Map common HTTP status codes to user-friendly messages
+    switch (response.status) {
+      case 400:
+        return `Dados inválidos: ${errorDetails || 'Verifique os dados enviados'}`;
+      case 401:
+        return 'Sessão expirada. Faça login novamente.';
+      case 403:
+        return 'Acesso negado. Você não tem permissão para esta operação.';
+      case 404:
+        return 'Recurso não encontrado. Verifique se os dados estão corretos.';
+      case 408:
+        return 'Tempo limite da requisição excedido. Tente novamente.';
+      case 409:
+        return `Conflito: ${errorDetails || 'Dados já existem ou estão em uso'}`;
+      case 422:
+        return `Dados inválidos: ${errorDetails || 'Verifique os campos obrigatórios'}`;
+      case 429:
+        return 'Muitas tentativas. Aguarde um momento e tente novamente.';
+      case 500:
+        return 'Erro interno do servidor. Tente novamente em alguns minutos.';
+      case 502:
+        return 'Serviço temporariamente indisponível. Tente novamente.';
+      case 503:
+        return 'Serviço em manutenção. Tente novamente em alguns minutos.';
+      case 504:
+        return 'Tempo limite do servidor excedido. Tente novamente.';
+      default:
+        return `Erro ${response.status}: ${errorDetails || 'Erro desconhecido'}`;
+    }
+  } catch {
+    return `Erro ${response.status}: Falha na comunicação com o servidor`;
+  }
+}
+
 // Função simples para fazer chamadas às APIs com timeout
 export async function fetchWithInterceptor(
   url: string,
@@ -68,12 +115,25 @@ export async function fetchWithInterceptor(
         signal: controller.signal
       });
       clearTimeout(timeoutId);
+      
+      // Enhanced error handling with user-friendly messages
+      if (!response.ok) {
+        const errorMessage = await getErrorMessage(response);
+        throw new Error(errorMessage);
+      }
+      
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(`Request timeout after ${timeout}ms: ${proxyUrl}`);
+        throw new Error(`Tempo limite excedido (${timeout/1000}s). Verifique sua conexão e tente novamente.`);
       }
+      
+      // Network errors
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Erro de conexão. Verifique sua conexão com a internet e tente novamente.');
+      }
+      
       throw error;
     }
   }
@@ -85,12 +145,25 @@ export async function fetchWithInterceptor(
       signal: controller.signal
     });
     clearTimeout(timeoutId);
+    
+    // Enhanced error handling with user-friendly messages
+    if (!response.ok) {
+      const errorMessage = await getErrorMessage(response);
+      throw new Error(errorMessage);
+    }
+    
     return response;
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`Request timeout after ${timeout}ms: ${url}`);
+      throw new Error(`Tempo limite excedido (${timeout/1000}s). Verifique sua conexão e tente novamente.`);
     }
+    
+    // Network errors
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Erro de conexão. Verifique sua conexão com a internet e tente novamente.');
+    }
+    
     throw error;
   }
 }
@@ -110,11 +183,11 @@ export const TIMEOUTS = {
 
 // Função helper para obter token - será enviado automaticamente pelos cookies
 // Mantida por compatibilidade mas retorna null pois agora usamos httpOnly cookies
-const getAuthToken = () => {
-  // Token agora é gerenciado via httpOnly cookies
-  // Esta função é mantida por compatibilidade mas não é mais necessária
-  return null;
-};
+// const getAuthToken = () => {
+//   // Token agora é gerenciado via httpOnly cookies
+//   // Esta função é mantida por compatibilidade mas não é mais necessária
+//   return null;
+// };
 
 // API Railway Real - Integração com APIs deployadas (Bun Services)
 export const railwayApi = {
@@ -530,7 +603,7 @@ export const railwayApi = {
     });
   },
   
-  async createOperator(data: unknown) {
+  async createOperator(data: Record<string, unknown>) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, '/users'), {
       method: 'POST',
       headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
@@ -539,7 +612,7 @@ export const railwayApi = {
     });
   },
   
-  async updateOperator(id: string, data: unknown) {
+  async updateOperator(id: string, data: Record<string, unknown>) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, `/users/${id}`), {
       method: 'PUT',
       headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
@@ -556,13 +629,7 @@ export const railwayApi = {
     });
   },
 
-  // Fornecedores (Customers Service)
-  async getSuppliers() {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, '/supplier'), {
-      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
-      credentials: 'include' as RequestCredentials
-    });
-  },
+  // Duplicate getSuppliers function removed - using the one with filters at line 377
 
   // Dashboard Stats
   async getDashboardStats() {
@@ -621,38 +688,9 @@ export const railwayApi = {
     });
   },
   
-  async getSupplier(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/supplier/${id}`), {
-      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
-      credentials: 'include' as RequestCredentials
-    });
-  },
+  // Duplicate getSupplier function removed - using the one at line 391
   
-  async createSupplier(data: unknown) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, '/supplier'), {
-      method: 'POST',
-      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
-      credentials: 'include' as RequestCredentials,
-      body: JSON.stringify(data)
-    });
-  },
-  
-  async updateSupplier(id: string, data: unknown) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/supplier/${id}`), {
-      method: 'PUT',
-      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
-      credentials: 'include' as RequestCredentials,
-      body: JSON.stringify(data)
-    });
-  },
-  
-  async deleteSupplier(id: string) {
-    return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/supplier/${id}`), {
-      method: 'DELETE',
-      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
-      credentials: 'include' as RequestCredentials
-    });
-  },
+  // Duplicate supplier functions removed - using the typed ones at lines 398-420
 
   // Entregas (Delivery Service)
   async getDeliveries(params?: { status?: string; driver_id?: string; limit?: number; offset?: number }) {

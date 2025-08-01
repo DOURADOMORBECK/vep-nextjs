@@ -108,7 +108,7 @@ export default function UsuariosPage() {
     e.preventDefault();
     
     try {
-      const userData = {
+      let userData = {
         ...formData,
         cpf: formData.cpf.replace(/\D/g, ''),
         phone: formData.phone.replace(/\D/g, '')
@@ -117,7 +117,7 @@ export default function UsuariosPage() {
       if (editingUser) {
         // Não enviar senha se não foi alterada
         if (!userData.password) {
-          const { password, ...dataWithoutPassword } = userData;
+          const { password: _password, ...dataWithoutPassword } = userData; // eslint-disable-line @typescript-eslint/no-unused-vars
           userData = dataWithoutPassword as typeof userData;
         }
         

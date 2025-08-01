@@ -134,12 +134,13 @@ export default function OperadoresPage() {
 
       if (editingOperator) {
         // Não enviar senha se não foi alterada
+        let finalOperatorData = operatorData;
         if (!operatorData.password) {
-          const { password, ...dataWithoutPassword } = operatorData;
-          operatorData = dataWithoutPassword as typeof operatorData;
+          const { password: _password, ...dataWithoutPassword } = operatorData; // eslint-disable-line @typescript-eslint/no-unused-vars
+          finalOperatorData = dataWithoutPassword as typeof operatorData;
         }
         
-        const response = await railwayApi.updateOperator(editingOperator.id, operatorData);
+        const response = await railwayApi.updateOperator(editingOperator.id, finalOperatorData);
         if (response.ok) {
           const updatedOperator = await response.json();
           setOperators(operators.map(o => o.id === editingOperator.id ? updatedOperator : o));
