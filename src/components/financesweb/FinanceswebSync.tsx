@@ -156,15 +156,15 @@ export function FinanceswebSync() {
                   {result.status === 'success' ? (
                     <div className="grid grid-cols-3 gap-2 text-sm">
                       <div>
-                        <span className="text-muted-foreground">Inseridos:</span>{' '}
+                        <span className="text-gray-500">Inseridos:</span>{' '}
                         <span className="font-medium">{result.inseridos || 0}</span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Atualizados:</span>{' '}
+                        <span className="text-gray-500">Atualizados:</span>{' '}
                         <span className="font-medium">{result.atualizados || 0}</span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Erros:</span>{' '}
+                        <span className="text-gray-500">Erros:</span>{' '}
                         <span className="font-medium">{result.erros || 0}</span>
                       </div>
                     </div>
