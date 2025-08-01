@@ -97,3 +97,7 @@ hive-mind-prompt-*.txt
 *.cache
 *.swarm
 *.agent-state
+
+
+# user_input directory
+/user_input/
