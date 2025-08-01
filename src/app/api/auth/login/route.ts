@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const isRailwayProduction = process.env.RAILWAY_ENV === 'production';
     // Fallback to public URL if internal fails
     const publicUrl = 'https://api-users-production-54ed.up.railway.app/login';
-    const internalUrl = 'http://api-users.railway.internal:3000/login';
+    const internalUrl = 'http://api-users.railway.internal:8080/login';
     const apiUrl = isRailwayProduction ? internalUrl : publicUrl;
 
     console.log(`[API Route] Login attempt for: ${email}`);

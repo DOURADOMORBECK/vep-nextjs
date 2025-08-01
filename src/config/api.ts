@@ -73,61 +73,61 @@ const DEV_API_URLS = {
 const PROD_API_URLS = {
   AUTH_API: configureApiUrl(
     process.env.BUN_USERS_SERVICE_URL,
-    'http://api-users.railway.internal',
+    'http://api-users.railway.internal:8080',
     'Users API',
     false
   ),
   PRODUCTS_API: configureApiUrl(
     process.env.BUN_JORNADA_PRODUTO_SERVICE_URL,
-    'http://api-jornada-produto.railway.internal',
+    'http://api-jornada-produto.railway.internal:8080',
     'Products API',
     false
   ),
   CLIENTS_API: configureApiUrl(
     process.env.BUN_CUSTOMERS_SERVICE_URL,
-    'http://api-customers.railway.internal',
+    'http://api-customers.railway.internal:8080',
     'Customers API',
     false
   ),
   ORDERS_API: configureApiUrl(
     process.env.BUN_DASHBOARD_SERVICE_URL,
-    'http://api-dashboard.railway.internal',
+    'http://api-dashboard.railway.internal:8080',
     'Dashboard API',
     false
   ),
   OPERATORS_API: configureApiUrl(
     process.env.BUN_USERS_SERVICE_URL,
-    'http://api-users.railway.internal',
+    'http://api-users.railway.internal:8080',
     'Operators API (Users)',
     false
   ),
   SUPPLIERS_API: configureApiUrl(
     process.env.BUN_CUSTOMERS_SERVICE_URL,
-    'http://api-customers.railway.internal',
+    'http://api-customers.railway.internal:8080',
     'Suppliers API (Customers)',
     false
   ),
   USERLOGS_API: configureApiUrl(
     process.env.BUN_USERLOG_SERVICE_URL,
-    'http://api-userlog.railway.internal',
+    'http://api-userlog.railway.internal:8080',
     'UserLog API',
     false
   ),
   DELIVERY_API: configureApiUrl(
     process.env.BUN_DELIVERY_SERVICE_URL,
-    'http://api-delivery.railway.internal',
+    'http://api-delivery.railway.internal:8080',
     'Delivery API',
     false
   ),
   AUDIT_API: configureApiUrl(
     process.env.BUN_AUDIT_SERVICE_URL,
-    'http://api-audit.railway.internal',
+    'http://api-audit.railway.internal:8080',
     'Audit API',
     false
   ),
   VEHICLES_API: configureApiUrl(
     process.env.BUN_VEHICLES_SERVICE_URL,
-    'http://api-vehicles.railway.internal',
+    'http://api-vehicles.railway.internal:8080',
     'Vehicles API',
     false
   ),
