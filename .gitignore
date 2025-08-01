@@ -99,5 +99,5 @@ hive-mind-prompt-*.txt
 *.agent-state
 
 
-# user_input directory
-/user_input/
+# User_Input directory
+/User_Input/
