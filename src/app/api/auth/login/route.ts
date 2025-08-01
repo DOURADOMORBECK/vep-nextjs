@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createCorsHeaders } from '@/config/cors';
 import { loginSchema, sanitizeEmail, type LoginRequest } from '@/lib/validation';
 import { withApiMiddleware, AUTH_RATE_LIMIT, createErrorResponse } from '@/lib/api-middleware';
-import { API_CONFIG, buildUrl } from '@/config/api';
+import { UserService } from '@/services/database/userService';
+import { createToken, setAuthCookies } from '@/lib/auth';
 
 export async function OPTIONS(request: NextRequest) {
   const origin = request.headers.get('origin');
@@ -24,133 +25,89 @@ async function loginHandler(request: NextRequest, validatedData?: LoginRequest):
   const { email, password } = validatedData;
   const sanitizedEmail = sanitizeEmail(email);
 
-    // Use centralized API configuration
-    const isRailwayProduction = process.env.RAILWAY_ENV === 'production';
-    const apiUrl = buildUrl(API_CONFIG.AUTH_API, '/login');
-    const fallbackUrl = isRailwayProduction 
-      ? 'https://api-users-production-54ed.up.railway.app/login'
-      : apiUrl;
+  console.log(`[API Route] Login attempt for: ${sanitizedEmail}`);
 
-    console.log(`[API Route] Login attempt for: ${sanitizedEmail}`);
-    console.log(`[API Route] Using API URL: ${apiUrl}`);
-    console.log(`[API Route] Environment:`, { NODE_ENV: process.env.NODE_ENV, RAILWAY_ENV: process.env.RAILWAY_ENV, isRailwayProduction });
-
-    let response;
+  try {
+    // Check login attempts
     try {
-      // Implementar timeout de 30 segundos
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos
-      
-      response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          email: sanitizedEmail,
-          password 
-        }),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-    } catch (fetchError: unknown) {
-      console.error('[API Route] Network error:', fetchError);
-      
-      // Se estamos em produção e a URL interna falhou, tenta a pública
-      if (isRailwayProduction && apiUrl !== fallbackUrl) {
-        console.log('[API Route] Internal URL failed, trying public URL...');
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000);
-          
-          response = await fetch(fallbackUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-              email: sanitizedEmail,
-              password 
-            }),
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
-        } catch (fallbackError: unknown) {
-          console.error('[API Route] Fallback to public URL also failed:', fallbackError);
-          
-          if (fallbackError instanceof Error && fallbackError.name === 'AbortError') {
-            return NextResponse.json(
-              { error: 'A requisição demorou muito para responder. Por favor, tente novamente.' },
-              { status: 504, headers: corsHeaders }
-            );
-          }
-          
-          return NextResponse.json(
-            { error: 'Não foi possível conectar ao servidor de autenticação. Por favor, tente novamente.' },
-            { status: 503, headers: corsHeaders }
-          );
-        }
-      } else {
-        // Não estamos em produção ou já tentamos a URL pública
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          return NextResponse.json(
-            { error: 'A requisição demorou muito para responder. Por favor, tente novamente.' },
-            { status: 504, headers: corsHeaders }
-          );
-        }
-        
-        return NextResponse.json(
-          { error: 'Não foi possível conectar ao servidor de autenticação. Por favor, tente novamente.' },
-          { status: 503, headers: corsHeaders }
-        );
-      }
-    }
-
-    let data;
-    try {
-      const text = await response.text();
-      console.log(`[API Route] Response text:`, text);
-      data = text ? JSON.parse(text) : {};
-    } catch (parseError) {
-      console.error('[API Route] JSON parse error:', parseError);
-      data = { error: 'Resposta inválida do servidor' };
-    }
-
-    if (!response.ok) {
-      console.error(`[API Route] Login failed:`, data);
+      await UserService.checkLoginAttempts(sanitizedEmail);
+    } catch (error: any) {
       return NextResponse.json(
-        { error: data.error || 'Credenciais inválidas' },
-        { 
-          status: response.status,
-          headers: corsHeaders
-        }
+        { error: error.message },
+        { status: 429, headers: corsHeaders }
       );
     }
+
+    // Find user by email
+    const user = await UserService.findByEmail(sanitizedEmail);
+    
+    if (!user || !user.is_active) {
+      await UserService.incrementLoginAttempts(sanitizedEmail);
+      return NextResponse.json(
+        { error: 'Usuário ou senha inválidos' },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    // Verify password
+    const validPassword = await UserService.verifyPassword(user, password);
+    
+    if (!validPassword) {
+      await UserService.incrementLoginAttempts(sanitizedEmail);
+      return NextResponse.json(
+        { error: 'Usuário ou senha inválidos' },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    // Reset login attempts on successful login
+    await UserService.resetLoginAttempts(user.id);
+
+    // Create JWT token
+    const token = await createToken({
+      id: user.id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role || 'user',
+    });
 
     console.log(`[API Route] Login successful for: ${sanitizedEmail}`);
-    // Ensure we have the expected structure
-    if (!data.token || !data.user) {
-      console.error('[API Route] Invalid success response structure:', data);
-      return NextResponse.json(
-        { error: 'Resposta inválida do servidor de autenticação' },
-        { status: 500, headers: corsHeaders }
-      );
-    }
     
-    // Import auth utilities
-    const { setAuthCookies } = await import('@/lib/auth');
+    // Create response data
+    const responseData = {
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role || 'user',
+        is_active: user.is_active,
+        last_login: user.last_login
+      },
+      message: 'Login realizado com sucesso'
+    };
     
     // Create response with auth data
-    const loginResponse = NextResponse.json(data, {
+    const loginResponse = NextResponse.json(responseData, {
       headers: corsHeaders
     });
     
     // Set secure httpOnly cookies
-    setAuthCookies(loginResponse, data.token, data.user);
+    setAuthCookies(loginResponse, token, {
+      id: user.id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role || 'user',
+    });
     
     return loginResponse;
+  } catch (error) {
+    console.error('[API Route] Login error:', error);
+    return NextResponse.json(
+      { error: 'Erro ao realizar login' },
+      { status: 500, headers: corsHeaders }
+    );
+  }
 }
 
 // Export the wrapped handler with middleware

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import UnifiedSearch from '@/components/UnifiedSearch';
-import { railwayApi } from '@/lib/api-interceptor';
+import { getDashboardStats } from './actions';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -20,14 +20,13 @@ export default function DashboardPage() {
 
   const fetchDashboardStats = async () => {
     try {
-      const response = await railwayApi.getDashboardStats();
-      if (response.ok) {
-        const data = await response.json();
+      const result = await getDashboardStats();
+      if (result.success && result.data) {
         setStats({
-          activeOrders: data.orders?.active || 0,
-          deliveriesInProgress: data.deliveries?.in_progress || 0,
-          activeOperators: data.operators?.active || 0,
-          totalProducts: data.products?.total || 0
+          activeOrders: result.data.orders?.active || 0,
+          deliveriesInProgress: result.data.deliveries?.in_progress || 0,
+          activeOperators: result.data.operators?.active || 0,
+          totalProducts: result.data.products?.total || 0
         });
       }
     } catch (error) {
@@ -103,21 +102,21 @@ export default function DashboardPage() {
             <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Ações Rápidas</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-gray-700 rounded-lg text-center hover:bg-gray-600 cursor-pointer transition-colors">
+                <a href="/jornada-pedido" className="p-4 bg-gray-700 rounded-lg text-center hover:bg-gray-600 cursor-pointer transition-colors">
                   <i className="fa-solid fa-box-open text-primary-400 text-2xl mb-2"></i>
                   <p className="text-white font-medium">Jornada do Pedido</p>
                   <p className="text-gray-400 text-sm">Gerir processos de pedidos</p>
-                </div>
-                <div className="p-4 bg-gray-700 rounded-lg text-center hover:bg-gray-600 cursor-pointer transition-colors">
+                </a>
+                <a href="/jornada-entrega" className="p-4 bg-gray-700 rounded-lg text-center hover:bg-gray-600 cursor-pointer transition-colors">
                   <i className="fa-solid fa-truck text-primary-400 text-2xl mb-2"></i>
                   <p className="text-white font-medium">Jornada da Entrega</p>
                   <p className="text-gray-400 text-sm">Controlar entregas</p>
-                </div>
-                <div className="p-4 bg-gray-700 rounded-lg text-center hover:bg-gray-600 cursor-pointer transition-colors">
+                </a>
+                <a href="/jornada-produto" className="p-4 bg-gray-700 rounded-lg text-center hover:bg-gray-600 cursor-pointer transition-colors">
                   <i className="fa-solid fa-industry text-primary-400 text-2xl mb-2"></i>
                   <p className="text-white font-medium">Jornada do Produto</p>
                   <p className="text-gray-400 text-sm">Rastrear produção</p>
-                </div>
+                </a>
               </div>
             </div>
           </div>

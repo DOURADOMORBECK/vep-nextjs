@@ -10,14 +10,18 @@
     "build:production": "NODE_ENV=production next build"
   },
   "dependencies": {
+    "@types/bcryptjs": "2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/leaflet": "^1.9.20",
     "@types/lodash": "^4.17.20",
+    "@types/pg": "8.15.5",
+    "bcryptjs": "3.0.2",
     "jose": "^6.0.12",
     "jsonwebtoken": "^9.0.2",
     "leaflet": "^1.9.4",
     "lodash": "^4.17.21",
     "next": "15.4.5",
+    "pg": "8.16.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hot-toast": "^2.5.2",

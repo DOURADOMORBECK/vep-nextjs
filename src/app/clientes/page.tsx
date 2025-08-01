@@ -3,38 +3,17 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import dynamic from 'next/dynamic';
+import { getClients, createClient, updateClient, deleteClient, type ClientData } from './actions';
 
 // Importar mapa dinamicamente para evitar SSR issues
 const ClientMap = dynamic(() => import('@/components/ClientMap'), { ssr: false });
 
-interface Client {
-  id: string;
-  code: string;
-  name: string;
-  type: 'PF' | 'PJ'; // Pessoa Física ou Jurídica
-  document: string; // CPF ou CNPJ
-  email: string;
-  phone: string;
-  whatsapp: string;
-  address: string;
-  number: string;
-  complement: string;
-  neighborhood: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  latitude: number;
-  longitude: number;
-  deliveryNotes: string;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+// Use ClientData type from actions instead of defining Client interface
 
 export default function ClientesPage() {
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ClientData[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editingClient, setEditingClient] = useState<ClientData | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [showMap, setShowMap] = useState(false);
@@ -68,14 +47,21 @@ export default function ClientesPage() {
     logUserAction('VIEW_CLIENTS_PAGE');
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchClients();
+    }, 300); // Debounce search
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const fetchClients = async () => {
     try {
-      const response = await fetch('/api/proxy/customers/customers');
-      if (response.ok) {
-        const data = await response.json();
-        setClients(data);
+      const result = await getClients(searchTerm);
+      if (result.success && result.data) {
+        setClients(result.data);
       } else {
-        console.error('Failed to fetch clients');
+        console.error('Failed to fetch clients:', result.error);
       }
     } catch (error) {
       console.error('Error fetching clients:', error);
@@ -168,29 +154,41 @@ export default function ClientesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingClient) {
-      const updatedClients = clients.map(c => 
-        c.id === editingClient.id 
-          ? { ...c, ...formData, updatedAt: new Date().toISOString() }
-          : c
-      );
-      setClients(updatedClients);
-      logUserAction('UPDATE_CLIENT', { clientId: editingClient.id, ...formData });
-    } else {
-      const newClient: Client = {
-        id: Date.now().toString(),
-        ...formData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      setClients([...clients, newClient]);
-      logUserAction('CREATE_CLIENT', newClient);
+    try {
+      if (editingClient) {
+        const result = await updateClient(editingClient.id, formData);
+        if (result.success && result.data) {
+          const updatedClients = clients.map(c => 
+            c.id === editingClient.id ? result.data : c
+          );
+          setClients(updatedClients);
+          logUserAction('UPDATE_CLIENT', { clientId: editingClient.id, ...formData });
+        } else {
+          console.error('Failed to update client:', result.error);
+          alert('Erro ao atualizar cliente');
+        }
+      } else {
+        const result = await createClient({
+          ...formData,
+          code: formData.code || Date.now().toString()
+        });
+        if (result.success && result.data) {
+          setClients([...clients, result.data]);
+          logUserAction('CREATE_CLIENT', result.data);
+        } else {
+          console.error('Failed to create client:', result.error);
+          alert('Erro ao criar cliente');
+        }
+      }
+      
+      handleCloseModal();
+    } catch (error) {
+      console.error('Error submitting client:', error);
+      alert('Erro ao processar solicitação');
     }
-    
-    handleCloseModal();
   };
 
-  const handleEdit = (client: Client) => {
+  const handleEdit = (client: ClientData) => {
     setEditingClient(client);
     setFormData({
       code: client.code,
@@ -218,7 +216,19 @@ export default function ClientesPage() {
 
   const handleDelete = async (clientId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este cliente?')) {
-      setClients(clients.filter(c => c.id !== clientId));
+      try {
+        const result = await deleteClient(clientId);
+        if (result.success) {
+          setClients(clients.filter(c => c.id !== clientId));
+          logUserAction('DELETE_CLIENT', { clientId });
+        } else {
+          console.error('Failed to delete client:', result.error);
+          alert('Erro ao excluir cliente');
+        }
+      } catch (error) {
+        console.error('Error deleting client:', error);
+        alert('Erro ao excluir cliente');
+      }
       logUserAction('DELETE_CLIENT', { clientId });
     }
   };

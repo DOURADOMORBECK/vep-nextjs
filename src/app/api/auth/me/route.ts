@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthToken, verifyToken } from '@/lib/auth';
 import { createCorsHeaders } from '@/config/cors';
+import { UserService } from '@/services/database/userService';
 
 export async function OPTIONS(request: NextRequest) {
   const origin = request.headers.get('origin');
@@ -24,17 +25,37 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const user = await verifyToken(token);
+    const authUser = await verifyToken(token);
     
-    if (!user) {
+    if (!authUser) {
       return NextResponse.json(
         { error: 'Invalid or expired token' },
         { status: 401, headers: corsHeaders }
       );
     }
     
+    // Get fresh user data from database
+    const user = await UserService.findById(parseInt(authUser.id));
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404, headers: corsHeaders }
+      );
+    }
+    
     return NextResponse.json(
-      { user },
+      { 
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          is_active: user.is_active,
+          created_at: user.created_at,
+          last_login: user.last_login
+        }
+      },
       { headers: corsHeaders }
     );
   } catch (error) {
