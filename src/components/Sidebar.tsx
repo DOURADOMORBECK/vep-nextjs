@@ -46,7 +46,7 @@ export default function Sidebar({ isCollapsed = false }: SidebarProps) {
     { icon: 'fa-box-open', label: 'Jornada do Pedido', path: '/jornada-pedido', feature: 'orders' },
     { icon: 'fa-industry', label: 'Jornada do Produto', path: '/jornada-produto', feature: 'products' },
     { icon: 'fa-clock-rotate-left', label: 'Histórico de Ações', path: '/userlogs', feature: 'logs', requireAdmin: true },
-    { icon: 'fa-server', label: 'Status das APIs', path: '/api-status', feature: 'api-status', requireAdmin: true },
+    { icon: 'fa-database', label: 'Status do Sistema', path: '/api-status', feature: 'api-status', requireAdmin: true },
   ];
 
   // Filter menu items based on user permissions
