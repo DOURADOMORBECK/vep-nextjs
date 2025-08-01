@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import UnifiedSearch from '@/components/UnifiedSearch';
 import { railwayApi } from '@/lib/api-interceptor';
 
 export default function DashboardPage() {
@@ -38,7 +39,12 @@ export default function DashboardPage() {
   return (
     <DashboardLayout title="Dashboard Principal">
       <div className="px-6 pt-8 pb-4">
-        <h1 className="text-3xl font-bold text-white mb-4">Visão Geral do Sistema</h1>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
+          <h1 className="text-3xl font-bold text-white">Visão Geral do Sistema</h1>
+          <div className="lg:max-w-md">
+            <UnifiedSearch />
+          </div>
+        </div>
         
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

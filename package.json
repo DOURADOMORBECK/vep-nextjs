@@ -11,8 +11,10 @@
   "dependencies": {
     "@types/jsonwebtoken": "^9.0.10",
     "@types/leaflet": "^1.9.20",
+    "@types/lodash": "^4.17.20",
     "jsonwebtoken": "^9.0.2",
     "leaflet": "^1.9.4",
+    "lodash": "^4.17.21",
     "next": "15.4.5",
     "react": "19.1.0",
     "react-dom": "19.1.0",
