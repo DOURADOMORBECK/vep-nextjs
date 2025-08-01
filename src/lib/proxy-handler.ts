@@ -48,6 +48,19 @@ export function createProxyHandler(config: ProxyConfig) {
         headers['Authorization'] = authHeader;
       }
 
+      // Extract token from cookies and add as Authorization header
+      const cookies = request.cookies;
+      const authToken = cookies.get('veplim-auth-token');
+      if (authToken && !authHeader) {
+        headers['Authorization'] = `Bearer ${authToken.value}`;
+      }
+
+      // Forward cookies
+      const cookieHeader = request.headers.get('cookie');
+      if (cookieHeader) {
+        headers['Cookie'] = cookieHeader;
+      }
+
       let body;
       if (request.method !== 'GET' && request.method !== 'HEAD') {
         try {
@@ -61,9 +74,19 @@ export function createProxyHandler(config: ProxyConfig) {
         method: request.method,
         headers,
         body,
+        credentials: 'include',
       });
 
       const data = await response.text();
+      
+      // Log error responses
+      if (!response.ok) {
+        console.error(`[Proxy] Error response from ${targetUrl}:`, {
+          status: response.status,
+          statusText: response.statusText,
+          data: data.substring(0, 500) // First 500 chars to avoid huge logs
+        });
+      }
       
       // Create response with CORS headers
       const origin = request.headers.get('origin');
