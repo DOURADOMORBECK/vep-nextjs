@@ -40,7 +40,7 @@ export class DashboardService {
         'SELECT COUNT(*) AS total FROM delivery_routes WHERE created_at > NOW() - INTERVAL \'24 hours\''
       );
       recentDeliveries = parseInt(deliveryResult?.total || '0');
-    } catch (e) {
+    } catch {
       // Table doesn't exist, continue
     }
 
@@ -51,7 +51,7 @@ export class DashboardService {
         'SELECT COUNT(*) AS total FROM audit_logs WHERE timestamp > NOW() - INTERVAL \'24 hours\''
       );
       recentAuditLogs = parseInt(auditResult?.total || '0');
-    } catch (e) {
+    } catch {
       // Table doesn't exist, continue
     }
 
@@ -66,13 +66,13 @@ export class DashboardService {
     };
   }
 
-  static async getOrdersByStatus(): Promise<any[]> {
+  static async getOrdersByStatus(): Promise<Array<{ status: string; count: string }>> {
     return query(
       'SELECT status, COUNT(*) as count FROM pedidos_venda_produtos GROUP BY status'
     );
   }
 
-  static async getRecentActivity(): Promise<any[]> {
+  static async getRecentActivity(): Promise<Array<{ type: string; id: string; date: Date; description: string }>> {
     // This would typically join multiple tables to get recent activity
     // For now, returning a simple query
     try {
@@ -84,14 +84,14 @@ export class DashboardService {
          ORDER BY fnc_pve_data_emissao DESC
          LIMIT 10`
       );
-    } catch (e) {
+    } catch {
       return [];
     }
   }
 
-  static async getDeliveryMetrics(): Promise<any> {
+  static async getDeliveryMetrics(): Promise<{ completed: number; in_progress: number; pending: number }> {
     try {
-      const metrics = await queryOne(
+      const metrics = await queryOne<{ completed: string; in_progress: string; pending: string }>(
         `SELECT 
           COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
           COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress,
@@ -99,13 +99,17 @@ export class DashboardService {
          FROM delivery_routes
          WHERE created_at > NOW() - INTERVAL '30 days'`
       );
-      return metrics || { completed: 0, in_progress: 0, pending: 0 };
-    } catch (e) {
+      return { 
+        completed: parseInt(metrics?.completed || '0'),
+        in_progress: parseInt(metrics?.in_progress || '0'),
+        pending: parseInt(metrics?.pending || '0')
+      };
+    } catch {
       return { completed: 0, in_progress: 0, pending: 0 };
     }
   }
 
-  static async getTopProducts(): Promise<any[]> {
+  static async getTopProducts(): Promise<Array<{ product_name: string; total_quantity: string; order_count: string }>> {
     try {
       return query(
         `SELECT 
@@ -118,7 +122,7 @@ export class DashboardService {
          ORDER BY total_quantity DESC
          LIMIT 5`
       );
-    } catch (e) {
+    } catch {
       return [];
     }
   }

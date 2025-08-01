@@ -9,7 +9,7 @@ export class PessoaService {
     search?: string;
   }): Promise<FncPessoa[]> {
     let sql = 'SELECT * FROM pessoas WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
     let paramCount = 1;
 
     if (filters?.tipo_cadastro) {
@@ -52,7 +52,7 @@ export class PessoaService {
   static async create(data: Partial<FncPessoa>): Promise<FncPessoa> {
     const fields: string[] = [];
     const placeholders: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramCount = 1;
 
     // Build dynamic insert query
@@ -86,7 +86,7 @@ export class PessoaService {
   // Update pessoa
   static async update(id: number, data: Partial<FncPessoa>): Promise<FncPessoa | null> {
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramCount = 1;
 
     Object.entries(data).forEach(([key, value]) => {
@@ -113,7 +113,7 @@ export class PessoaService {
 
   // Delete pessoa
   static async delete(id: number): Promise<boolean> {
-    const result = await query(
+    await query(
       'DELETE FROM pessoas WHERE fnc_pes_id = $1',
       [id]
     );

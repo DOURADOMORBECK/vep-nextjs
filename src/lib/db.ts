@@ -42,9 +42,9 @@ pool.connect()
   });
 
 // Helper function to execute queries with retry logic
-export async function query<T = any>(text: string, params?: any[], retries = 3): Promise<T[]> {
+export async function query<T = unknown>(text: string, params?: unknown[], retries = 3): Promise<T[]> {
   const start = Date.now();
-  let lastError: any;
+  let lastError: Error | undefined;
   
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -56,16 +56,17 @@ export async function query<T = any>(text: string, params?: any[], retries = 3):
       }
       
       return res.rows;
-    } catch (error: any) {
-      lastError = error;
-      console.error(`Database query error (attempt ${attempt}/${retries}):`, error.message);
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`Database query error (attempt ${attempt}/${retries}):`, (error as Error).message);
       
       // Don't retry on certain errors
-      if (error.code === '23505' || // unique violation
-          error.code === '23503' || // foreign key violation
-          error.code === '23502' || // not null violation
-          error.code === '42P01' || // undefined table
-          error.code === '42703') { // undefined column
+      const pgError = error as { code?: string };
+      if (pgError.code === '23505' || // unique violation
+          pgError.code === '23503' || // foreign key violation
+          pgError.code === '23502' || // not null violation
+          pgError.code === '42P01' || // undefined table
+          pgError.code === '42703') { // undefined column
         throw error;
       }
       
@@ -80,13 +81,13 @@ export async function query<T = any>(text: string, params?: any[], retries = 3):
 }
 
 // Helper function to get a single row
-export async function queryOne<T = any>(text: string, params?: any[]): Promise<T | null> {
+export async function queryOne<T = unknown>(text: string, params?: unknown[]): Promise<T | null> {
   const rows = await query<T>(text, params);
   return rows[0] || null;
 }
 
 // Transaction helper
-export async function transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
+export async function transaction<T>(callback: (client: import('pg').PoolClient) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

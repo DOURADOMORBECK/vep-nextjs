@@ -17,38 +17,18 @@ interface LeafletLayer {
   options?: { type?: string };
 }
 
-interface LeafletMarker extends LeafletLayer {
-  addTo: (map: LeafletMap) => LeafletMarker;
-  bindPopup: (content: string) => LeafletMarker;
-  bindTooltip: (content: string, options?: Record<string, unknown>) => LeafletMarker;
-  setIcon: (icon: LeafletIcon) => LeafletMarker;
-  on: (event: string, handler: (...args: unknown[]) => void) => LeafletMarker;
-}
-
-interface LeafletIcon {
-  iconSize: [number, number];
-  iconAnchor: [number, number];
-  popupAnchor: [number, number];
-  shadowSize?: [number, number];
-}
-
-interface LeafletDivIcon extends LeafletIcon {
-  html: string;
-  className: string;
-}
+// LeafletIcon interface - used by icon creation methods
+// interface LeafletIcon {
+//   iconSize: [number, number];
+//   iconAnchor: [number, number];
+//   popupAnchor: [number, number];
+//   shadowSize?: [number, number];
+// }
 
 interface LeafletControl {
   addTo: (map: LeafletMap) => LeafletControl;
   remove: () => LeafletControl;
   onAdd?: (map: LeafletMap) => HTMLElement;
-}
-
-interface LeafletPolyline {
-  addTo: (map: LeafletMap) => LeafletPolyline;
-}
-
-interface LeafletTileLayer {
-  addTo: (map: LeafletMap) => LeafletTileLayer;
 }
 
 // LeafletStatic interface is defined in ClientMap.tsx

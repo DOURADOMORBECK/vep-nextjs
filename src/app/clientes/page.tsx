@@ -45,6 +45,7 @@ export default function ClientesPage() {
     fetchClients();
     // Log de acesso
     logUserAction('VIEW_CLIENTS_PAGE');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export default function ClientesPage() {
     }, 300); // Debounce search
     
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
   const fetchClients = async () => {

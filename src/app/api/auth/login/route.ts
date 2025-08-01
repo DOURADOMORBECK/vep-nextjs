@@ -31,9 +31,9 @@ async function loginHandler(request: NextRequest, validatedData?: LoginRequest):
     // Check login attempts
     try {
       await UserService.checkLoginAttempts(sanitizedEmail);
-    } catch (error: any) {
+    } catch (error) {
       return NextResponse.json(
-        { error: error.message },
+        { error: (error as Error).message },
         { status: 429, headers: corsHeaders }
       );
     }

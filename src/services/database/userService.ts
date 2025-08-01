@@ -69,7 +69,7 @@ export class UserService {
   static async update(id: number, data: Partial<User>): Promise<User | null> {
     const allowedFields = ['name', 'email', 'role', 'is_active'];
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramCount = 1;
 
     for (const field of allowedFields) {

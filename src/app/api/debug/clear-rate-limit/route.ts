@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { clearRateLimitStore } from '@/lib/api-middleware';
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   // Only allow in development
   if (process.env.NODE_ENV === 'production') {
     return NextResponse.json(

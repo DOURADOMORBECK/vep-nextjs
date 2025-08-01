@@ -11,7 +11,7 @@ export class ProdutoService {
     search?: string;
   }): Promise<FncProduto[]> {
     let sql = 'SELECT * FROM produtos WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
     let paramCount = 1;
 
     if (filters?.status !== undefined) {
@@ -73,7 +73,7 @@ export class ProdutoService {
   static async create(data: Partial<FncProduto>): Promise<FncProduto> {
     const fields: string[] = [];
     const placeholders: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramCount = 1;
 
     Object.entries(data).forEach(([key, value]) => {
@@ -106,7 +106,7 @@ export class ProdutoService {
   // Update produto
   static async update(id: string, data: Partial<FncProduto>): Promise<FncProduto | null> {
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramCount = 1;
 
     Object.entries(data).forEach(([key, value]) => {
@@ -184,7 +184,16 @@ export class ProdutoService {
   }
 
   // Get product price list
-  static async getPriceList(): Promise<any[]> {
+  static async getPriceList(): Promise<Array<{
+    fnc_pro_id: string;
+    fnc_pro_descricao: string;
+    fnc_pro_codigo_automacao: string;
+    custo: number;
+    preco_vista: number;
+    preco_prazo: number;
+    grupo: string;
+    marca: string;
+  }>> {
     return query(
       `SELECT 
         fnc_pro_id,
