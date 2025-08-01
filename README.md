@@ -1,6 +1,6 @@
 # VepLim - Sistema de Gestão de Operações
 
-Sistema completo de gestão de operações para VepLim, desenvolvido com Next.js 15, TypeScript e integração com APIs Railway.
+Sistema completo de gestão de operações para VepLim, desenvolvido com Next.js 15, TypeScript e conexão direta com banco de dados PostgreSQL.
 
 ## 🚀 Funcionalidades Principais
 
