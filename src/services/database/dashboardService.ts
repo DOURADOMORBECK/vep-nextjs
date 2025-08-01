@@ -1,4 +1,4 @@
-import { query, queryOne } from '@/lib/db';
+import { query, queryOne } from '@/lib/db-wrapper';
 
 export interface DashboardStats {
   orders: number;

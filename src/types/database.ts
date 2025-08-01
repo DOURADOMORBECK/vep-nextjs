@@ -1,6 +1,8 @@
 // Database table types based on PostgreSQL schema
 
-export interface User {
+import { QueryResultRow } from 'pg';
+
+export interface User extends QueryResultRow {
   id: number;
   name: string;
   email: string;
@@ -14,7 +16,7 @@ export interface User {
   locked_until?: Date;
 }
 
-export interface FncOperador {
+export interface FncOperador extends QueryResultRow {
   fnc_ope_id: number;
   fnc_emp_id?: number;
   fnc_ope_tipo_usuario?: string;
@@ -25,7 +27,7 @@ export interface FncOperador {
   fnc_ope_dh_atualizacao?: Date;
 }
 
-export interface FncPessoa {
+export interface FncPessoa extends QueryResultRow {
   fnc_pes_id: number;
   fnc_emp_id?: number;
   fnc_pes_data_cadastro?: Date;
@@ -59,7 +61,7 @@ export interface FncPessoa {
   fnc_pes_dh_atualizacao?: Date;
 }
 
-export interface FncProduto {
+export interface FncProduto extends QueryResultRow {
   fnc_pro_id: string;
   fnc_pro_descricao?: string;
   fnc_pro_codigo_automacao?: string;
@@ -81,7 +83,7 @@ export interface FncProduto {
   fnc_pro_dh_atualizacao?: Date;
 }
 
-export interface PedidoVendaProduto {
+export interface PedidoVendaProduto extends QueryResultRow {
   fnc_pvp_id: number;
   fnc_pve_id?: number;
   fnc_tpe_codigo?: number;
@@ -128,7 +130,7 @@ export interface PedidoVendaProduto {
   fnc_pvp_valor_fcp_st?: number;
 }
 
-export interface SsxPosition {
+export interface SsxPosition extends QueryResultRow {
   id?: number;
   id_tracked_unit?: string;
   latitude?: number;
@@ -139,7 +141,7 @@ export interface SsxPosition {
   created_at?: Date;
 }
 
-export interface DeliveryRoute {
+export interface DeliveryRoute extends QueryResultRow {
   id?: number;
   route_name?: string;
   driver_id?: number;
@@ -151,7 +153,7 @@ export interface DeliveryRoute {
   updated_at?: Date;
 }
 
-export interface AuditLog {
+export interface AuditLog extends QueryResultRow {
   id?: number;
   user_id?: number;
   action?: string;
@@ -165,7 +167,7 @@ export interface AuditLog {
 }
 
 // Additional table types based on API references
-export interface Usuario {
+export interface Usuario extends QueryResultRow {
   id?: number;
   nome?: string;
   email?: string;
@@ -175,7 +177,7 @@ export interface Usuario {
   atualizado_em?: Date;
 }
 
-export interface ItensPedidoVenda {
+export interface ItensPedidoVenda extends QueryResultRow {
   id?: number;
   pedido_id?: number;
   produto_id?: string;

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createCorsHeaders } from '@/config/cors';
 import { loginSchema, sanitizeEmail, type LoginRequest } from '@/lib/validation';
 import { withApiMiddleware, AUTH_RATE_LIMIT, createErrorResponse } from '@/lib/api-middleware';
-import { UserService } from '@/services/database/userService';
 import { createToken, setAuthCookies } from '@/lib/auth';
 
 export async function OPTIONS(request: NextRequest) {
@@ -28,6 +27,9 @@ async function loginHandler(request: NextRequest, validatedData?: LoginRequest):
   console.log(`[API Route] Login attempt for: ${sanitizedEmail}`);
 
   try {
+    // Dynamic import to avoid build-time execution
+    const { UserService } = await import('@/services/database/userService');
+    
     // Check login attempts
     try {
       await UserService.checkLoginAttempts(sanitizedEmail);

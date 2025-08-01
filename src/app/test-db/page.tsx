@@ -3,11 +3,11 @@ import { pool } from '@/lib/db';
 async function testDatabaseConnection() {
   try {
     // Test basic connection
-    const result = await pool.query('SELECT NOW()');
+    const result = await pool().query('SELECT NOW()');
     console.log('Database connected:', result.rows[0]);
     
     // List all tables
-    const tables = await pool.query(`
+    const tables = await pool().query(`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public'

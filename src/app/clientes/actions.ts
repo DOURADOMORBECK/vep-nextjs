@@ -1,6 +1,5 @@
 'use server';
 
-import { PessoaService } from '@/services/database/pessoaService';
 import { FncPessoa } from '@/types/database';
 
 export interface ClientData {
@@ -82,6 +81,7 @@ function convertToFncPessoa(client: Partial<ClientData>): Partial<FncPessoa> {
 
 export async function getClients(search?: string) {
   try {
+    const { PessoaService } = await import('@/services/database/pessoaService');
     const pessoas = await PessoaService.getCustomers(search);
     return {
       success: true,
@@ -98,6 +98,7 @@ export async function getClients(search?: string) {
 
 export async function getClientById(id: string) {
   try {
+    const { PessoaService } = await import('@/services/database/pessoaService');
     const pessoa = await PessoaService.getById(parseInt(id));
     if (!pessoa) {
       return {
@@ -121,6 +122,7 @@ export async function getClientById(id: string) {
 export async function createClient(clientData: Omit<ClientData, 'id' | 'createdAt' | 'updatedAt'>) {
   try {
     const pessoaData = convertToFncPessoa(clientData);
+    const { PessoaService } = await import('@/services/database/pessoaService');
     const newPessoa = await PessoaService.create(pessoaData);
     return {
       success: true,
@@ -138,6 +140,7 @@ export async function createClient(clientData: Omit<ClientData, 'id' | 'createdA
 export async function updateClient(id: string, clientData: Partial<ClientData>) {
   try {
     const pessoaData = convertToFncPessoa(clientData);
+    const { PessoaService } = await import('@/services/database/pessoaService');
     const updatedPessoa = await PessoaService.update(parseInt(id), pessoaData);
     if (!updatedPessoa) {
       return {
@@ -160,6 +163,7 @@ export async function updateClient(id: string, clientData: Partial<ClientData>) 
 
 export async function deleteClient(id: string) {
   try {
+    const { PessoaService } = await import('@/services/database/pessoaService');
     await PessoaService.delete(parseInt(id));
     return {
       success: true
@@ -175,6 +179,7 @@ export async function deleteClient(id: string) {
 
 export async function searchClientsByLocation(lat: number, lng: number, radiusKm: number = 10) {
   try {
+    const { PessoaService } = await import('@/services/database/pessoaService');
     const pessoas = await PessoaService.getByLocation(lat, lng, radiusKm);
     return {
       success: true,

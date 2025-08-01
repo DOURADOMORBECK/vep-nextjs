@@ -1,9 +1,9 @@
 'use server';
 
-import { DashboardService } from '@/services/database/dashboardService';
-
 export async function getDashboardStats() {
   try {
+    // Dynamic import to avoid build-time execution
+    const { DashboardService } = await import('@/services/database/dashboardService');
     const stats = await DashboardService.getStats();
     return {
       success: true,
@@ -39,6 +39,7 @@ export async function getDashboardStats() {
 
 export async function getRecentActivity() {
   try {
+    const { DashboardService } = await import('@/services/database/dashboardService');
     const activity = await DashboardService.getRecentActivity();
     return {
       success: true,
@@ -55,6 +56,7 @@ export async function getRecentActivity() {
 
 export async function getDeliveryMetrics() {
   try {
+    const { DashboardService } = await import('@/services/database/dashboardService');
     const metrics = await DashboardService.getDeliveryMetrics();
     return {
       success: true,
@@ -71,6 +73,7 @@ export async function getDeliveryMetrics() {
 
 export async function getTopProducts() {
   try {
+    const { DashboardService } = await import('@/services/database/dashboardService');
     const products = await DashboardService.getTopProducts();
     return {
       success: true,

@@ -1,4 +1,4 @@
-import { query, queryOne } from '@/lib/db';
+import { query, queryOne } from '@/lib/db-wrapper';
 import { User } from '@/types/database';
 import bcrypt from 'bcryptjs';
 
