@@ -7,8 +7,8 @@ const getOrdersApiUrls = () => {
   const configUrl = API_CONFIG.ORDERS_API;
   
   return {
-    internalUrl: isRailwayProduction ? configUrl : 'https://api-dashboard-production-f0f1.up.railway.app',
-    externalUrl: 'https://api-dashboard-production-f0f1.up.railway.app'
+    internalUrl: isRailwayProduction ? configUrl : 'https://api-dashboard-production-f3c4.up.railway.app',
+    externalUrl: 'https://api-dashboard-production-f3c4.up.railway.app'
   };
 };
 
