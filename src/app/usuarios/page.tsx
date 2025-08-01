@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import DashboardLayout from '@/components/DashboardLayout';
 import { railwayApi } from '@/lib/api-interceptor';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { useAuth } from '@/hooks/useAuth';
 
 interface User {
   id: string;
@@ -20,7 +22,8 @@ interface User {
   avatar?: string;
 }
 
-export default function UsuariosPage() {
+function UsuariosContent() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -46,7 +49,8 @@ export default function UsuariosPage() {
     { value: 'operator', label: 'Operador', color: 'bg-blue-900 text-blue-300' },
     { value: 'supervisor', label: 'Supervisor', color: 'bg-purple-900 text-purple-300' },
     { value: 'manager', label: 'Gerente', color: 'bg-green-900 text-green-300' },
-    { value: 'admin', label: 'Administrador', color: 'bg-red-900 text-red-300' }
+    { value: 'admin', label: 'Administrador', color: 'bg-red-900 text-red-300' },
+    { value: 'owner', label: 'Proprietário', color: 'bg-yellow-900 text-yellow-300' }
   ];
 
   const departments = [
@@ -593,5 +597,13 @@ export default function UsuariosPage() {
         )}
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function UsuariosPage() {
+  return (
+    <ProtectedRoute requiredRole={['admin', 'owner']} fallbackUrl="/dashboard">
+      <UsuariosContent />
+    </ProtectedRoute>
   );
 }

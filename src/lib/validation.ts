@@ -16,7 +16,7 @@ export const registerSchema = z.object({
   name: nameSchema,
   email: emailSchema,
   password: passwordSchema,
-  role: z.enum(['user', 'admin', 'operator']).optional()
+  role: z.enum(['user', 'admin', 'operator', 'owner', 'supervisor', 'manager']).optional()
 });
 
 export const changePasswordSchema = z.object({
@@ -29,7 +29,7 @@ export const createUserSchema = z.object({
   name: nameSchema,
   email: emailSchema,
   password: passwordSchema,
-  role: z.enum(['user', 'admin', 'operator']).default('user'),
+  role: z.enum(['user', 'admin', 'operator', 'owner', 'supervisor', 'manager']).default('user'),
   is_active: z.boolean().default(true)
 });
 
@@ -37,7 +37,7 @@ export const updateUserSchema = z.object({
   name: nameSchema.optional(),
   email: emailSchema.optional(),
   password: passwordSchema.optional(),
-  role: z.enum(['user', 'admin', 'operator']).optional(),
+  role: z.enum(['user', 'admin', 'operator', 'owner', 'supervisor', 'manager']).optional(),
   is_active: z.boolean().optional()
 });
 

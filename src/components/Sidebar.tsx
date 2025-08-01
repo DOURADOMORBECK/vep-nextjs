@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface SidebarProps {
   isCollapsed?: boolean;
@@ -19,6 +20,7 @@ export default function Sidebar({ isCollapsed = false }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const { canAccess, isAdmin, isOwner } = useAuth();
 
   useEffect(() => {
     // Load user data from localStorage
@@ -32,20 +34,32 @@ export default function Sidebar({ isCollapsed = false }: SidebarProps) {
     }
   }, []);
 
-  const menuItems = [
-    { icon: 'fa-chart-line', label: 'Dashboard', path: '/dashboard' },
-    { icon: 'fa-clipboard-list', label: 'Pedidos', path: '/pedidos' },
-    { icon: 'fa-box', label: 'Produtos', path: '/produtos' },
-    { icon: 'fa-users', label: 'Clientes', path: '/clientes' },
-    { icon: 'fa-truck-field', label: 'Fornecedores', path: '/fornecedores' },
-    { icon: 'fa-user-gear', label: 'Operadores', path: '/operadores' },
-    { icon: 'fa-user-group', label: 'Usuários', path: '/usuarios' },
-    { icon: 'fa-truck', label: 'Jornada da Entrega', path: '/jornada-entrega' },
-    { icon: 'fa-box-open', label: 'Jornada do Pedido', path: '/jornada-pedido' },
-    { icon: 'fa-industry', label: 'Jornada do Produto', path: '/jornada-produto' },
-    { icon: 'fa-clock-rotate-left', label: 'Histórico de Ações', path: '/userlogs' },
-    { icon: 'fa-server', label: 'Status das APIs', path: '/api-status' },
+  const allMenuItems = [
+    { icon: 'fa-chart-line', label: 'Dashboard', path: '/dashboard', feature: 'dashboard' },
+    { icon: 'fa-clipboard-list', label: 'Pedidos', path: '/pedidos', feature: 'orders' },
+    { icon: 'fa-box', label: 'Produtos', path: '/produtos', feature: 'products' },
+    { icon: 'fa-users', label: 'Clientes', path: '/clientes', feature: 'customers' },
+    { icon: 'fa-truck-field', label: 'Fornecedores', path: '/fornecedores', feature: 'suppliers' },
+    { icon: 'fa-user-gear', label: 'Operadores', path: '/operadores', feature: 'operators' },
+    { icon: 'fa-user-group', label: 'Usuários', path: '/usuarios', feature: 'users', requireAdmin: true },
+    { icon: 'fa-truck', label: 'Jornada da Entrega', path: '/jornada-entrega', feature: 'deliveries' },
+    { icon: 'fa-box-open', label: 'Jornada do Pedido', path: '/jornada-pedido', feature: 'orders' },
+    { icon: 'fa-industry', label: 'Jornada do Produto', path: '/jornada-produto', feature: 'products' },
+    { icon: 'fa-clock-rotate-left', label: 'Histórico de Ações', path: '/userlogs', feature: 'logs', requireAdmin: true },
+    { icon: 'fa-server', label: 'Status das APIs', path: '/api-status', feature: 'api-status', requireAdmin: true },
   ];
+
+  // Filter menu items based on user permissions
+  const menuItems = allMenuItems.filter(item => {
+    // Admin and owner see everything
+    if (isAdmin || isOwner) return true;
+    
+    // Check if item requires admin
+    if (item.requireAdmin) return false;
+    
+    // Check feature permission
+    return canAccess(item.feature);
+  });
 
   const handleLogout = async () => {
     try {
