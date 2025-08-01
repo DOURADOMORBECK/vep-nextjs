@@ -1,6 +1,40 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { railwayApi } from '@/lib/api-interceptor';
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState({
+    activeOrders: 0,
+    deliveriesInProgress: 0,
+    activeOperators: 0,
+    totalProducts: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const response = await railwayApi.getDashboardStats();
+      if (response.ok) {
+        const data = await response.json();
+        setStats({
+          activeOrders: data.orders?.active || 0,
+          deliveriesInProgress: data.deliveries?.in_progress || 0,
+          activeOperators: data.operators?.active || 0,
+          totalProducts: data.products?.total || 0
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <DashboardLayout title="Dashboard Principal">
       <div className="px-6 pt-8 pb-4">
@@ -15,7 +49,7 @@ export default function DashboardPage() {
               </div>
               <div className="ml-4">
                 <p className="text-gray-400 text-sm">Pedidos Ativos</p>
-                <p className="text-2xl font-bold text-white">24</p>
+                <p className="text-2xl font-bold text-white">{loading ? '...' : stats.activeOrders}</p>
               </div>
             </div>
           </div>
@@ -27,7 +61,7 @@ export default function DashboardPage() {
               </div>
               <div className="ml-4">
                 <p className="text-gray-400 text-sm">Entregas em Curso</p>
-                <p className="text-2xl font-bold text-white">8</p>
+                <p className="text-2xl font-bold text-white">{loading ? '...' : stats.deliveriesInProgress}</p>
               </div>
             </div>
           </div>
@@ -39,7 +73,7 @@ export default function DashboardPage() {
               </div>
               <div className="ml-4">
                 <p className="text-gray-400 text-sm">Operadores Ativos</p>
-                <p className="text-2xl font-bold text-white">12</p>
+                <p className="text-2xl font-bold text-white">{loading ? '...' : stats.activeOperators}</p>
               </div>
             </div>
           </div>
@@ -51,7 +85,7 @@ export default function DashboardPage() {
               </div>
               <div className="ml-4">
                 <p className="text-gray-400 text-sm">Produtos</p>
-                <p className="text-2xl font-bold text-white">245</p>
+                <p className="text-2xl font-bold text-white">{loading ? '...' : stats.totalProducts}</p>
               </div>
             </div>
           </div>
@@ -85,21 +119,8 @@ export default function DashboardPage() {
           <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Atividade Recente</h3>
             <div className="space-y-4">
-              <div className="flex items-center text-sm">
-                <div className="w-2 h-2 bg-primary-500 rounded-full mr-3"></div>
-                <span className="text-gray-300">Pedido #PED-2023-0458 iniciado</span>
-              </div>
-              <div className="flex items-center text-sm">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                <span className="text-gray-300">Entrega #ENT-001 concluída</span>
-              </div>
-              <div className="flex items-center text-sm">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full mr-3"></div>
-                <span className="text-gray-300">Produto #PRD-023 atualizado</span>
-              </div>
-              <div className="flex items-center text-sm">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                <span className="text-gray-300">Novo operador cadastrado</span>
+              <div className="flex items-center justify-center py-8">
+                <p className="text-gray-400 text-sm">Carregando atividades...</p>
               </div>
             </div>
           </div>

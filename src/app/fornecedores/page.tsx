@@ -128,9 +128,9 @@ export default function FornecedoresPage() {
     }
   };
 
-  const logUserAction = async (action: string, details?: any) => {
+  const logUserAction = async (action: string, details?: unknown) => {
     try {
-      await railwayApi.logUserAction(action, { ...details, module: 'SUPPLIERS' });
+      await railwayApi.logUserAction(action, { ...(details as Record<string, unknown> || {}), module: 'SUPPLIERS' });
     } catch (error) {
       console.error('Erro ao registrar log:', error);
     }

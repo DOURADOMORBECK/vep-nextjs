@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
-import { railwayApi } from '@/lib/api-interceptor';
 
 export default function LoginPage() {
   const { logAction } = useUserLogger();
@@ -44,8 +44,8 @@ export default function LoginPage() {
         const data = await response.json();
         console.log('Login successful:', data);
         
-        // Store token and user data
-        localStorage.setItem('authToken', data.token); // Use authToken para consistência
+        // Note: Token is now stored in httpOnly cookie by the server
+        // We only store non-sensitive user data in localStorage for UI purposes
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('userId', data.user?.id?.toString() || email);
         
@@ -99,10 +99,13 @@ export default function LoginPage() {
       <div className="w-full max-w-md p-8 mx-auto">
         <div className="text-center mb-8">
           <div className="mb-4">
-            <img 
+            <Image
               src="/logo_veplim.png" 
               alt="VepLim" 
-              className="h-20 mx-auto"
+              width={160}
+              height={80}
+              className="mx-auto"
+              priority
             />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Gestão de Operações</h1>

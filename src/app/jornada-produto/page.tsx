@@ -1,12 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { railwayApi } from '@/lib/api-interceptor';
+import { toast } from 'react-hot-toast';
+
+interface Product {
+  id: string;
+  name: string;
+  code: string;
+  assemblyInstructions?: string;
+  components?: string[];
+  targetQuantity?: number;
+}
 
 export default function JornadaProdutoPage() {
   const [currentStep, setCurrentStep] = useState(1); // 1: Montagem, 2: Embalagem, 3: Verificação Final
-  const [currentItem] = useState(3);
-  const [assembledQuantity, setAssembledQuantity] = useState(18);
+  const [currentItem, setCurrentItem] = useState(0);
+  const [assembledQuantity, setAssembledQuantity] = useState(0);
   const [observations, setObservations] = useState('');
   const [assemblyStartTime] = useState(new Date());
   const [selectedPackaging, setSelectedPackaging] = useState('');
@@ -18,13 +29,38 @@ export default function JornadaProdutoPage() {
     { id: 3, item: 'Montagem seguindo especificações', checked: false },
     { id: 4, item: 'Teste de qualidade aprovado', checked: false },
   ]);
-  const totalItems = 12;
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const progressSteps = [
     { id: 1, name: 'Montagem', icon: 'fa-screwdriver-wrench', active: currentStep === 1, completed: currentStep > 1 },
     { id: 2, name: 'Embalagem', icon: 'fa-box', active: currentStep === 2, completed: currentStep > 2 },
     { id: 3, name: 'Verificação Final', icon: 'fa-clipboard-check', active: currentStep === 3, completed: false },
   ];
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await railwayApi.getProducts({ status: 'in_production' });
+      if (response.ok) {
+        const data = await response.json();
+        setProducts(data);
+      } else {
+        toast.error('Erro ao buscar produtos');
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast.error('Erro ao conectar com servidor de produtos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const currentProduct = products[currentItem] || null;
+  const totalItems = products.length;
 
   const packagingOptions = [
     { id: 'cardboard_small', name: 'Caixa de Papelão Pequena', description: '20x15x10 cm' },
@@ -68,28 +104,35 @@ export default function JornadaProdutoPage() {
 
   const overallProgress = Math.round((2 / totalItems) * 100);
 
-  const renderMontagem = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Current Item Assembly */}
-      <div className="bg-gray-800 rounded-lg border border-gray-700 shadow-lg overflow-hidden">
-        <div className="p-4 bg-gray-700 border-b border-gray-600 flex justify-between items-center">
-          <h3 className="font-medium text-white">Montagem - Item {currentItem} de {totalItems}</h3>
-          <span className="bg-primary-600 text-white text-xs px-2 py-1 rounded">Em Montagem</span>
+  const renderMontagem = () => {
+    if (!currentProduct) {
+      return (
+        <div className="flex items-center justify-center py-16">
+          <p className="text-gray-400">Nenhum produto disponível</p>
         </div>
-        <div className="p-6">
-          <div className="mb-4 aspect-video bg-gray-700 rounded-lg overflow-hidden">
-            <img 
-              className="w-full h-full object-cover" 
-              src="https://storage.googleapis.com/uxpilot-auth.appspot.com/03b2a12218-5ffba6f4a677939c1f3b.png" 
-              alt="Alface Crespa Orgânica"
-            />
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Current Item Assembly */}
+        <div className="bg-gray-800 rounded-lg border border-gray-700 shadow-lg overflow-hidden">
+          <div className="p-4 bg-gray-700 border-b border-gray-600 flex justify-between items-center">
+            <h3 className="font-medium text-white">Montagem - Item {currentItem + 1} de {totalItems}</h3>
+            <span className="bg-primary-600 text-white text-xs px-2 py-1 rounded">Em Montagem</span>
           </div>
-          <div className="mb-4">
-            <h4 className="text-lg font-medium text-white mb-1">Alface Crespa Orgânica</h4>
-            <p className="text-gray-400 text-sm">Código: PRD-VEG-1023</p>
-            <p className="text-gray-400 text-sm">Responsável: João da Silva</p>
-            <p className="text-gray-400 text-sm">Tempo decorrido: {getElapsedTime()}</p>
-          </div>
+          <div className="p-6">
+            <div className="mb-4 aspect-video bg-gray-700 rounded-lg overflow-hidden">
+              <div className="w-full h-full flex items-center justify-center">
+                <i className="fa-solid fa-image text-gray-500 text-4xl"></i>
+              </div>
+            </div>
+            <div className="mb-4">
+              <h4 className="text-lg font-medium text-white mb-1">{currentProduct.name}</h4>
+              <p className="text-gray-400 text-sm">Código: {currentProduct.code}</p>
+              <p className="text-gray-400 text-sm">Responsável: Carregando...</p>
+              <p className="text-gray-400 text-sm">Tempo decorrido: {getElapsedTime()}</p>
+            </div>
           
           {/* Assembly Checklist */}
           <div className="mb-6">
@@ -160,22 +203,22 @@ export default function JornadaProdutoPage() {
               placeholder="Registre observações sobre o processo de montagem..."
             />
           </div>
+          </div>
+          <div className="p-4 bg-gray-700 border-t border-gray-600 flex justify-between">
+            <button className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg">
+              <i className="fa-solid fa-camera mr-2"></i>
+              Foto da Montagem
+            </button>
+            <button 
+              onClick={handleStepComplete}
+              disabled={checklistItems.some(item => !item.checked)}
+              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Concluir Montagem
+              <i className="fa-solid fa-arrow-right ml-2"></i>
+            </button>
+          </div>
         </div>
-        <div className="p-4 bg-gray-700 border-t border-gray-600 flex justify-between">
-          <button className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg">
-            <i className="fa-solid fa-camera mr-2"></i>
-            Foto da Montagem
-          </button>
-          <button 
-            onClick={handleStepComplete}
-            disabled={checklistItems.some(item => !item.checked)}
-            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Concluir Montagem
-            <i className="fa-solid fa-arrow-right ml-2"></i>
-          </button>
-        </div>
-      </div>
 
       {/* Assembly Progress */}
       <div className="bg-gray-800 rounded-lg border border-gray-700 shadow-lg">
@@ -232,6 +275,7 @@ export default function JornadaProdutoPage() {
       </div>
     </div>
   );
+};
 
   const renderEmbalagem = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -485,6 +529,26 @@ export default function JornadaProdutoPage() {
         return renderMontagem();
     }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Jornada do Produto">
+        <div className="flex items-center justify-center py-16">
+          <p className="text-gray-400">Carregando produtos...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (products.length === 0) {
+    return (
+      <DashboardLayout title="Jornada do Produto">
+        <div className="flex items-center justify-center py-16">
+          <p className="text-gray-400">Nenhum produto em produção</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Jornada do Produto">

@@ -1,0 +1,511 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import postgres from "postgres";
+
+// --- DB Connection ---
+const db = postgres(process.env.DATABASE_URL!, {
+  ssl: { rejectUnauthorized: false },
+});
+
+// --- App ---
+const app = new Hono();
+
+// --- CORS Configuration (SECURITY FIXED) ---
+const isDevelopment = process.env.NODE_ENV === 'development';
+const isRailwayProduction = process.env.RAILWAY_ENV === 'production';
+
+const ALLOWED_ORIGINS = isDevelopment
+  ? [
+      'http://localhost:3000',
+      'http://localhost:3001', 
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001'
+    ]
+  : [
+      'https://vep-nextjs-production.up.railway.app',
+      'https://vep-nextjs.up.railway.app',
+      'https://*.railway.app'
+    ];
+
+// Enhanced CORS middleware with proper origin validation
+app.use("/*", cors({
+  origin: (origin) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return true;
+    
+    // In development, be more permissive
+    if (isDevelopment) {
+      return origin.includes('localhost') || origin.includes('127.0.0.1') || ALLOWED_ORIGINS.includes(origin);
+    }
+    
+    // In production, strict validation
+    return ALLOWED_ORIGINS.some(allowed => {
+      if (allowed.includes('*')) {
+        // Handle wildcard patterns like *.railway.app
+        const domain = allowed.replace('*.', '');
+        return origin.endsWith(domain);
+      }
+      return origin === allowed;
+    });
+  },
+  credentials: true, // Allow cookies to be sent
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  exposeHeaders: ['Content-Length', 'X-Request-ID'],
+  maxAge: 86400, // 24 hours
+}));
+
+// --- JWT Middleware ---
+import { jwtVerify } from "jose";
+
+const JWT_SECRET = process.env.JWT_SECRET || "my_secret";
+const jwtSecretBytes = new TextEncoder().encode(JWT_SECRET);
+
+async function requireAuth(c: any, next: any) {
+  const auth = c.req.header("Authorization") || "";
+  const token = auth.replace("Bearer ", "");
+  
+  if (!token) {
+    return c.json({ error: "Token não fornecido" }, 401);
+  }
+  
+  try {
+    const { payload } = await jwtVerify(token, jwtSecretBytes);
+    c.set("user", payload);
+    await next();
+  } catch (error) {
+    console.error("JWT verification error:", error);
+    return c.json({ error: "Token inválido ou expirado" }, 401);
+  }
+}
+
+// --- Health check ---
+app.get("/", (c) => c.text("API Customers Bun OK 🚀 - CORS Security Fixed"));
+
+// --- Cria tabelas se não existirem ---
+await db`
+  CREATE TABLE IF NOT EXISTS pessoas (
+    fnc_pes_id SERIAL PRIMARY KEY,
+    fnc_emp_id INTEGER DEFAULT 1,
+    fnc_pes_data_cadastro DATE DEFAULT CURRENT_DATE,
+    fnc_pes_tipo_cadastro TEXT NOT NULL,
+    fnc_pes_tipo_pessoa TEXT NOT NULL CHECK (fnc_pes_tipo_pessoa IN ('PF', 'PJ')),
+    fnc_pes_nome_fantasia TEXT NOT NULL,
+    fnc_pes_razao_social TEXT,
+    fnc_pes_cpf TEXT,
+    fnc_pes_cnpj TEXT,
+    fnc_pes_ie TEXT,
+    fnc_pes_insc_municipal TEXT,
+    fnc_pes_insc_suframa TEXT,
+    fnc_pes_insc_produtor TEXT,
+    fnc_pes_cep TEXT NOT NULL,
+    fnc_pes_endereco TEXT NOT NULL,
+    fnc_pes_numero TEXT NOT NULL,
+    fnc_pes_complemento TEXT,
+    fnc_pes_bairro TEXT NOT NULL,
+    fnc_pes_cidade TEXT NOT NULL,
+    fnc_pes_uf TEXT NOT NULL CHECK (LENGTH(fnc_pes_uf) = 2),
+    fnc_pes_latitude TEXT,
+    fnc_pes_longitude TEXT,
+    fnc_pes_telefone_1 TEXT,
+    fnc_pes_telefone_2 TEXT,
+    fnc_pes_celular TEXT,
+    fnc_pes_email TEXT NOT NULL,
+    fnc_pes_email_financeiro TEXT,
+    fnc_pes_contato TEXT,
+    fnc_pes_status TEXT DEFAULT 'ATIVO' CHECK (fnc_pes_status IN ('ATIVO', 'INATIVO', 'BLOQUEADO')),
+    fnc_pes_limite_de_credito NUMERIC(15,2) DEFAULT 0,
+    fnc_pes_dh_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fnc_pes_observacoes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
+// Criar índices para melhor performance
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_email ON pessoas(fnc_pes_email)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_cpf ON pessoas(fnc_pes_cpf)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_cnpj ON pessoas(fnc_pes_cnpj)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_status ON pessoas(fnc_pes_status)`;
+await db`CREATE INDEX IF NOT EXISTS idx_pessoas_tipo_cadastro ON pessoas(fnc_pes_tipo_cadastro)`;
+
+// --- Customer Routes ---
+
+// GET /customer - List all customers
+app.get("/customer", requireAuth, async (c) => {
+  try {
+    const { active, type, limit, offset, search } = c.req.query();
+    
+    let conditions = [`fnc_pes_tipo_cadastro = 'CUSTOMER'`];
+    let values = [];
+    let valueIndex = 1;
+    
+    if (active !== undefined) {
+      conditions.push(`fnc_pes_status = $${valueIndex}`);
+      values.push(active === 'true' ? 'ATIVO' : 'INATIVO');
+      valueIndex++;
+    }
+    
+    if (type) {
+      conditions.push(`fnc_pes_tipo_pessoa = $${valueIndex}`);
+      values.push(type);
+      valueIndex++;
+    }
+    
+    if (search) {
+      conditions.push(`(fnc_pes_nome_fantasia ILIKE $${valueIndex} OR fnc_pes_razao_social ILIKE $${valueIndex} OR fnc_pes_email ILIKE $${valueIndex} OR fnc_pes_cpf ILIKE $${valueIndex} OR fnc_pes_cnpj ILIKE $${valueIndex})`);
+      values.push(`%${search}%`);
+      valueIndex++;
+    }
+    
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    
+    const sql = `
+      SELECT 
+        fnc_pes_id as id,
+        fnc_pes_nome_fantasia as nome_fantasia,
+        fnc_pes_razao_social as razao_social,
+        fnc_pes_tipo_pessoa as tipo_pessoa,
+        fnc_pes_cpf as cpf,
+        fnc_pes_cnpj as cnpj,
+        fnc_pes_email as email,
+        fnc_pes_telefone_1 as telefone,
+        fnc_pes_celular as celular,
+        fnc_pes_cep as cep,
+        fnc_pes_endereco as endereco,
+        fnc_pes_numero as numero,
+        fnc_pes_bairro as bairro,
+        fnc_pes_cidade as cidade,
+        fnc_pes_uf as uf,
+        fnc_pes_status as status,
+        fnc_pes_limite_de_credito as limite_credito,
+        created_at,
+        updated_at
+      FROM pessoas
+      ${whereClause}
+      ORDER BY fnc_pes_nome_fantasia
+      LIMIT ${limit || 100}
+      OFFSET ${offset || 0}
+    `;
+    
+    const customers = await db.unsafe(sql, ...values);
+    
+    // Get total count
+    const countSql = `SELECT COUNT(*) as total FROM pessoas ${whereClause}`;
+    const [{ total }] = await db.unsafe(countSql, ...values);
+    
+    return c.json({
+      customers,
+      total,
+      limit: limit || 100,
+      offset: offset || 0
+    });
+  } catch (error) {
+    console.error("List customers error:", error);
+    return c.json({ error: "Erro ao listar clientes" }, 500);
+  }
+});
+
+// GET /customer/:id - Get customer by ID
+app.get("/customer/:id", requireAuth, async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    const [customer] = await db`
+      SELECT 
+        fnc_pes_id as id,
+        fnc_pes_nome_fantasia as nome_fantasia,
+        fnc_pes_razao_social as razao_social,
+        fnc_pes_tipo_pessoa as tipo_pessoa,
+        fnc_pes_cpf as cpf,
+        fnc_pes_cnpj as cnpj,
+        fnc_pes_ie as ie,
+        fnc_pes_email as email,
+        fnc_pes_telefone_1 as telefone,
+        fnc_pes_telefone_2 as telefone_2,
+        fnc_pes_celular as celular,
+        fnc_pes_cep as cep,
+        fnc_pes_endereco as endereco,
+        fnc_pes_numero as numero,
+        fnc_pes_complemento as complemento,
+        fnc_pes_bairro as bairro,
+        fnc_pes_cidade as cidade,
+        fnc_pes_uf as uf,
+        fnc_pes_latitude as latitude,
+        fnc_pes_longitude as longitude,
+        fnc_pes_status as status,
+        fnc_pes_limite_de_credito as limite_credito,
+        fnc_pes_observacoes as observacoes,
+        created_at,
+        updated_at
+      FROM pessoas
+      WHERE fnc_pes_id = ${id} AND fnc_pes_tipo_cadastro = 'CUSTOMER'
+    `;
+    
+    if (!customer) {
+      return c.json({ error: "Cliente não encontrado" }, 404);
+    }
+    
+    return c.json({ customer });
+  } catch (error) {
+    console.error("Get customer error:", error);
+    return c.json({ error: "Erro ao buscar cliente" }, 500);
+  }
+});
+
+// POST /customer - Create new customer
+app.post("/customer", requireAuth, async (c) => {
+  try {
+    const data = await c.req.json();
+    
+    // Validation
+    if (!data.nome_fantasia || !data.email || !data.cep || !data.endereco || !data.numero || !data.bairro || !data.cidade || !data.uf) {
+      return c.json({ error: "Campos obrigatórios: nome_fantasia, email, cep, endereco, numero, bairro, cidade, uf" }, 400);
+    }
+    
+    if (data.tipo_pessoa && !['PF', 'PJ'].includes(data.tipo_pessoa)) {
+      return c.json({ error: "tipo_pessoa deve ser 'PF' ou 'PJ'" }, 400);
+    }
+    
+    // Check for duplicate email, CPF, or CNPJ
+    const duplicateCheck = await db`
+      SELECT fnc_pes_id 
+      FROM pessoas 
+      WHERE (fnc_pes_email = ${data.email} 
+        OR (${data.cpf}::text IS NOT NULL AND fnc_pes_cpf = ${data.cpf})
+        OR (${data.cnpj}::text IS NOT NULL AND fnc_pes_cnpj = ${data.cnpj}))
+      AND fnc_pes_tipo_cadastro = 'CUSTOMER'
+    `;
+    
+    if (duplicateCheck.length > 0) {
+      return c.json({ error: "Já existe um cliente com este email, CPF ou CNPJ" }, 400);
+    }
+    
+    const [customer] = await db`
+      INSERT INTO pessoas (
+        fnc_pes_tipo_cadastro,
+        fnc_pes_tipo_pessoa,
+        fnc_pes_nome_fantasia,
+        fnc_pes_razao_social,
+        fnc_pes_cpf,
+        fnc_pes_cnpj,
+        fnc_pes_ie,
+        fnc_pes_email,
+        fnc_pes_telefone_1,
+        fnc_pes_telefone_2,
+        fnc_pes_celular,
+        fnc_pes_cep,
+        fnc_pes_endereco,
+        fnc_pes_numero,
+        fnc_pes_complemento,
+        fnc_pes_bairro,
+        fnc_pes_cidade,
+        fnc_pes_uf,
+        fnc_pes_latitude,
+        fnc_pes_longitude,
+        fnc_pes_limite_de_credito,
+        fnc_pes_observacoes
+      ) VALUES (
+        'CUSTOMER',
+        ${data.tipo_pessoa || 'PF'},
+        ${data.nome_fantasia},
+        ${data.razao_social || null},
+        ${data.cpf || null},
+        ${data.cnpj || null},
+        ${data.ie || null},
+        ${data.email},
+        ${data.telefone || null},
+        ${data.telefone_2 || null},
+        ${data.celular || null},
+        ${data.cep},
+        ${data.endereco},
+        ${data.numero},
+        ${data.complemento || null},
+        ${data.bairro},
+        ${data.cidade},
+        ${data.uf},
+        ${data.latitude || null},
+        ${data.longitude || null},
+        ${data.limite_credito || 0},
+        ${data.observacoes || null}
+      )
+      RETURNING 
+        fnc_pes_id as id,
+        fnc_pes_nome_fantasia as nome_fantasia,
+        fnc_pes_email as email,
+        fnc_pes_status as status,
+        created_at
+    `;
+    
+    return c.json({ customer, message: "Cliente criado com sucesso" }, 201);
+  } catch (error) {
+    console.error("Create customer error:", error);
+    return c.json({ error: "Erro ao criar cliente" }, 500);
+  }
+});
+
+// PUT /customer/:id - Update customer
+app.put("/customer/:id", requireAuth, async (c) => {
+  try {
+    const { id } = c.req.param();
+    const data = await c.req.json();
+    
+    // Check if customer exists
+    const [exists] = await db`
+      SELECT fnc_pes_id FROM pessoas 
+      WHERE fnc_pes_id = ${id} AND fnc_pes_tipo_cadastro = 'CUSTOMER'
+    `;
+    
+    if (!exists) {
+      return c.json({ error: "Cliente não encontrado" }, 404);
+    }
+    
+    // Build update object
+    let updates: any = { fnc_pes_dh_atualizacao: new Date() };
+    
+    if (data.nome_fantasia) updates.fnc_pes_nome_fantasia = data.nome_fantasia;
+    if (data.razao_social !== undefined) updates.fnc_pes_razao_social = data.razao_social;
+    if (data.tipo_pessoa) updates.fnc_pes_tipo_pessoa = data.tipo_pessoa;
+    if (data.cpf !== undefined) updates.fnc_pes_cpf = data.cpf;
+    if (data.cnpj !== undefined) updates.fnc_pes_cnpj = data.cnpj;
+    if (data.ie !== undefined) updates.fnc_pes_ie = data.ie;
+    if (data.email) updates.fnc_pes_email = data.email;
+    if (data.telefone !== undefined) updates.fnc_pes_telefone_1 = data.telefone;
+    if (data.telefone_2 !== undefined) updates.fnc_pes_telefone_2 = data.telefone_2;
+    if (data.celular !== undefined) updates.fnc_pes_celular = data.celular;
+    if (data.cep) updates.fnc_pes_cep = data.cep;
+    if (data.endereco) updates.fnc_pes_endereco = data.endereco;
+    if (data.numero) updates.fnc_pes_numero = data.numero;
+    if (data.complemento !== undefined) updates.fnc_pes_complemento = data.complemento;
+    if (data.bairro) updates.fnc_pes_bairro = data.bairro;
+    if (data.cidade) updates.fnc_pes_cidade = data.cidade;
+    if (data.uf) updates.fnc_pes_uf = data.uf;
+    if (data.latitude !== undefined) updates.fnc_pes_latitude = data.latitude;
+    if (data.longitude !== undefined) updates.fnc_pes_longitude = data.longitude;
+    if (data.status) updates.fnc_pes_status = data.status;
+    if (data.limite_credito !== undefined) updates.fnc_pes_limite_de_credito = data.limite_credito;
+    if (data.observacoes !== undefined) updates.fnc_pes_observacoes = data.observacoes;
+    
+    const [updated] = await db`
+      UPDATE pessoas
+      SET ${db(updates)}
+      WHERE fnc_pes_id = ${id}
+      RETURNING 
+        fnc_pes_id as id,
+        fnc_pes_nome_fantasia as nome_fantasia,
+        fnc_pes_email as email,
+        fnc_pes_status as status,
+        fnc_pes_dh_atualizacao as updated_at
+    `;
+    
+    return c.json({ customer: updated, message: "Cliente atualizado com sucesso" });
+  } catch (error) {
+    console.error("Update customer error:", error);
+    return c.json({ error: "Erro ao atualizar cliente" }, 500);
+  }
+});
+
+// DELETE /customer/:id - Soft delete customer
+app.delete("/customer/:id", requireAuth, async (c) => {
+  try {
+    const { id } = c.req.param();
+    
+    const [updated] = await db`
+      UPDATE pessoas
+      SET fnc_pes_status = 'INATIVO', fnc_pes_dh_atualizacao = NOW()
+      WHERE fnc_pes_id = ${id} AND fnc_pes_tipo_cadastro = 'CUSTOMER'
+      RETURNING fnc_pes_id as id
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Cliente não encontrado" }, 404);
+    }
+    
+    return c.json({ message: "Cliente desativado com sucesso" });
+  } catch (error) {
+    console.error("Delete customer error:", error);
+    return c.json({ error: "Erro ao deletar cliente" }, 500);
+  }
+});
+
+// --- Supplier Routes (similar structure) ---
+
+// GET /supplier - List all suppliers
+app.get("/supplier", requireAuth, async (c) => {
+  try {
+    const { active, type, category, limit, offset, search } = c.req.query();
+    
+    let conditions = [`fnc_pes_tipo_cadastro = 'SUPPLIER'`];
+    let values = [];
+    let valueIndex = 1;
+    
+    if (active !== undefined) {
+      conditions.push(`fnc_pes_status = $${valueIndex}`);
+      values.push(active === 'true' ? 'ATIVO' : 'INATIVO');
+      valueIndex++;
+    }
+    
+    if (type) {
+      conditions.push(`fnc_pes_tipo_pessoa = $${valueIndex}`);
+      values.push(type);
+      valueIndex++;
+    }
+    
+    if (search) {
+      conditions.push(`(fnc_pes_nome_fantasia ILIKE $${valueIndex} OR fnc_pes_razao_social ILIKE $${valueIndex} OR fnc_pes_email ILIKE $${valueIndex})`);
+      values.push(`%${search}%`);
+      valueIndex++;
+    }
+    
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    
+    const sql = `
+      SELECT 
+        fnc_pes_id as id,
+        fnc_pes_nome_fantasia as nome_fantasia,
+        fnc_pes_razao_social as razao_social,
+        fnc_pes_tipo_pessoa as tipo_pessoa,
+        fnc_pes_cpf as cpf,
+        fnc_pes_cnpj as cnpj,
+        fnc_pes_email as email,
+        fnc_pes_telefone_1 as telefone,
+        fnc_pes_cidade as cidade,
+        fnc_pes_uf as uf,
+        fnc_pes_status as status,
+        created_at
+      FROM pessoas
+      ${whereClause}
+      ORDER BY fnc_pes_nome_fantasia
+      LIMIT ${limit || 100}
+      OFFSET ${offset || 0}
+    `;
+    
+    const suppliers = await db.unsafe(sql, ...values);
+    
+    const countSql = `SELECT COUNT(*) as total FROM pessoas ${whereClause}`;
+    const [{ total }] = await db.unsafe(countSql, ...values);
+    
+    return c.json({
+      suppliers,
+      total,
+      limit: limit || 100,
+      offset: offset || 0
+    });
+  } catch (error) {
+    console.error("List suppliers error:", error);
+    return c.json({ error: "Erro ao listar fornecedores" }, 500);
+  }
+});
+
+// [Additional supplier endpoints would follow similar pattern...]
+
+// --- Serve ---
+console.log(`🚀 Customers API starting on port ${process.env.PORT || 3000}`);
+console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`🔒 CORS Security: ENABLED with origin validation`);
+console.log(`🌐 Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
+
+Bun.serve({
+  fetch: app.fetch,
+  port: Number(process.env.PORT || 3000),
+});

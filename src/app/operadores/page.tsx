@@ -95,9 +95,9 @@ export default function OperadoresPage() {
     }
   };
 
-  const logUserAction = async (action: string, details?: any) => {
+  const logUserAction = async (action: string, details?: unknown) => {
     try {
-      await railwayApi.logUserAction(action, { ...details, module: 'OPERATORS' });
+      await railwayApi.logUserAction(action, { ...(details as Record<string, unknown> || {}), module: 'OPERATORS' });
     } catch (error) {
       console.error('Erro ao registrar log:', error);
     }
@@ -135,7 +135,8 @@ export default function OperadoresPage() {
       if (editingOperator) {
         // Não enviar senha se não foi alterada
         if (!operatorData.password) {
-          delete (operatorData as any).password;
+          const { password, ...dataWithoutPassword } = operatorData;
+          operatorData = dataWithoutPassword as typeof operatorData;
         }
         
         const response = await railwayApi.updateOperator(editingOperator.id, operatorData);

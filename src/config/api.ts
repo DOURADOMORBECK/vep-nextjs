@@ -223,14 +223,14 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Headers padrão para as requisições
-export const getDefaultHeaders = (token?: string) => {
+// Token agora é enviado automaticamente via httpOnly cookies
+export const getDefaultHeaders = () => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
   
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  // Authorization header não é mais necessário pois usamos cookies httpOnly
+  // Os cookies são enviados automaticamente quando incluímos credentials: 'include'
   
   return headers;
 };

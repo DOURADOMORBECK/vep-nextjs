@@ -173,9 +173,9 @@ export default function PedidosPage() {
     }
   };
 
-  const logUserAction = async (action: string, details?: any) => {
+  const logUserAction = async (action: string, details?: unknown) => {
     try {
-      await railwayApi.logUserAction(action, { ...details, module: 'ORDERS' });
+      await railwayApi.logUserAction(action, { ...(details as Record<string, unknown> || {}), module: 'ORDERS' });
     } catch (error) {
       console.error('Erro ao registrar log:', error);
     }

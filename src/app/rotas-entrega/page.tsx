@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { api } from '@/lib/api-interceptor';
+import { railwayApi } from '@/lib/api-interceptor';
 import { toast } from 'react-hot-toast';
 import { DeliveryRoute, DeliveryStats, DriverStats } from '@/types/delivery';
 
@@ -18,16 +18,16 @@ export default function RotasEntregaPage() {
   useEffect(() => {
     fetchRoutes();
     fetchStats();
-  }, [selectedStatus, selectedDriver]);
+  }, [selectedStatus, selectedDriver, fetchRoutes]);
 
-  const fetchRoutes = async () => {
+  const fetchRoutes = useCallback(async () => {
     setLoading(true);
     try {
-      const params: any = {};
+      const params: Record<string, string> = {};
       if (selectedStatus) params.status = selectedStatus;
       if (selectedDriver) params.driver_id = selectedDriver;
       
-      const data = await api.getDeliveries(params);
+      const data = await railwayApi.getDeliveries(params);
       setRoutes(data);
     } catch (error) {
       console.error('Error fetching routes:', error);
@@ -35,11 +35,11 @@ export default function RotasEntregaPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedStatus, selectedDriver]);
 
   const fetchStats = async () => {
     try {
-      const data = await api.getDeliveryStats();
+      const data = await railwayApi.getDeliveryStats();
       setStats(data);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -48,7 +48,7 @@ export default function RotasEntregaPage() {
 
   const fetchDriverStats = async (driverId: string) => {
     try {
-      const data = await api.getDriverDeliveryStats(driverId);
+      const data = await railwayApi.getDriverDeliveryStats(driverId);
       setDriverStats(data);
     } catch (error) {
       console.error('Error fetching driver stats:', error);

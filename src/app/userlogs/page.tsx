@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { railwayApi } from '@/lib/api-interceptor';
 
 interface UserLog {
   id: string;
@@ -30,9 +29,48 @@ export default function UserLogsPage() {
     loadLogs();
   }, []);
 
+  const filterLogs = useCallback(() => {
+    let filtered = logs;
+
+    // Filtro por termo de busca
+    if (searchTerm) {
+      filtered = filtered.filter(log => 
+        log.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.userId.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtro por módulo
+    if (selectedModule !== 'all') {
+      filtered = filtered.filter(log => log.module === selectedModule);
+    }
+
+    // Filtro por ação
+    if (selectedAction !== 'all') {
+      filtered = filtered.filter(log => log.action === selectedAction);
+    }
+
+    // Filtro por data
+    if (dateRange.start || dateRange.end) {
+      filtered = filtered.filter(log => {
+        const logDate = new Date(log.timestamp);
+        if (dateRange.start && logDate < new Date(dateRange.start + 'T00:00:00')) {
+          return false;
+        }
+        if (dateRange.end && logDate > new Date(dateRange.end + 'T23:59:59')) {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    setFilteredLogs(filtered);
+  }, [logs, searchTerm, selectedModule, selectedAction, dateRange]);
+
   useEffect(() => {
     filterLogs();
-  }, [logs, searchTerm, selectedModule, selectedAction, dateRange]);
+  }, [filterLogs]);
 
   const loadLogs = async () => {
     setLoading(true);
@@ -55,42 +93,6 @@ export default function UserLogsPage() {
     }
   };
 
-  const filterLogs = () => {
-    let filtered = [...logs];
-
-    // Filtro por texto
-    if (searchTerm) {
-      filtered = filtered.filter(log => 
-        log.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        JSON.stringify(log.details).toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Filtro por módulo
-    if (selectedModule !== 'all') {
-      filtered = filtered.filter(log => log.module === selectedModule);
-    }
-
-    // Filtro por ação
-    if (selectedAction !== 'all') {
-      filtered = filtered.filter(log => log.action === selectedAction);
-    }
-
-    // Filtro por data
-    if (dateRange.start) {
-      filtered = filtered.filter(log => 
-        new Date(log.timestamp) >= new Date(dateRange.start)
-      );
-    }
-    if (dateRange.end) {
-      filtered = filtered.filter(log => 
-        new Date(log.timestamp) <= new Date(dateRange.end + 'T23:59:59')
-      );
-    }
-
-    setFilteredLogs(filtered);
-  };
 
   const getModules = () => {
     const modules = new Set(logs.map(log => log.module));

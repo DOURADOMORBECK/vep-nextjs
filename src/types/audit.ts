@@ -4,8 +4,8 @@ export interface AuditLog {
   action: string;
   resource_type?: string;
   resource_id?: string;
-  old_values?: any;
-  new_values?: any;
+  old_values?: Record<string, unknown>;
+  new_values?: Record<string, unknown>;
   ip_address?: string;
   user_agent?: string;
   timestamp: string;
@@ -35,8 +35,8 @@ export interface CreateAuditLogData {
   action: string;
   resource_type?: string;
   resource_id?: string;
-  old_values?: any;
-  new_values?: any;
+  old_values?: Record<string, unknown>;
+  new_values?: Record<string, unknown>;
   severity?: string;
 }
 

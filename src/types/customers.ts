@@ -32,9 +32,7 @@ export interface Customer {
   fnc_pes_dh_atualizacao: string;
 }
 
-export interface Supplier extends Customer {
-  // Suppliers use the same structure as customers
-}
+export type Supplier = Customer;
 
 export interface CreateCustomerData {
   tipo_pessoa: 'PF' | 'PJ';
@@ -64,9 +62,7 @@ export interface CreateCustomerData {
   emp_id?: number;
 }
 
-export interface CreateSupplierData extends CreateCustomerData {
-  // Suppliers use the same data structure as customers
-}
+export type CreateSupplierData = CreateCustomerData;
 
 export interface CustomerFilters {
   status?: string;

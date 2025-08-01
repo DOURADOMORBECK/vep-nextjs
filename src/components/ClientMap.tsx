@@ -9,8 +9,8 @@ interface LeafletMap {
   eachLayer: (fn: (layer: LeafletLayer) => void) => void;
   removeLayer: (layer: LeafletLayer) => void;
   fitBounds: (bounds: [number, number][], options?: Record<string, unknown>) => void;
-  addControl: (control: any) => void;
-  on: (event: string, handler: Function) => void;
+  addControl: (control: LeafletControl) => void;
+  on: (event: string, handler: (...args: unknown[]) => void) => void;
 }
 
 interface LeafletLayer {
@@ -20,9 +20,9 @@ interface LeafletLayer {
 interface LeafletMarker {
   addTo: (map: LeafletMap) => LeafletMarker;
   bindPopup: (content: string) => LeafletMarker;
-  bindTooltip: (content: string, options?: any) => LeafletMarker;
-  setIcon: (icon: any) => LeafletMarker;
-  on: (event: string, handler: Function) => LeafletMarker;
+  bindTooltip: (content: string, options?: Record<string, unknown>) => LeafletMarker;
+  setIcon: (icon: LeafletIcon) => LeafletMarker;
+  on: (event: string, handler: (...args: unknown[]) => void) => LeafletMarker;
 }
 
 interface LeafletIcon {
@@ -35,6 +35,11 @@ interface LeafletIcon {
 interface LeafletDivIcon extends LeafletIcon {
   html: string;
   className: string;
+}
+
+interface LeafletControl {
+  addTo: (map: LeafletMap) => LeafletControl;
+  remove: () => LeafletControl;
 }
 
 interface LeafletPolyline {
@@ -54,12 +59,12 @@ interface LeafletStatic {
   marker: (coords: [number, number], options?: Record<string, unknown>) => LeafletMarker;
   tileLayer: (url: string, options?: Record<string, unknown>) => LeafletTileLayer;
   polyline: (coords: [number, number][], options?: Record<string, unknown>) => LeafletPolyline;
-  divIcon: (options: Partial<LeafletDivIcon>) => any;
-  icon: (options: any) => any;
+  divIcon: (options: Partial<LeafletDivIcon>) => LeafletIcon;
+  icon: (options: Partial<LeafletIcon>) => LeafletIcon;
   control: {
-    layers: (baseLayers?: any, overlays?: any, options?: any) => LeafletControl;
+    layers: (baseLayers?: Record<string, LeafletLayer>, overlays?: Record<string, LeafletLayer>, options?: Record<string, unknown>) => LeafletControl;
   };
-  layerGroup: () => any;
+  layerGroup: () => LeafletLayer;
 }
 
 declare global {
@@ -88,6 +93,8 @@ interface Client {
   longitude: number;
   deliveryNotes: string;
   active: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface ClientMapProps {
@@ -98,7 +105,7 @@ interface ClientMapProps {
 export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<LeafletMap | null>(null);
-  const markersRef = useRef<any[]>([]);
+  const markersRef = useRef<LeafletMarker[]>([]);
 
   const initializeMap = useCallback(() => {
     if (window.L && mapRef.current && !mapInstanceRef.current) {
@@ -127,12 +134,16 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
     const color = client.type === 'PJ' ? '#3b82f6' : '#8b5cf6'; // Azul para PJ, Roxo para PF
     const icon = client.type === 'PJ' ? 'fa-building' : 'fa-user';
     
+    const container = document.createElement('div');
+    container.className = 'client-marker';
+    container.style.backgroundColor = color;
+    
+    const iconElement = document.createElement('i');
+    iconElement.className = `fa-solid ${icon} text-white`;
+    container.appendChild(iconElement);
+    
     return window.L.divIcon({
-      html: `
-        <div class="client-marker" style="background-color: ${color}">
-          <i class="fa-solid ${icon} text-white"></i>
-        </div>
-      `,
+      html: container.outerHTML,
       className: 'custom-client-marker',
       iconSize: [32, 32],
       iconAnchor: [16, 32],
@@ -141,7 +152,7 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
   };
 
   // Criar ícone de cluster customizado
-  const createClusterIcon = (cluster: any) => {
+  const createClusterIcon = (cluster: { getChildCount: () => number }) => {
     const count = cluster.getChildCount();
     let size = 'small';
     let bgColor = '#22c55e';
@@ -155,12 +166,16 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
       bgColor = '#ef4444';
     }
     
+    const container = document.createElement('div');
+    container.className = `cluster-marker cluster-${size}`;
+    container.style.backgroundColor = bgColor;
+    
+    const span = document.createElement('span');
+    span.textContent = count.toString();
+    container.appendChild(span);
+    
     return window.L.divIcon({
-      html: `
-        <div class="cluster-marker cluster-${size}" style="background-color: ${bgColor}">
-          <span>${count}</span>
-        </div>
-      `,
+      html: container.outerHTML,
       className: 'custom-cluster-marker',
       iconSize: size === 'small' ? [30, 30] : size === 'medium' ? [35, 35] : [40, 40]
     });
@@ -188,35 +203,92 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
         icon: createClientIcon(client)
       });
 
-      // Popup com informações do cliente
-      const popupContent = `
-        <div class="client-popup" style="min-width: 250px;">
-          <h3 style="margin: 0 0 10px 0; font-weight: bold; font-size: 16px;">${client.name}</h3>
-          <div style="font-size: 14px; line-height: 1.5;">
-            <p style="margin: 5px 0;"><strong>Código:</strong> ${client.code}</p>
-            <p style="margin: 5px 0;"><strong>Tipo:</strong> ${client.type === 'PJ' ? 'Pessoa Jurídica' : 'Pessoa Física'}</p>
-            <p style="margin: 5px 0;"><strong>Documento:</strong> ${client.document}</p>
-            <p style="margin: 5px 0;"><strong>Telefone:</strong> ${client.phone}</p>
-            ${client.whatsapp ? `<p style="margin: 5px 0;"><strong>WhatsApp:</strong> ${client.whatsapp}</p>` : ''}
-            <p style="margin: 5px 0;"><strong>Endereço:</strong><br/>
-              ${client.address}, ${client.number}${client.complement ? ' - ' + client.complement : ''}<br/>
-              ${client.neighborhood} - ${client.city}/${client.state}<br/>
-              CEP: ${client.zipCode}
-            </p>
-            ${client.deliveryNotes ? `<p style="margin: 5px 0;"><strong>Obs. Entrega:</strong><br/>${client.deliveryNotes}</p>` : ''}
-          </div>
-          ${onClientClick ? `
-            <div style="margin-top: 10px; text-align: center;">
-              <button onclick="window.handleClientEdit('${client.id}')" 
-                      style="background: #22c55e; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;">
-                <i class="fa-solid fa-edit"></i> Editar
-              </button>
-            </div>
-          ` : ''}
-        </div>
-      `;
+      // Popup com informações do cliente - usando DOM API para prevenir XSS
+      const popupContainer = document.createElement('div');
+      popupContainer.className = 'client-popup';
+      popupContainer.style.minWidth = '250px';
 
-      marker.bindPopup(popupContent);
+      const title = document.createElement('h3');
+      title.style.cssText = 'margin: 0 0 10px 0; font-weight: bold; font-size: 16px;';
+      title.textContent = client.name;
+      popupContainer.appendChild(title);
+
+      const infoDiv = document.createElement('div');
+      infoDiv.style.cssText = 'font-size: 14px; line-height: 1.5;';
+
+      // Helper function to create info paragraphs
+      const createInfoParagraph = (label: string, value: string) => {
+        const p = document.createElement('p');
+        p.style.margin = '5px 0';
+        const strong = document.createElement('strong');
+        strong.textContent = label + ':';
+        p.appendChild(strong);
+        p.appendChild(document.createTextNode(' ' + value));
+        return p;
+      };
+
+      infoDiv.appendChild(createInfoParagraph('Código', client.code));
+      infoDiv.appendChild(createInfoParagraph('Tipo', client.type === 'PJ' ? 'Pessoa Jurídica' : 'Pessoa Física'));
+      infoDiv.appendChild(createInfoParagraph('Documento', client.document));
+      infoDiv.appendChild(createInfoParagraph('Telefone', client.phone));
+      
+      if (client.whatsapp) {
+        infoDiv.appendChild(createInfoParagraph('WhatsApp', client.whatsapp));
+      }
+
+      // Address paragraph
+      const addressP = document.createElement('p');
+      addressP.style.margin = '5px 0';
+      const addressStrong = document.createElement('strong');
+      addressStrong.textContent = 'Endereço:';
+      addressP.appendChild(addressStrong);
+      addressP.appendChild(document.createElement('br'));
+      addressP.appendChild(document.createTextNode(
+        `${client.address}, ${client.number}${client.complement ? ' - ' + client.complement : ''}`
+      ));
+      addressP.appendChild(document.createElement('br'));
+      addressP.appendChild(document.createTextNode(
+        `${client.neighborhood} - ${client.city}/${client.state}`
+      ));
+      addressP.appendChild(document.createElement('br'));
+      addressP.appendChild(document.createTextNode(`CEP: ${client.zipCode}`));
+      infoDiv.appendChild(addressP);
+
+      if (client.deliveryNotes) {
+        const notesP = document.createElement('p');
+        notesP.style.margin = '5px 0';
+        const notesStrong = document.createElement('strong');
+        notesStrong.textContent = 'Obs. Entrega:';
+        notesP.appendChild(notesStrong);
+        notesP.appendChild(document.createElement('br'));
+        notesP.appendChild(document.createTextNode(client.deliveryNotes));
+        infoDiv.appendChild(notesP);
+      }
+
+      popupContainer.appendChild(infoDiv);
+
+      if (onClientClick) {
+        const buttonDiv = document.createElement('div');
+        buttonDiv.style.cssText = 'margin-top: 10px; text-align: center;';
+        
+        const editButton = document.createElement('button');
+        editButton.style.cssText = 'background: #22c55e; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;';
+        editButton.onclick = () => {
+          if ((window as typeof window & { handleClientEdit?: (clientId: string) => void }).handleClientEdit) {
+            (window as typeof window & { handleClientEdit?: (clientId: string) => void }).handleClientEdit!(client.id);
+          }
+        };
+        
+        const icon = document.createElement('i');
+        icon.className = 'fa-solid fa-edit';
+        editButton.appendChild(icon);
+        editButton.appendChild(document.createTextNode(' Editar'));
+        
+        buttonDiv.appendChild(editButton);
+        popupContainer.appendChild(buttonDiv);
+      }
+
+      marker.bindPopup(popupContainer.outerHTML);
       
       // Tooltip com nome
       marker.bindTooltip(client.name, {
@@ -261,17 +333,41 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
       div.style.borderRadius = '8px';
       div.style.border = '1px solid #4b5563';
       
-      div.innerHTML = `
-        <h4 style="margin: 0 0 10px 0; color: white; font-size: 14px;">Legenda</h4>
-        <div style="display: flex; align-items: center; margin-bottom: 5px;">
-          <div style="width: 20px; height: 20px; background: #3b82f6; border-radius: 50%; margin-right: 8px;"></div>
-          <span style="color: #d1d5db; font-size: 12px;">Pessoa Jurídica</span>
-        </div>
-        <div style="display: flex; align-items: center;">
-          <div style="width: 20px; height: 20px; background: #8b5cf6; border-radius: 50%; margin-right: 8px;"></div>
-          <span style="color: #d1d5db; font-size: 12px;">Pessoa Física</span>
-        </div>
-      `;
+      // Create legend content using DOM API
+      const title = document.createElement('h4');
+      title.style.cssText = 'margin: 0 0 10px 0; color: white; font-size: 14px;';
+      title.textContent = 'Legenda';
+      div.appendChild(title);
+
+      // PJ legend item
+      const pjDiv = document.createElement('div');
+      pjDiv.style.cssText = 'display: flex; align-items: center; margin-bottom: 5px;';
+      
+      const pjColorBox = document.createElement('div');
+      pjColorBox.style.cssText = 'width: 20px; height: 20px; background: #3b82f6; border-radius: 50%; margin-right: 8px;';
+      pjDiv.appendChild(pjColorBox);
+      
+      const pjLabel = document.createElement('span');
+      pjLabel.style.cssText = 'color: #d1d5db; font-size: 12px;';
+      pjLabel.textContent = 'Pessoa Jurídica';
+      pjDiv.appendChild(pjLabel);
+      
+      div.appendChild(pjDiv);
+
+      // PF legend item
+      const pfDiv = document.createElement('div');
+      pfDiv.style.cssText = 'display: flex; align-items: center;';
+      
+      const pfColorBox = document.createElement('div');
+      pfColorBox.style.cssText = 'width: 20px; height: 20px; background: #8b5cf6; border-radius: 50%; margin-right: 8px;';
+      pfDiv.appendChild(pfColorBox);
+      
+      const pfLabel = document.createElement('span');
+      pfLabel.style.cssText = 'color: #d1d5db; font-size: 12px;';
+      pfLabel.textContent = 'Pessoa Física';
+      pfDiv.appendChild(pfLabel);
+      
+      div.appendChild(pfDiv);
       
       return div;
     };
@@ -282,7 +378,7 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
   useEffect(() => {
     // Função global para lidar com clique no botão editar
     if (onClientClick) {
-      (window as any).handleClientEdit = (clientId: string) => {
+      (window as typeof window & { handleClientEdit?: (clientId: string) => void }).handleClientEdit = (clientId: string) => {
         const client = clients.find(c => c.id === clientId);
         if (client) {
           onClientClick(client);
@@ -355,8 +451,8 @@ export default function ClientMap({ clients, onClientClick }: ClientMapProps) {
         mapInstanceRef.current.remove();
       }
       // Limpa função global
-      if ((window as any).handleClientEdit) {
-        delete (window as any).handleClientEdit;
+      if ((window as typeof window & { handleClientEdit?: (clientId: string) => void }).handleClientEdit) {
+        delete (window as typeof window & { handleClientEdit?: (clientId: string) => void }).handleClientEdit;
       }
     };
   }, [initializeMap]);

@@ -47,5 +47,5 @@ export interface DashboardAlert {
   severity: 'info' | 'warning' | 'error';
   message: string;
   count?: number;
-  details?: any;
+  details?: Record<string, unknown>;
 }

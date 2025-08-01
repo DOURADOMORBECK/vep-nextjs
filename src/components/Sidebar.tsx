@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -46,11 +47,32 @@ export default function Sidebar({ isCollapsed = false }: SidebarProps) {
     { icon: 'fa-server', label: 'Status das APIs', path: '/api-status' },
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('userId');
-    router.push('/login');
+  const handleLogout = async () => {
+    try {
+      // Call the logout API endpoint
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // Clear local storage (non-sensitive data)
+        localStorage.removeItem('user');
+        localStorage.removeItem('userId');
+        // Redirect to login
+        router.push('/login');
+      } else {
+        console.error('Logout failed');
+        // Still redirect on error
+        router.push('/login');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still redirect on error
+      router.push('/login');
+    }
   };
 
   return (
@@ -58,10 +80,12 @@ export default function Sidebar({ isCollapsed = false }: SidebarProps) {
       <div className="flex flex-col h-full">
         {/* Logo */}
         <div className="flex items-center justify-center md:justify-start h-16 px-4 border-b border-gray-700">
-          <img 
+          <Image 
             src="/logo_veplim.png" 
             alt="VepLim" 
-            className={`${isCollapsed ? 'h-8' : 'h-10'} transition-all duration-300`}
+            width={isCollapsed ? 32 : 40}
+            height={isCollapsed ? 32 : 40}
+            className="transition-all duration-300"
           />
           {!isCollapsed && (
             <h1 className="text-lg font-bold text-white ml-3">Gestão VepLim</h1>
@@ -92,11 +116,13 @@ export default function Sidebar({ isCollapsed = false }: SidebarProps) {
         {/* User Profile */}
         <div className="p-4 border-t border-gray-700">
           <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <img 
-                className="h-8 w-8 rounded-full" 
+            <div className="flex-shrink-0 relative">
+              <Image 
+                className="rounded-full" 
                 src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" 
                 alt="Avatar"
+                width={32}
+                height={32}
               />
             </div>
             {!isCollapsed && (

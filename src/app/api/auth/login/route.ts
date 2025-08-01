@@ -1,40 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Max-Age': '86400',
-};
+import { createCorsHeaders } from '@/config/cors';
+import { loginSchema, sanitizeEmail, type LoginRequest } from '@/lib/validation';
+import { withApiMiddleware, AUTH_RATE_LIMIT, createErrorResponse } from '@/lib/api-middleware';
+import { API_CONFIG, buildUrl } from '@/config/api';
 
 export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin');
   return new NextResponse(null, {
     status: 200,
-    headers: corsHeaders,
+    headers: createCorsHeaders(origin),
   });
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json().catch(() => null);
-    
-    if (!body || !body.email || !body.password) {
-      return NextResponse.json(
-        { error: 'Email e senha são obrigatórios' },
-        { status: 400, headers: corsHeaders }
-      );
-    }
+// Main login handler
+async function loginHandler(request: NextRequest, validatedData?: LoginRequest): Promise<NextResponse> {
+  const origin = request.headers.get('origin');
+  const corsHeaders = createCorsHeaders(origin);
+  
+  if (!validatedData) {
+    return createErrorResponse('Dados de login são obrigatórios', 400, undefined, origin);
+  }
 
-    const { email, password } = body;
+  const { email, password } = validatedData;
+  const sanitizedEmail = sanitizeEmail(email);
 
-    // Use internal Railway URL only when deployed on Railway
+    // Use centralized API configuration
     const isRailwayProduction = process.env.RAILWAY_ENV === 'production';
-    // Fallback to public URL if internal fails
-    const publicUrl = 'https://api-users-production-54ed.up.railway.app/login';
-    const internalUrl = 'http://api-users.railway.internal:8080/login';
-    const apiUrl = isRailwayProduction ? internalUrl : publicUrl;
+    const apiUrl = buildUrl(API_CONFIG.AUTH_API, '/login');
+    const fallbackUrl = isRailwayProduction 
+      ? 'https://api-users-production-54ed.up.railway.app/login'
+      : apiUrl;
 
-    console.log(`[API Route] Login attempt for: ${email}`);
+    console.log(`[API Route] Login attempt for: ${sanitizedEmail}`);
     console.log(`[API Route] Using API URL: ${apiUrl}`);
     console.log(`[API Route] Environment:`, { NODE_ENV: process.env.NODE_ENV, RAILWAY_ENV: process.env.RAILWAY_ENV, isRailwayProduction });
 
@@ -50,40 +47,40 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          email: email.toLowerCase().trim(),
+          email: sanitizedEmail,
           password 
         }),
         signal: controller.signal
       });
       
       clearTimeout(timeoutId);
-    } catch (fetchError: any) {
+    } catch (fetchError: unknown) {
       console.error('[API Route] Network error:', fetchError);
       
       // Se estamos em produção e a URL interna falhou, tenta a pública
-      if (isRailwayProduction && apiUrl === internalUrl) {
+      if (isRailwayProduction && apiUrl !== fallbackUrl) {
         console.log('[API Route] Internal URL failed, trying public URL...');
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 30000);
           
-          response = await fetch(publicUrl, {
+          response = await fetch(fallbackUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({ 
-              email: email.toLowerCase().trim(),
+              email: sanitizedEmail,
               password 
             }),
             signal: controller.signal
           });
           
           clearTimeout(timeoutId);
-        } catch (fallbackError: any) {
+        } catch (fallbackError: unknown) {
           console.error('[API Route] Fallback to public URL also failed:', fallbackError);
           
-          if (fallbackError.name === 'AbortError') {
+          if (fallbackError instanceof Error && fallbackError.name === 'AbortError') {
             return NextResponse.json(
               { error: 'A requisição demorou muito para responder. Por favor, tente novamente.' },
               { status: 504, headers: corsHeaders }
@@ -97,7 +94,7 @@ export async function POST(request: NextRequest) {
         }
       } else {
         // Não estamos em produção ou já tentamos a URL pública
-        if (fetchError.name === 'AbortError') {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
           return NextResponse.json(
             { error: 'A requisição demorou muito para responder. Por favor, tente novamente.' },
             { status: 504, headers: corsHeaders }
@@ -132,7 +129,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[API Route] Login successful for: ${email}`);
+    console.log(`[API Route] Login successful for: ${sanitizedEmail}`);
     // Ensure we have the expected structure
     if (!data.token || !data.user) {
       console.error('[API Route] Invalid success response structure:', data);
@@ -142,17 +139,23 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    return NextResponse.json(data, {
+    // Import auth utilities
+    const { setAuthCookies } = await import('@/lib/auth');
+    
+    // Create response with auth data
+    const loginResponse = NextResponse.json(data, {
       headers: corsHeaders
     });
-  } catch (error) {
-    console.error('[API Route] Login error:', error);
-    return NextResponse.json(
-      { error: 'Erro ao processar requisição. Por favor, tente novamente.' },
-      { 
-        status: 500,
-        headers: corsHeaders
-      }
-    );
-  }
+    
+    // Set secure httpOnly cookies
+    setAuthCookies(loginResponse, data.token, data.user);
+    
+    return loginResponse;
 }
+
+// Export the wrapped handler with middleware
+export const POST = withApiMiddleware(loginHandler, {
+  validationSchema: loginSchema,
+  rateLimit: AUTH_RATE_LIMIT,
+  methods: ['POST']
+});

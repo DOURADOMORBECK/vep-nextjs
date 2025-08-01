@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import DashboardLayout from '@/components/DashboardLayout';
 import { railwayApi } from '@/lib/api-interceptor';
 
@@ -83,9 +84,9 @@ export default function UsuariosPage() {
     }
   };
 
-  const logUserAction = async (action: string, details?: any) => {
+  const logUserAction = async (action: string, details?: unknown) => {
     try {
-      await railwayApi.logUserAction(action, { ...details, module: 'USERS' });
+      await railwayApi.logUserAction(action, { ...(details as Record<string, unknown> || {}), module: 'USERS' });
     } catch (error) {
       console.error('Erro ao registrar log:', error);
     }
@@ -116,7 +117,8 @@ export default function UsuariosPage() {
       if (editingUser) {
         // Não enviar senha se não foi alterada
         if (!userData.password) {
-          delete (userData as any).password;
+          const { password, ...dataWithoutPassword } = userData;
+          userData = dataWithoutPassword as typeof userData;
         }
         
         const response = await railwayApi.updateUser(editingUser.id, userData);
@@ -339,9 +341,9 @@ export default function UsuariosPage() {
             <div key={user.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4 hover:border-gray-600 transition-colors">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center">
-                  <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-white font-medium mr-3">
+                  <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-white font-medium mr-3 relative">
                     {user.avatar ? (
-                      <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
+                      <Image src={user.avatar} alt={user.name} fill className="rounded-full object-cover" sizes="48px" />
                     ) : (
                       getInitials(user.name)
                     )}

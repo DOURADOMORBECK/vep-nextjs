@@ -89,9 +89,9 @@ export default function ProdutosPage() {
     }
   };
 
-  const logUserAction = async (action: string, details?: any) => {
+  const logUserAction = async (action: string, details?: unknown) => {
     try {
-      await railwayApi.logUserAction(action, { ...details, module: 'PRODUCTS' });
+      await railwayApi.logUserAction(action, { ...(details as Record<string, unknown> || {}), module: 'PRODUCTS' });
     } catch (error) {
       console.error('Erro ao registrar log:', error);
     }

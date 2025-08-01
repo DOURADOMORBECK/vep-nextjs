@@ -3,7 +3,7 @@ export interface UserLog {
   user_id: string;
   action: string;
   module: string;
-  details?: any;
+  details?: unknown;
   ip_address?: string;
   user_agent?: string;
   timestamp: string;
@@ -29,7 +29,7 @@ export interface UserLogStats {
 export interface CreateUserLogData {
   action: string;
   module?: string;
-  details?: any;
+  details?: unknown;
   userId?: string;
   timestamp?: string;
 }

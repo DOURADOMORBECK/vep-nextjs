@@ -62,86 +62,27 @@ export default function ClientesPage() {
     active: true
   });
 
-  // Mock data com coordenadas reais de São Paulo
   useEffect(() => {
-    const mockClients: Client[] = [
-      {
-        id: '1',
-        code: 'CLI-001',
-        name: 'Supermercado Central',
-        type: 'PJ',
-        document: '12.345.678/0001-90',
-        email: 'compras@mercadocentral.com.br',
-        phone: '(11) 3456-7890',
-        whatsapp: '(11) 98765-4321',
-        address: 'Av. Paulista',
-        number: '1000',
-        complement: 'Loja 1',
-        neighborhood: 'Bela Vista',
-        city: 'São Paulo',
-        state: 'SP',
-        zipCode: '01310-100',
-        latitude: -23.5629,
-        longitude: -46.6544,
-        deliveryNotes: 'Entrega pela entrada de mercadorias',
-        active: true,
-        createdAt: '2023-07-01T10:00:00',
-        updatedAt: '2023-07-01T10:00:00'
-      },
-      {
-        id: '2',
-        code: 'CLI-002',
-        name: 'Restaurante Vila Madalena',
-        type: 'PJ',
-        document: '98.765.432/0001-10',
-        email: 'contato@vilamadalena.com.br',
-        phone: '(11) 3456-7891',
-        whatsapp: '(11) 98765-4322',
-        address: 'Rua Fradique Coutinho',
-        number: '1234',
-        complement: '',
-        neighborhood: 'Vila Madalena',
-        city: 'São Paulo',
-        state: 'SP',
-        zipCode: '05416-011',
-        latitude: -23.5505,
-        longitude: -46.6333,
-        deliveryNotes: 'Ligar ao chegar',
-        active: true,
-        createdAt: '2023-07-02T11:00:00',
-        updatedAt: '2023-07-02T11:00:00'
-      },
-      {
-        id: '3',
-        code: 'CLI-003',
-        name: 'Maria Silva',
-        type: 'PF',
-        document: '123.456.789-00',
-        email: 'maria.silva@email.com',
-        phone: '(11) 3456-7892',
-        whatsapp: '(11) 98765-4323',
-        address: 'Rua Augusta',
-        number: '500',
-        complement: 'Apto 102',
-        neighborhood: 'Consolação',
-        city: 'São Paulo',
-        state: 'SP',
-        zipCode: '01305-000',
-        latitude: -23.5506,
-        longitude: -46.6628,
-        deliveryNotes: 'Portaria 24h',
-        active: true,
-        createdAt: '2023-07-03T09:00:00',
-        updatedAt: '2023-07-03T09:00:00'
-      }
-    ];
-    setClients(mockClients);
-    
+    fetchClients();
     // Log de acesso
     logUserAction('VIEW_CLIENTS_PAGE');
   }, []);
 
-  const logUserAction = async (action: string, details?: any) => {
+  const fetchClients = async () => {
+    try {
+      const response = await fetch('/api/proxy/customers/customers');
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data);
+      } else {
+        console.error('Failed to fetch clients');
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
+
+  const logUserAction = async (action: string, details?: unknown) => {
     try {
       await fetch('/api/userlogs', {
         method: 'POST',
@@ -210,7 +151,7 @@ export default function ClientesPage() {
           }));
           
           // Buscar coordenadas do endereço
-          geocodeAddress(`${data.logradouro}, ${data.localidade}, ${data.uf}`);
+          geocodeAddress();
         }
       } catch (error) {
         console.error('Erro ao buscar CEP:', error);
@@ -218,19 +159,10 @@ export default function ClientesPage() {
     }
   };
 
-  const geocodeAddress = async (address: string) => {
-    // Em produção, usar uma API de geocoding real
-    // Por enquanto, usar coordenadas aproximadas de São Paulo
-    const mockCoordinates = {
-      lat: -23.550520 + (Math.random() - 0.5) * 0.1,
-      lng: -46.633308 + (Math.random() - 0.5) * 0.1
-    };
-    
-    setFormData(prev => ({
-      ...prev,
-      latitude: mockCoordinates.lat,
-      longitude: mockCoordinates.lng
-    }));
+  const geocodeAddress = async () => {
+    // TODO: Integrate with real geocoding API
+    // For now, leave coordinates empty - should be filled manually
+    console.warn('Geocoding not implemented - please add coordinates manually');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -1,13 +1,19 @@
-// Função simples para fazer chamadas às APIs
+// Função simples para fazer chamadas às APIs com timeout
 export async function fetchWithInterceptor(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit & { timeout?: number } = {}
 ): Promise<Response> {
+  const { timeout = 30000, ...fetchOptions } = options; // Default 30 second timeout
+  
   // Adiciona headers padrão
   const defaultHeaders = {
     'Content-Type': 'application/json',
-    ...options.headers
+    ...fetchOptions.headers
   };
+
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   // Se estamos no browser, use proxy routes locais para evitar CORS
   if (typeof window !== 'undefined' && url.includes('.railway.app')) {
@@ -55,27 +61,58 @@ export async function fetchWithInterceptor(
     
     console.log(`[Interceptor] Proxying ${url} to ${proxyUrl}`);
     
-    return fetch(proxyUrl, {
-      ...options,
-      headers: defaultHeaders
-    });
+    try {
+      const response = await fetch(proxyUrl, {
+        ...fetchOptions,
+        headers: defaultHeaders,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`Request timeout after ${timeout}ms: ${proxyUrl}`);
+      }
+      throw error;
+    }
   }
 
-  return fetch(url, {
-    ...options,
-    headers: defaultHeaders
-  });
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      headers: defaultHeaders,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeout}ms: ${url}`);
+    }
+    throw error;
+  }
 }
 
 import { API_CONFIG, buildUrl, getDefaultHeaders } from '@/config/api';
 import { CreateCustomerData, CreateSupplierData } from '@/types/customers';
-import { User, CreateUserData, UpdateUserData, LoginData, RegisterData } from '@/types/users';
+import { CreateUserData, UpdateUserData, RegisterData } from '@/types/users';
 
-// Função helper para obter token do localStorage
+// Timeout configurations for different types of operations
+export const TIMEOUTS = {
+  AUTH: 30000,      // 30s for authentication
+  QUERY: 15000,     // 15s for data queries
+  MUTATION: 45000,  // 45s for create/update/delete
+  UPLOAD: 60000,    // 60s for file uploads
+  REPORT: 90000,    // 90s for report generation
+} as const;
+
+// Função helper para obter token - será enviado automaticamente pelos cookies
+// Mantida por compatibilidade mas retorna null pois agora usamos httpOnly cookies
 const getAuthToken = () => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('authToken');
-  }
+  // Token agora é gerenciado via httpOnly cookies
+  // Esta função é mantida por compatibilidade mas não é mais necessária
   return null;
 };
 
@@ -92,20 +129,25 @@ export const railwayApi = {
       body: JSON.stringify({ 
         email: email.toLowerCase(), // Garantir que o email está em lowercase
         password 
-      })
+      }),
+      credentials: 'include' as RequestCredentials, // Incluir cookies
+      timeout: TIMEOUTS.AUTH
     });
   },
 
   // Produtos (Jornada Produto Service)
   async getProducts() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, '/produto'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
+      timeout: TIMEOUTS.QUERY
     });
   },
   
   async getProduct(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/produto/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
@@ -117,8 +159,10 @@ export const railwayApi = {
   }) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, '/produto'), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
-      body: JSON.stringify(data)
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
+      body: JSON.stringify(data),
+      timeout: TIMEOUTS.MUTATION
     });
   },
   
@@ -130,7 +174,8 @@ export const railwayApi = {
   }) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/produto/${id}`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -138,7 +183,8 @@ export const railwayApi = {
   async deleteProduct(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/produto/${id}`), {
       method: 'DELETE',
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -153,19 +199,22 @@ export const railwayApi = {
     const url = queryString ? `/jornada-produto/orders?${queryString}` : '/jornada-produto/orders';
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getJornadaProdutoOrder(orderId: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/jornada-produto/orders/${orderId}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getJornadaProdutoOrderItems(orderId: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/jornada-produto/orders/${orderId}/items`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -180,20 +229,23 @@ export const railwayApi = {
     const url = queryString ? `/jornada-produto/items?${queryString}` : '/jornada-produto/items';
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getJornadaProdutoItem(itemId: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/jornada-produto/items/${itemId}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   // Jornada Produto - Stats
   async getJornadaProdutoStats() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, '/jornada-produto/stats'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -201,7 +253,8 @@ export const railwayApi = {
   async updateJornadaProdutoOrderStatus(orderId: string, status: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/jornada-produto/orders/${orderId}/status`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify({ status })
     });
   },
@@ -209,7 +262,8 @@ export const railwayApi = {
   async updateJornadaProdutoItemStatus(itemId: string, status: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.PRODUCTS_API, `/jornada-produto/items/${itemId}/status`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify({ status })
     });
   },
@@ -217,27 +271,32 @@ export const railwayApi = {
   // Clientes (Customers Service)
   async getClients() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, '/customer'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
+      timeout: TIMEOUTS.QUERY
     });
   },
   
   async getClient(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/customer/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async createClient(data: CreateCustomerData) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, '/customer'), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
   
   async getCustomerByDocument(document: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/customer/document/${document}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
@@ -251,20 +310,23 @@ export const railwayApi = {
     const query = params.toString() ? `?${params.toString()}` : '';
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/supplier${query}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async getSupplier(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/supplier/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async createSupplier(data: CreateSupplierData) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, '/supplier'), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -272,7 +334,8 @@ export const railwayApi = {
   async updateSupplier(id: string, data: Partial<CreateSupplierData>) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/supplier/${id}`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -280,20 +343,23 @@ export const railwayApi = {
   async deleteSupplier(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/supplier/${id}`), {
       method: 'DELETE',
-      headers: getDefaultHeaders(getAuthToken())  
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials  
     });
   },
   
   async getSupplierByDocument(document: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/supplier/document/${document}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async updateClient(id: string, data: Partial<CreateCustomerData>) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/customer/${id}`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -301,27 +367,31 @@ export const railwayApi = {
   async deleteClient(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.CLIENTS_API, `/customer/${id}`), {
       method: 'DELETE',
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   // Pedidos (Dashboard Service)
   async getOrders() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/order'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async getOrder(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, `/order/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async createOrder(data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/order'), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -329,7 +399,8 @@ export const railwayApi = {
   async updateOrder(id: string, data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, `/order/${id}`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -338,12 +409,13 @@ export const railwayApi = {
   async logUserAction(action: string, details: Record<string, unknown>) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.USERLOGS_API, '/logs'), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify({
         action,
         details,
         timestamp: new Date().toISOString(),
-        userId: localStorage.getItem('userId') || 'anonymous',
+        userId: (typeof window !== 'undefined' ? localStorage.getItem('userId') : null) || 'anonymous',
         module: (details.module as string) || 'GENERAL'
       })
     });
@@ -371,13 +443,15 @@ export const railwayApi = {
     const url = queryString ? `/logs?${queryString}` : '/logs';
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.USERLOGS_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getUserLog(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.USERLOGS_API, `/logs/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -390,7 +464,8 @@ export const railwayApi = {
     const url = queryString ? `/logs/user/${userId}?${queryString}` : `/logs/user/${userId}`;
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.USERLOGS_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -403,7 +478,8 @@ export const railwayApi = {
     const url = queryString ? `/logs/action/${action}?${queryString}` : `/logs/action/${action}`;
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.USERLOGS_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -416,13 +492,15 @@ export const railwayApi = {
     const url = queryString ? `/logs/module/${module}?${queryString}` : `/logs/module/${module}`;
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.USERLOGS_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getUserLogStats() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.USERLOGS_API, '/logs/stats'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -432,27 +510,31 @@ export const railwayApi = {
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.USERLOGS_API, `/logs/cleanup?${queryParams}`), {
       method: 'DELETE',
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   // Operadores (Users Service)
   async getOperators() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, '/users?role=operator'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async getOperator(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, `/users/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async createOperator(data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, '/users'), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify({ ...data, role: 'operator' })
     });
   },
@@ -460,7 +542,8 @@ export const railwayApi = {
   async updateOperator(id: string, data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, `/users/${id}`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -468,76 +551,88 @@ export const railwayApi = {
   async deleteOperator(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.OPERATORS_API, `/users/${id}`), {
       method: 'DELETE',
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   // Fornecedores (Customers Service)
   async getSuppliers() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, '/supplier'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   // Dashboard Stats
   async getDashboardStats() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/dashboard/stats'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getDashboardOrdersByStatus() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/dashboard/orders-by-status'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getDashboardItemsByStatus() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/dashboard/items-by-status'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getDashboardDeliveriesByStatus() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/dashboard/deliveries-by-status'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getDashboardRecentActivity() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/dashboard/recent-activity'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getDashboardTopProducts() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/dashboard/top-products'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getDashboardTopCustomers() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/dashboard/top-customers'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getDashboardAlertsAndNotifications() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.ORDERS_API, '/dashboard/alerts'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async getSupplier(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/supplier/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async createSupplier(data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, '/supplier'), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -545,7 +640,8 @@ export const railwayApi = {
   async updateSupplier(id: string, data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/supplier/${id}`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -553,7 +649,8 @@ export const railwayApi = {
   async deleteSupplier(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.SUPPLIERS_API, `/supplier/${id}`), {
       method: 'DELETE',
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -569,13 +666,15 @@ export const railwayApi = {
     const url = queryString ? `/delivery?${queryString}` : '/delivery';
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async getDelivery(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -590,7 +689,8 @@ export const railwayApi = {
   }) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, '/delivery'), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -608,7 +708,8 @@ export const railwayApi = {
   }) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/${id}`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -616,27 +717,31 @@ export const railwayApi = {
   async startDeliveryRoute(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/${id}/start`), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async finishDeliveryRoute(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/${id}/finish`), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   // Delivery Points
   async getDeliveryPoints(routeId: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/${routeId}/points`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getDeliveryPoint(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/points/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -652,7 +757,8 @@ export const railwayApi = {
   }) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/${routeId}/points`), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -672,7 +778,8 @@ export const railwayApi = {
   }) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/points/${id}`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -684,7 +791,8 @@ export const railwayApi = {
   }) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/points/${id}/deliver`), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -692,13 +800,15 @@ export const railwayApi = {
   // Delivery Statistics
   async getDeliveryStats() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, '/delivery/stats'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getDriverDeliveryStats(driverId: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/stats/driver/${driverId}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -706,7 +816,8 @@ export const railwayApi = {
   async updateDeliveryStatus(id: string, status: string, location?: { lat: number, lng: number }) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.DELIVERY_API, `/delivery/${id}/status`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify({ status, location })
     });
   },
@@ -717,13 +828,14 @@ export const railwayApi = {
     action: string;
     resource_type?: string;
     resource_id?: string;
-    old_values?: any;
-    new_values?: any;
+    old_values?: Record<string, unknown>;
+    new_values?: Record<string, unknown>;
     severity?: string;
   }) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUDIT_API, '/audit/logs'), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -752,13 +864,15 @@ export const railwayApi = {
     const url = queryString ? `/audit/logs?${queryString}` : '/audit/logs';
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUDIT_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getAuditLog(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUDIT_API, `/audit/logs/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -771,7 +885,8 @@ export const railwayApi = {
     const url = queryString ? `/audit/logs/user/${userId}?${queryString}` : `/audit/logs/user/${userId}`;
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUDIT_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -784,7 +899,8 @@ export const railwayApi = {
     const url = queryString ? `/audit/logs/action/${action}?${queryString}` : `/audit/logs/action/${action}`;
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUDIT_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -797,7 +913,8 @@ export const railwayApi = {
     const url = queryString ? `/audit/logs/resource/${resourceType}/${resourceId}?${queryString}` : `/audit/logs/resource/${resourceType}/${resourceId}`;
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUDIT_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -809,13 +926,15 @@ export const railwayApi = {
     if (params?.offset) queryParams.append('offset', params.offset.toString());
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUDIT_API, `/audit/logs/date-range?${queryParams}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getAuditStats() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUDIT_API, '/audit/stats'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -828,7 +947,8 @@ export const railwayApi = {
     const url = queryString ? `/audit/security-alerts?${queryString}` : '/audit/security-alerts';
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUDIT_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -838,20 +958,23 @@ export const railwayApi = {
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUDIT_API, `/audit/logs/cleanup?${queryParams}`), {
       method: 'DELETE',
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   // Veículos (Vehicles Service)
   async getVehicles() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, '/vehicle'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async getVehicle(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/vehicle/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
@@ -869,7 +992,8 @@ export const railwayApi = {
   }) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, '/vehicle'), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -877,7 +1001,8 @@ export const railwayApi = {
   async updateVehicle(id: string, data: unknown) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/vehicle/${id}`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -885,7 +1010,8 @@ export const railwayApi = {
   async deleteVehicle(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/vehicle/${id}`), {
       method: 'DELETE',
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -899,19 +1025,22 @@ export const railwayApi = {
     const url = queryString ? `/positions?${queryString}` : '/positions';
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getLatestVehiclePositions() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, '/positions/latest'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getVehiclePositionStats() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, '/positions/stats'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -923,7 +1052,8 @@ export const railwayApi = {
     if (params?.offset) queryParams.append('offset', params.offset.toString());
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/positions/range?${queryParams}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -936,7 +1066,8 @@ export const railwayApi = {
     const url = queryString ? `/positions/valid-gps?${queryString}` : '/positions/valid-gps';
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -949,7 +1080,8 @@ export const railwayApi = {
     const url = queryString ? `/positions/ignition-on?${queryString}` : '/positions/ignition-on';
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -963,7 +1095,8 @@ export const railwayApi = {
     if (params?.offset) queryParams.append('offset', params.offset.toString());
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/positions/area?${queryParams}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -976,13 +1109,15 @@ export const railwayApi = {
     const url = queryString ? `/positions/vehicle/${id}?${queryString}` : `/positions/vehicle/${id}`;
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   async getLatestVehiclePositionById(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/positions/vehicle/${id}/latest`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
@@ -998,7 +1133,8 @@ export const railwayApi = {
   }) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, `/vehicle/${id}/position`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -1014,27 +1150,32 @@ export const railwayApi = {
     const url = queryString ? `/vehicle/${id}/history?${queryString}` : `/vehicle/${id}/history`;
     
     return fetchWithInterceptor(buildUrl(API_CONFIG.VEHICLES_API, url), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
 
   // Usuários (Users Service)
   async getUsers() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/users'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
+      timeout: TIMEOUTS.QUERY
     });
   },
   
   async getUser(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, `/users/${id}`), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async createUser(data: CreateUserData) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/users'), {
       method: 'POST',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -1048,14 +1189,16 @@ export const railwayApi = {
   
   async getCurrentUser() {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/me'), {
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   },
   
   async updateCurrentUser(data: UpdateUserData) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, '/me'), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -1063,7 +1206,8 @@ export const railwayApi = {
   async updateUser(id: string, data: UpdateUserData) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, `/users/${id}`), {
       method: 'PUT',
-      headers: getDefaultHeaders(getAuthToken()),
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials,
       body: JSON.stringify(data)
     });
   },
@@ -1071,7 +1215,8 @@ export const railwayApi = {
   async deleteUser(id: string) {
     return fetchWithInterceptor(buildUrl(API_CONFIG.AUTH_API, `/users/${id}`), {
       method: 'DELETE',
-      headers: getDefaultHeaders(getAuthToken())
+      headers: getDefaultHeaders(), // Token enviado automaticamente via cookies
+      credentials: 'include' as RequestCredentials
     });
   }
 };

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createCorsHeaders } from '@/config/cors';
 
 interface ProxyConfig {
   internalUrl: string;
@@ -8,14 +9,10 @@ interface ProxyConfig {
 export function createProxyHandler(config: ProxyConfig) {
   // Handle OPTIONS requests for CORS preflight
   const optionsHandler = async (request: NextRequest) => {
+    const origin = request.headers.get('origin');
     return new NextResponse(null, {
       status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Max-Age': '86400',
-      },
+      headers: createCorsHeaders(origin),
     });
   };
 
@@ -28,7 +25,7 @@ export function createProxyHandler(config: ProxyConfig) {
       // Get the path after /api/proxy/[service]
       const url = new URL(request.url);
       const pathParts = url.pathname.split('/');
-      const apiIndex = pathParts.indexOf('api');
+      // const apiIndex = pathParts.indexOf('api');
       const proxyIndex = pathParts.indexOf('proxy');
       
       // Reconstruct the target path
@@ -69,12 +66,8 @@ export function createProxyHandler(config: ProxyConfig) {
       const data = await response.text();
       
       // Create response with CORS headers
-      const corsHeaders = {
-        'Access-Control-Allow-Origin': '*', // Em produção, especificar domínios
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Max-Age': '86400',
-      };
+      const origin = request.headers.get('origin');
+      const corsHeaders = createCorsHeaders(origin);
 
       // Try to parse as JSON, otherwise return as text
       try {

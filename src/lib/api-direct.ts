@@ -3,26 +3,14 @@
 
 import { fetchWithInterceptor } from './api-interceptor';
 
-// Helper to get auth token
-const getAuthToken = () => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('authToken');
-  }
-  return null;
-};
-
 // Helper to build headers
-const getHeaders = (includeAuth = true) => {
+// Token agora é enviado automaticamente via httpOnly cookies
+const getHeaders = () => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
   
-  if (includeAuth) {
-    const token = getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-  }
+  // Authorization header não é mais necessário pois usamos cookies httpOnly
   
   return headers;
 };
@@ -35,7 +23,8 @@ export const api = {
     login: async (email: string, password: string) => {
       const response = await fetchWithInterceptor('https://api-users-production-54ed.up.railway.app/login', {
         method: 'POST',
-        headers: getHeaders(false),
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials,
         body: JSON.stringify({ email, password })
       });
       return response;
@@ -45,7 +34,8 @@ export const api = {
     register: async (name: string, email: string, password: string) => {
       const response = await fetchWithInterceptor('https://api-users-production-54ed.up.railway.app/register', {
         method: 'POST',
-        headers: getHeaders(false),
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials,
         body: JSON.stringify({ name, email, password })
       });
       return response;
@@ -54,7 +44,8 @@ export const api = {
     // GET /me
     getMe: async () => {
       const response = await fetchWithInterceptor('https://api-users-production-54ed.up.railway.app/me', {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -62,7 +53,8 @@ export const api = {
     // GET /users (admin only)
     getUsers: async () => {
       const response = await fetchWithInterceptor('https://api-users-production-54ed.up.railway.app/users', {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -72,6 +64,7 @@ export const api = {
       const response = await fetchWithInterceptor('https://api-users-production-54ed.up.railway.app/me', {
         method: 'PUT',
         headers: getHeaders(),
+        credentials: 'include' as RequestCredentials,
         body: JSON.stringify(data)
       });
       return response;
@@ -89,7 +82,8 @@ export const api = {
       
       const response = await fetchWithInterceptor(
         `https://api-jornada-produto-production.up.railway.app/jornada-produto/orders?${params}`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -98,7 +92,8 @@ export const api = {
     getOrder: async (orderId: string) => {
       const response = await fetchWithInterceptor(
         `https://api-jornada-produto-production.up.railway.app/jornada-produto/orders/${orderId}`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -107,7 +102,8 @@ export const api = {
     getOrderItems: async (orderId: string) => {
       const response = await fetchWithInterceptor(
         `https://api-jornada-produto-production.up.railway.app/jornada-produto/orders/${orderId}/items`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     }
@@ -118,7 +114,8 @@ export const api = {
     // GET /delivery
     getAll: async () => {
       const response = await fetchWithInterceptor('https://api-delivery-production-0851.up.railway.app/delivery', {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -127,7 +124,8 @@ export const api = {
     getById: async (id: string) => {
       const response = await fetchWithInterceptor(
         `https://api-delivery-production-0851.up.railway.app/delivery/${id}`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -136,7 +134,8 @@ export const api = {
     getByStatus: async (status: string) => {
       const response = await fetchWithInterceptor(
         `https://api-delivery-production-0851.up.railway.app/delivery/status/${status}`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -145,7 +144,8 @@ export const api = {
     getByDriver: async (driverId: string) => {
       const response = await fetchWithInterceptor(
         `https://api-delivery-production-0851.up.railway.app/delivery/driver/${driverId}`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -154,7 +154,8 @@ export const api = {
     getStats: async () => {
       const response = await fetchWithInterceptor(
         'https://api-delivery-production-0851.up.railway.app/delivery/stats', {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -163,7 +164,8 @@ export const api = {
     getRoutePoints: async (routeId: string) => {
       const response = await fetchWithInterceptor(
         `https://api-delivery-production-0851.up.railway.app/delivery/${routeId}/points`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     }
@@ -181,7 +183,8 @@ export const api = {
       
       const response = await fetchWithInterceptor(
         `https://api-customers-production.up.railway.app/customer${queryParams.toString() ? '?' + queryParams : ''}`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -190,7 +193,8 @@ export const api = {
     getById: async (id: string) => {
       const response = await fetchWithInterceptor(
         `https://api-customers-production.up.railway.app/customer/${id}`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -199,7 +203,8 @@ export const api = {
     getByCode: async (code: string) => {
       const response = await fetchWithInterceptor(
         `https://api-customers-production.up.railway.app/customer/code/${code}`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -209,6 +214,7 @@ export const api = {
       const response = await fetchWithInterceptor('https://api-customers-production.up.railway.app/customer', {
         method: 'POST',
         headers: getHeaders(),
+        credentials: 'include' as RequestCredentials,
         body: JSON.stringify(data)
       });
       return response;
@@ -220,6 +226,7 @@ export const api = {
         `https://api-customers-production.up.railway.app/customer/${id}`, {
         method: 'PUT',
         headers: getHeaders(),
+        credentials: 'include' as RequestCredentials,
         body: JSON.stringify(data)
       });
       return response;
@@ -230,7 +237,8 @@ export const api = {
       const response = await fetchWithInterceptor(
         `https://api-customers-production.up.railway.app/customer/${id}`, {
         method: 'DELETE',
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     }
@@ -249,7 +257,8 @@ export const api = {
       
       const response = await fetchWithInterceptor(
         `https://api-customers-production.up.railway.app/supplier${queryParams.toString() ? '?' + queryParams : ''}`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -258,7 +267,8 @@ export const api = {
     getById: async (id: string) => {
       const response = await fetchWithInterceptor(
         `https://api-customers-production.up.railway.app/supplier/${id}`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -267,7 +277,8 @@ export const api = {
     getByCode: async (code: string) => {
       const response = await fetchWithInterceptor(
         `https://api-customers-production.up.railway.app/supplier/code/${code}`, {
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     },
@@ -277,6 +288,7 @@ export const api = {
       const response = await fetchWithInterceptor('https://api-customers-production.up.railway.app/supplier', {
         method: 'POST',
         headers: getHeaders(),
+        credentials: 'include' as RequestCredentials,
         body: JSON.stringify(data)
       });
       return response;
@@ -288,6 +300,7 @@ export const api = {
         `https://api-customers-production.up.railway.app/supplier/${id}`, {
         method: 'PUT',
         headers: getHeaders(),
+        credentials: 'include' as RequestCredentials,
         body: JSON.stringify(data)
       });
       return response;
@@ -298,7 +311,8 @@ export const api = {
       const response = await fetchWithInterceptor(
         `https://api-customers-production.up.railway.app/supplier/${id}`, {
         method: 'DELETE',
-        headers: getHeaders()
+        headers: getHeaders(),
+        credentials: 'include' as RequestCredentials
       });
       return response;
     }

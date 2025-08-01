@@ -3,9 +3,28 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import DeliveryMap from '@/components/DeliveryMap';
-import { api } from '@/lib/api-interceptor';
+import { railwayApi } from '@/lib/api-interceptor';
 import { toast } from 'react-hot-toast';
 import { DeliveryRoute, DeliveryPoint, DeliveryStats } from '@/types/delivery';
+
+interface PendingOrder {
+  id: string;
+  customer: string;
+  address: string;
+  items: string;
+  weight: string;
+  coords: [number, number];
+  status: string;
+}
+
+interface Vehicle {
+  id: string;
+  plate: string;
+  driver: string;
+  driver_id: string;
+  status: string;
+  capacity: string;
+}
 
 export default function JornadaEntregaPage() {
   const [currentStep, setCurrentStep] = useState(1); // 1: Seleção, 2: Rota, 3: Carregamento, 4: Entrega, 5: Resumo
@@ -22,9 +41,9 @@ export default function JornadaEntregaPage() {
   const [loading, setLoading] = useState(false);
   const [activeRoute, setActiveRoute] = useState<DeliveryRoute | null>(null);
   const [routePoints, setRoutePoints] = useState<DeliveryPoint[]>([]);
-  const [deliveryStats, setDeliveryStats] = useState<DeliveryStats | null>(null);
-  const [pendingOrders, setPendingOrders] = useState<any[]>([]);
-  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [, setDeliveryStats] = useState<DeliveryStats | null>(null);
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
   // Fetch delivery stats on mount
   useEffect(() => {
@@ -35,8 +54,11 @@ export default function JornadaEntregaPage() {
 
   const fetchDeliveryStats = async () => {
     try {
-      const data = await api.getDeliveryStats();
-      setDeliveryStats(data);
+      const response = await railwayApi.getDeliveryStats();
+      if (response.ok) {
+        const data = await response.json();
+        setDeliveryStats(data);
+      }
     } catch (error) {
       console.error('Error fetching delivery stats:', error);
     }
@@ -44,68 +66,33 @@ export default function JornadaEntregaPage() {
 
   const fetchPendingOrders = async () => {
     try {
-      // Fetch pending orders from your orders API
-      // For now using mock data
-      const mockOrders = [
-        { 
-          id: 'PED-1234', 
-          customer: 'Marcos Oliveira', 
-          address: 'Rua das Flores, 123 - Vila Madalena, São Paulo', 
-          date: '15/07/2023', 
-          status: 'Verificado',
-          items: 12,
-          weight: '8.5 kg',
-          coords: [-23.5505, -46.6333]
-        },
-        { 
-          id: 'PED-1235', 
-          customer: 'Ana Silva', 
-          address: 'Av. Paulista, 1000 - Bela Vista, São Paulo', 
-          date: '15/07/2023', 
-          status: 'Verificado',
-          items: 8,
-          weight: '5.2 kg',
-          coords: [-23.5629, -46.6544]
-        },
-        { 
-          id: 'PED-1236', 
-          customer: 'Carlos Mendes', 
-          address: 'Rua Augusta, 500 - Consolação, São Paulo', 
-          date: '15/07/2023', 
-          status: 'Verificado',
-          items: 15,
-          weight: '12.3 kg',
-          coords: [-23.5506, -46.6628]
-        },
-        { 
-          id: 'PED-1237', 
-          customer: 'Juliana Costa', 
-          address: 'Av. Brasil, 750 - Jardins, São Paulo', 
-          date: '16/07/2023', 
-          status: 'Verificado',
-          items: 6,
-          weight: '3.8 kg',
-          coords: [-23.5489, -46.6388]
-        },
-      ];
-      setPendingOrders(mockOrders);
+      const response = await railwayApi.getOrders({ status: 'verified' });
+      if (response.ok) {
+        const data = await response.json();
+        setPendingOrders(data);
+      } else {
+        console.error('Failed to fetch pending orders');
+        toast.error('Erro ao buscar pedidos pendentes');
+      }
     } catch (error) {
       console.error('Error fetching pending orders:', error);
+      toast.error('Erro ao conectar com servidor de pedidos');
     }
   };
 
   const fetchVehicles = async () => {
     try {
-      // Fetch vehicles from API
-      // For now using mock data
-      const mockVehicles = [
-        { id: 'v1', name: 'Fiorino Branca', plate: 'ABC-1234', capacity: '650 kg', driver: 'João Silva', driver_id: 1 },
-        { id: 'v2', name:'Moto Honda', plate: 'XYZ-5678', capacity: '80 kg', driver: 'Maria Santos', driver_id: 2 },
-        { id: 'v3', name: 'Van Iveco', plate: 'DEF-9012', capacity: '1200 kg', driver: 'Pedro Oliveira', driver_id: 3 },
-      ];
-      setVehicles(mockVehicles);
+      const response = await railwayApi.getVehicles({ status: 'available' });
+      if (response.ok) {
+        const data = await response.json();
+        setVehicles(data);
+      } else {
+        console.error('Failed to fetch vehicles');
+        toast.error('Erro ao buscar veículos');
+      }
     } catch (error) {
       console.error('Error fetching vehicles:', error);
+      toast.error('Erro ao conectar com servidor de veículos');
     }
   };
 
@@ -192,7 +179,7 @@ export default function JornadaEntregaPage() {
       const routeCode = `ROTA-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
       
       // Create route
-      const route = await api.createDeliveryRoute({
+      const routeResponse = await railwayApi.createDeliveryRoute({
         route_code: routeCode,
         driver_id: vehicle?.driver_id,
         driver_name: vehicle?.driver,
@@ -201,6 +188,7 @@ export default function JornadaEntregaPage() {
         distance_km: 18.5 // This would be calculated by a real routing service
       });
       
+      const route = await routeResponse.json();
       setActiveRoute(route);
       
       // Add points to route
@@ -208,7 +196,7 @@ export default function JornadaEntregaPage() {
       for (let i = 0; i < selectedOrders.length; i++) {
         const order = pendingOrders.find(o => o.id === selectedOrders[i]);
         if (order) {
-          const point = await api.addDeliveryPoint(route.id.toString(), {
+          const pointResponse = await railwayApi.addDeliveryPoint(route.id.toString(), {
             sequence: i + 1,
             customer_name: order.customer,
             address: order.address,
@@ -216,6 +204,7 @@ export default function JornadaEntregaPage() {
             lng: order.coords[1],
             notes: `Pedido: ${order.id} - ${order.items} itens - ${order.weight}`
           });
+          const point = await pointResponse.json();
           points.push(point);
         }
       }
@@ -238,7 +227,7 @@ export default function JornadaEntregaPage() {
     
     setLoading(true);
     try {
-      await api.startDeliveryRoute(activeRoute.id.toString());
+      await railwayApi.startDeliveryRoute(activeRoute.id.toString());
       setActiveRoute({ ...activeRoute, status: 'EM_ANDAMENTO' });
       setDeliveryStatus('in_transit');
       toast.success('Rota iniciada!');
@@ -253,7 +242,7 @@ export default function JornadaEntregaPage() {
   const markDelivered = async (pointId: string, notes: string = '') => {
     setLoading(true);
     try {
-      await api.markPointAsDelivered(pointId, {
+      await railwayApi.markPointAsDelivered(pointId, {
         notes,
         // In a real app, you would upload photo/signature and get URLs
         photo_url: undefined,
@@ -266,7 +255,7 @@ export default function JornadaEntregaPage() {
       
       // Update route progress
       if (activeRoute) {
-        await api.updateDeliveryRoute(activeRoute.id.toString(), {
+        await railwayApi.updateDeliveryRoute(activeRoute.id.toString(), {
           completed_points: deliveredOrders.length + 1
         });
       }
@@ -293,7 +282,7 @@ export default function JornadaEntregaPage() {
     
     setLoading(true);
     try {
-      await api.finishDeliveryRoute(activeRoute.id.toString());
+      await railwayApi.finishDeliveryRoute(activeRoute.id.toString());
       setActiveRoute({ ...activeRoute, status: 'CONCLUIDA' });
       setDeliveryStatus('completed');
       toast.success('Rota finalizada!');
@@ -908,8 +897,8 @@ export default function JornadaEntregaPage() {
         </div>
         <div className="p-6">
           <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto">
-            {selectedOrders.map((orderId, index) => {
-              const order = pendingOrders.find(o => o.id === orderId);
+            {selectedOrders.map((orderId) => {
+              const order = pendingOrders.find(o => (o as Record<string, unknown>).id === orderId);
               return order ? (
                 <div key={orderId} className="p-3 bg-green-900/20 border border-green-800 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
