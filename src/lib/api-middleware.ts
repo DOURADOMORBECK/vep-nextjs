@@ -21,10 +21,10 @@ const DEFAULT_RATE_LIMIT: RateLimitConfig = {
   maxAttempts: 100
 };
 
-// Strict rate limit for auth endpoints: 5 attempts per 15 minutes
+// More reasonable rate limit for auth endpoints: 20 attempts per 15 minutes
 export const AUTH_RATE_LIMIT: RateLimitConfig = {
   windowMs: 15 * 60 * 1000, // 15 minutes
-  maxAttempts: 5,
+  maxAttempts: 20, // Increased from 5 to 20 for better development experience
   keyGenerator: (request) => {
     // Use IP + User-Agent for more granular limiting
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
@@ -241,6 +241,14 @@ export function cleanupRateLimitStore(): void {
       rateLimitStore.delete(key);
     }
   }
+}
+
+/**
+ * Clear all rate limits (for development/testing)
+ */
+export function clearRateLimitStore(): void {
+  rateLimitStore.clear();
+  console.log('[Rate Limit] Store cleared');
 }
 
 // Clean up rate limit store every hour
