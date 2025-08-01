@@ -67,7 +67,28 @@ await db`CREATE INDEX IF NOT EXISTS idx_pessoas_email ON pessoas(fnc_pes_email)`
 await db`CREATE INDEX IF NOT EXISTS idx_pessoas_nome ON pessoas(fnc_pes_nome_fantasia)`;
 
 // --- Health check ---
-app.get("/", (c) => c.text("API Customers Bun OK 🚀"));
+app.get("/", (c) => c.text("API Customers V3 Bun OK 🚀"));
+
+// --- Health endpoint ---
+app.get('/health', async (c) => {
+  try {
+    await db`SELECT 1`;
+    return c.json({ 
+      status: 'healthy',
+      service: 'customers-api',
+      timestamp: new Date().toISOString(),
+      database: 'connected'
+    });
+  } catch (error: any) {
+    return c.json({ 
+      status: 'unhealthy',
+      service: 'customers-api',
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: error.message
+    }, 503);
+  }
+});
 
 // --- Funções auxiliares ---
 function validateCPF(cpf: string): boolean {

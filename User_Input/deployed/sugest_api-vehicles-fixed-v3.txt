@@ -14,7 +14,28 @@ const app = new Hono();
 app.use("/*", cors());
 
 // --- Health Check ---
-app.get("/", (c) => c.text("API Vehicles Bun OK 🚀"));
+app.get("/", (c) => c.text("API Vehicles V3 Bun OK 🚀"));
+
+// --- Health endpoint ---
+app.get('/health', async (c) => {
+  try {
+    await db`SELECT 1`;
+    return c.json({ 
+      status: 'healthy',
+      service: 'vehicles-api',
+      timestamp: new Date().toISOString(),
+      database: 'connected'
+    });
+  } catch (error: any) {
+    return c.json({ 
+      status: 'unhealthy',
+      service: 'vehicles-api',
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: error.message
+    }, 503);
+  }
+});
 
 // --- Vehicle/Position Endpoints ---
 

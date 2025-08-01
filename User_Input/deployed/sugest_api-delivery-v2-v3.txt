@@ -59,7 +59,28 @@ await db`CREATE INDEX IF NOT EXISTS idx_delivery_route_points_route ON delivery_
 await db`CREATE INDEX IF NOT EXISTS idx_delivery_route_points_status ON delivery_route_points(status)`;
 
 // --- Health Check ---
-app.get("/", (c) => c.text("API Delivery Bun OK 🚀"));
+app.get("/", (c) => c.text("API Delivery V3 Bun OK 🚀"));
+
+// --- Health endpoint ---
+app.get('/health', async (c) => {
+  try {
+    await db`SELECT 1`;
+    return c.json({ 
+      status: 'healthy',
+      service: 'delivery-api',
+      timestamp: new Date().toISOString(),
+      database: 'connected'
+    });
+  } catch (error: any) {
+    return c.json({ 
+      status: 'unhealthy',
+      service: 'delivery-api',
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: error.message
+    }, 503);
+  }
+});
 
 // --- ROTAS DE ENTREGA ---
 

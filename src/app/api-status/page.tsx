@@ -43,21 +43,62 @@ export default function ApiStatusPage() {
     const url = (API_CONFIG as Record<string, string>)[api.key];
     const startTime = Date.now();
     
+    // Map API keys to proxy endpoints
+    const proxyEndpoints: Record<string, string> = {
+      'AUTH_API': '/api/proxy/users/health',
+      'PRODUCTS_API': '/api/proxy/products/health',
+      'CLIENTS_API': '/api/proxy/customers/health',
+      'ORDERS_API': '/api/proxy/orders/health',
+      'SUPPLIERS_API': '/api/proxy/customers/health', // Same as clients
+      'USERLOGS_API': '/api/logs/health',
+      'DELIVERY_API': '/api/proxy/delivery/health',
+      'AUDIT_API': '/api/proxy/audit/health',
+      'VEHICLES_API': '/api/proxy/vehicles/health',
+    };
+    
     try {
-      // Tentar fazer uma requisição OPTIONS ou GET para verificar se a API está online
-      const response = await fetch(`${url}/health`, {
-        method: 'GET',
-        mode: 'cors',
-        headers: {
-          'Accept': 'application/json'
-        }
-      }).catch(() => 
-        // Se /health falhar, tenta a raiz
-        fetch(url, {
-          method: 'HEAD',
-          mode: 'cors'
-        })
-      );
+      // First try the proxy endpoint (which handles auth and CORS)
+      const proxyUrl = proxyEndpoints[api.key];
+      let response;
+      
+      if (proxyUrl) {
+        response = await fetch(proxyUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          },
+          credentials: 'include' // Include cookies for auth
+        }).catch(async () => {
+          // If proxy health check fails, try direct URL for status check only
+          return fetch(`${url}/health`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+              'Accept': 'application/json'
+            }
+          }).catch(() => 
+            // If /health fails, try HEAD request
+            fetch(url, {
+              method: 'HEAD',
+              mode: 'cors'
+            })
+          );
+        });
+      } else {
+        // Fallback to direct check
+        response = await fetch(`${url}/health`, {
+          method: 'GET',
+          mode: 'cors',
+          headers: {
+            'Accept': 'application/json'
+          }
+        }).catch(() => 
+          fetch(url, {
+            method: 'HEAD',
+            mode: 'cors'
+          })
+        );
+      }
       
       const responseTime = Date.now() - startTime;
       
@@ -174,8 +215,8 @@ export default function ApiStatusPage() {
             </p>
             <p className="text-xs text-gray-400 mt-1">
               {process.env.NODE_ENV === 'production' 
-                ? 'Usando URLs internas do Railway (.railway.internal)'
-                : 'Usando URLs públicas (.up.railway.app)'
+                ? 'APIs serão acessadas via proxy interno do Railway'
+                : 'APIs serão acessadas via proxy local para evitar CORS'
               }
             </p>
           </div>
@@ -244,7 +285,7 @@ export default function ApiStatusPage() {
                 <p className="font-medium">Sobre CORS</p>
                 <p className="text-gray-400">
                   Se aparecer &quot;CORS&quot;, significa que a API está online mas não permite requisições diretas do navegador. 
-                  Isso é normal e esperado para APIs de produção.
+                  Isso é normal e esperado para APIs de produção. O aplicativo usa proxies internos para contornar isso.
                 </p>
               </div>
             </div>
@@ -264,6 +305,16 @@ export default function ApiStatusPage() {
                 <p className="text-gray-400">
                   Em produção no Railway, o app usará automaticamente as URLs internas (.railway.internal) 
                   que são mais rápidas e seguras.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start">
+              <i className="fa-solid fa-exclamation-triangle text-yellow-400 mt-0.5 mr-3"></i>
+              <div>
+                <p className="font-medium">Erros 404</p>
+                <p className="text-gray-400">
+                  Se você vê erros 404, pode significar que o endpoint /health não existe na API. 
+                  Isso não significa necessariamente que a API está offline - o aplicativo ainda funcionará normalmente.
                 </p>
               </div>
             </div>

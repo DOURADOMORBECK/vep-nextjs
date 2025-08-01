@@ -37,8 +37,30 @@ await db`CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resour
 await db`CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp)`;
 await db`CREATE INDEX IF NOT EXISTS idx_audit_logs_severity ON audit_logs(severity)`;
 
-// --- Health Check ---
-app.get("/", (c) => c.text("API Audit Bun OK 🚀"));
+// --- Health check endpoint ---
+app.get('/health', async (c) => {
+  try {
+    // Test database connection
+    await db`SELECT 1`;
+    return c.json({ 
+      status: 'healthy',
+      service: 'audit-api',
+      timestamp: new Date().toISOString(),
+      database: 'connected'
+    });
+  } catch (error: any) {
+    return c.json({ 
+      status: 'unhealthy',
+      service: 'audit-api',
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: error.message
+    }, 503);
+  }
+});
+
+// --- Root endpoint ---
+app.get("/", (c) => c.text("API Audit Bun OK 🚀 - V3"));
 
 // --- Audit Endpoints ---
 

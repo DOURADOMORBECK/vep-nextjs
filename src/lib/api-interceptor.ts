@@ -73,6 +73,7 @@ export async function fetchWithInterceptor(
       'api-dashboard': '/api/proxy/orders',
       'api-delivery': '/api/proxy/delivery',
       'api-vehicles': '/api/proxy/vehicles',
+      'api-audit': '/api/proxy/audit',
     };
     
     // Tratamento especial para login
