@@ -87,9 +87,7 @@ vep-nextjs/
 │   ├── components/       # Componentes React reutilizáveis
 │   ├── lib/             # Utilitários e interceptors
 │   └── config/          # Configurações de API
-├── public/              # Assets estáticos
-├── scripts/             # Scripts utilitários
-└── api-test-results/    # Resultados dos testes de API
+└── public/              # Assets estáticos
 ```
 
 ## 🧪 Testes de API

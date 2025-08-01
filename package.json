@@ -4,11 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "node scripts/check-apis-status.js && next build",
+    "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test-apis": "node scripts/test-apis.js",
-    "check-apis": "node scripts/check-apis-status.js"
+    "lint": "next lint"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.20",
