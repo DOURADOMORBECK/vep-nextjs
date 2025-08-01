@@ -17,7 +17,7 @@ export function ProtectedRoute({
   requiredFeature,
   fallbackUrl = '/dashboard'
 }: ProtectedRouteProps) {
-  const { user, isLoading, isAuthenticated, hasRole, canAccess } = useAuth();
+  const { isLoading, isAuthenticated, hasRole, canAccess } = useAuth();
   const router = useRouter();
 
   useEffect(() => {

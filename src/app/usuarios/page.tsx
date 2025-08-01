@@ -5,7 +5,6 @@ import Image from 'next/image';
 import DashboardLayout from '@/components/DashboardLayout';
 import { railwayApi } from '@/lib/api-interceptor';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { useAuth } from '@/hooks/useAuth';
 
 interface User {
   id: string;
@@ -23,7 +22,6 @@ interface User {
 }
 
 function UsuariosContent() {
-  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);

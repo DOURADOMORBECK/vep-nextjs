@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { clientAuth, AuthUser } from '@/lib/auth';
 
 interface UseAuthReturn {
@@ -61,7 +60,6 @@ const featurePermissions: Record<string, string[]> = {
 export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     const userData = clientAuth.getUser();

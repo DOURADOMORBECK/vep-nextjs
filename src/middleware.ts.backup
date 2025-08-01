@@ -10,12 +10,14 @@ const rolePermissions = {
   owner: {
     // Owner has access to everything
     allowAll: true,
-    routes: []
+    routes: [],
+    blockedRoutes: []
   },
   admin: {
     // Admin has access to everything
     allowAll: true,
-    routes: []
+    routes: [],
+    blockedRoutes: []
   },
   manager: {
     // Manager has access to most features except system settings

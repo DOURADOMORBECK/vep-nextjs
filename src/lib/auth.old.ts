@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SignJWT, jwtVerify } from 'jose';
+import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'your-secret-key-change-in-production'
-);
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const COOKIE_NAME = 'veplim-auth-token';
 const USER_COOKIE_NAME = 'veplim-user-data';
 
@@ -80,22 +78,11 @@ export function getUserData(request: NextRequest): AuthUser | null {
   }
 }
 
-// Create JWT token using jose
-export async function createToken(user: AuthUser): Promise<string> {
-  const token = await new SignJWT({ ...user })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime('7d')
-    .sign(JWT_SECRET);
-  
-  return token;
-}
-
-// Verify JWT token using jose
-export async function verifyToken(token: string): Promise<AuthUser | null> {
+// Verify JWT token
+export function verifyToken(token: string): AuthUser | null {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as unknown as AuthUser;
+    const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
+    return decoded;
   } catch {
     return null;
   }
@@ -118,7 +105,7 @@ export async function requireAuth(request: NextRequest) {
     );
   }
   
-  const user = await verifyToken(token);
+  const user = verifyToken(token);
   if (!user) {
     return NextResponse.json(
       { error: 'Invalid or expired token' },
