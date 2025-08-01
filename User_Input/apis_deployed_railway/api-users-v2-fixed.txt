@@ -1,0 +1,570 @@
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import postgres from "postgres";
+import bcrypt from "bcryptjs";
+import { SignJWT, jwtVerify } from "jose";
+
+// --- DB Connection ---
+const db = postgres(process.env.DATABASE_URL!, {
+  ssl: { rejectUnauthorized: false },
+});
+
+// --- JWT secret ---
+const JWT_SECRET = process.env.JWT_SECRET || "my_secret";
+const jwtSecretBytes = new TextEncoder().encode(JWT_SECRET);
+
+// --- App ---
+const app = new Hono();
+
+// --- CORS Configuration (SECURITY FIXED) ---
+const isDevelopment = process.env.NODE_ENV === 'development';
+const isRailwayProduction = process.env.RAILWAY_ENV === 'production';
+
+const ALLOWED_ORIGINS = isDevelopment
+  ? [
+      'http://localhost:3000',
+      'http://localhost:3001', 
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001'
+    ]
+  : [
+      'https://vep-nextjs-production.up.railway.app',
+      'https://vep-nextjs.up.railway.app',
+      'https://vep-nextjs.railway.internal',
+      'http://vep-nextjs.railway.internal',
+      'https://*.railway.app'
+    ];
+
+// Enhanced CORS middleware with proper origin validation
+app.use("/*", cors({
+  origin: (origin) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return true;
+    
+    // In development, be more permissive
+    if (isDevelopment) {
+      return origin.includes('localhost') || origin.includes('127.0.0.1') || ALLOWED_ORIGINS.includes(origin);
+    }
+    
+    // In production, strict validation
+    return ALLOWED_ORIGINS.some(allowed => {
+      if (allowed.includes('*')) {
+        // Handle wildcard patterns like *.railway.app
+        const domain = allowed.replace('*.', '');
+        return origin.endsWith(domain);
+      }
+      // Also allow railway.internal domains
+      if (origin.includes('.railway.internal')) {
+        return true;
+      }
+      return origin === allowed;
+    });
+  },
+  credentials: true, // Allow cookies to be sent
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  exposeHeaders: ['Content-Length', 'X-Request-ID'],
+  maxAge: 86400, // 24 hours
+}));
+
+// --- Database initialization and migration ---
+console.log("📊 Initializing database schema...");
+
+// Create table if not exists
+await db`
+  CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'user',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP,
+    login_attempts INTEGER DEFAULT 0,
+    locked_until TIMESTAMP
+  )
+`;
+
+// Add missing columns if table already exists (migration for existing deployments)
+try {
+  // Check if login_attempts column exists
+  const columnsCheck = await db`
+    SELECT column_name 
+    FROM information_schema.columns 
+    WHERE table_name = 'users' 
+    AND column_name IN ('login_attempts', 'locked_until')
+  `;
+  
+  const existingColumns = columnsCheck.map(row => row.column_name);
+  
+  // Add login_attempts if missing
+  if (!existingColumns.includes('login_attempts')) {
+    console.log("🔄 Adding login_attempts column...");
+    await db`ALTER TABLE users ADD COLUMN login_attempts INTEGER DEFAULT 0`;
+    console.log("✅ login_attempts column added");
+  }
+  
+  // Add locked_until if missing
+  if (!existingColumns.includes('locked_until')) {
+    console.log("🔄 Adding locked_until column...");
+    await db`ALTER TABLE users ADD COLUMN locked_until TIMESTAMP`;
+    console.log("✅ locked_until column added");
+  }
+} catch (error) {
+  console.error("⚠️ Migration warning:", error);
+  // Continue even if migration fails (columns might already exist)
+}
+
+// Create indices for better performance
+await db`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`;
+await db`CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active)`;
+
+console.log("✅ Database schema ready");
+
+// --- Middleware de autenticação JWT ---
+async function requireAuth(c: any, next: any) {
+  const auth = c.req.header("Authorization") || "";
+  const token = auth.replace("Bearer ", "");
+  
+  if (!token) {
+    return c.json({ error: "Token não fornecido" }, 401);
+  }
+  
+  try {
+    const { payload } = await jwtVerify(token, jwtSecretBytes);
+    c.set("user", payload);
+    await next();
+  } catch (error) {
+    console.error("JWT verification error:", error);
+    return c.json({ error: "Token inválido ou expirado" }, 401);
+  }
+}
+
+// --- Middleware de rate limiting para login ---
+async function checkLoginAttempts(email: string) {
+  try {
+    const [user] = await db`
+      SELECT login_attempts, locked_until 
+      FROM users 
+      WHERE email = ${email.toLowerCase()}
+    `;
+    
+    if (!user) return true; // User doesn't exist, allow attempt
+    
+    // Check if account is locked
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const minutesLeft = Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 60000);
+      throw new Error(`Conta bloqueada. Tente novamente em ${minutesLeft} minutos.`);
+    }
+    
+    // Lock account after 5 failed attempts
+    if (user.login_attempts >= 5) {
+      await db`
+        UPDATE users 
+        SET locked_until = NOW() + INTERVAL '30 minutes'
+        WHERE email = ${email.toLowerCase()}
+      `;
+      throw new Error("Conta bloqueada devido a múltiplas tentativas de login. Tente novamente em 30 minutos.");
+    }
+    
+    return true;
+  } catch (error: any) {
+    // If column doesn't exist, just allow the attempt
+    if (error.message?.includes("column") && error.message?.includes("does not exist")) {
+      console.warn("⚠️ Rate limiting columns not available, skipping check");
+      return true;
+    }
+    throw error;
+  }
+}
+
+// --- Health check ---
+app.get("/", (c) => c.text("API Users Bun OK 🚀 - V2 with Auto-Migration"));
+
+// --- Cadastro de usuário ---
+app.post("/register", async (c) => {
+  try {
+    const { name, email, password, role } = await c.req.json();
+    
+    // Validação
+    if (!name || !email || !password) {
+      return c.json({ error: "Todos os campos são obrigatórios" }, 400);
+    }
+    
+    // Validar formato do email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return c.json({ error: "Email inválido" }, 400);
+    }
+    
+    // Validar senha (mínimo 6 caracteres)
+    if (password.length < 6) {
+      return c.json({ error: "Senha deve ter no mínimo 6 caracteres" }, 400);
+    }
+    
+    // Verificar se email já existe
+    const exists = await db`
+      SELECT 1 FROM users WHERE email = ${email.toLowerCase()}
+    `;
+    
+    if (exists.length) {
+      return c.json({ error: "E-mail já cadastrado" }, 400);
+    }
+    
+    // Hash da senha
+    const password_hash = await bcrypt.hash(password, 10);
+    
+    // Inserir usuário
+    const [user] = await db`
+      INSERT INTO users (name, email, password_hash, role, login_attempts)
+      VALUES (
+        ${name}, 
+        ${email.toLowerCase()}, 
+        ${password_hash},
+        ${role || 'user'},
+        0
+      )
+      RETURNING id, name, email, role, is_active, created_at
+    `;
+    
+    // Gerar token automaticamente após registro
+    const jwt = await new SignJWT({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("3h")
+      .sign(jwtSecretBytes);
+    
+    return c.json({
+      user,
+      token: jwt,
+      message: "Usuário cadastrado com sucesso"
+    }, 201);
+  } catch (error) {
+    console.error("Register error:", error);
+    return c.json({ error: "Erro ao cadastrar usuário" }, 500);
+  }
+});
+
+// --- Login de usuário ---
+app.post("/login", async (c) => {
+  try {
+    const { email, password } = await c.req.json();
+    
+    if (!email || !password) {
+      return c.json({ error: "E-mail e senha são obrigatórios" }, 400);
+    }
+    
+    // Check login attempts (with fallback if columns don't exist)
+    try {
+      await checkLoginAttempts(email);
+    } catch (error: any) {
+      if (!error.message?.includes("does not exist")) {
+        return c.json({ error: error.message }, 429);
+      }
+    }
+    
+    // Buscar usuário
+    const rows = await db`
+      SELECT * FROM users 
+      WHERE email = ${email.toLowerCase()} 
+      AND is_active = true
+    `;
+    
+    const user = rows[0];
+    
+    if (!user) {
+      // Try to increment failed attempts (ignore if column doesn't exist)
+      try {
+        await db`
+          UPDATE users 
+          SET login_attempts = COALESCE(login_attempts, 0) + 1
+          WHERE email = ${email.toLowerCase()}
+        `;
+      } catch (error) {
+        console.warn("⚠️ Could not update login attempts");
+      }
+      return c.json({ error: "Usuário ou senha inválidos" }, 401);
+    }
+    
+    // Verificar senha
+    const valid = await bcrypt.compare(password, user.password_hash);
+    
+    if (!valid) {
+      // Try to increment failed attempts (ignore if column doesn't exist)
+      try {
+        await db`
+          UPDATE users 
+          SET login_attempts = COALESCE(login_attempts, 0) + 1
+          WHERE id = ${user.id}
+        `;
+      } catch (error) {
+        console.warn("⚠️ Could not update login attempts");
+      }
+      return c.json({ error: "Usuário ou senha inválidos" }, 401);
+    }
+    
+    // Reset login attempts and update last login (with fallback)
+    try {
+      await db`
+        UPDATE users 
+        SET 
+          login_attempts = 0,
+          locked_until = NULL,
+          last_login = NOW()
+        WHERE id = ${user.id}
+      `;
+    } catch (error) {
+      // If columns don't exist, just update last_login
+      try {
+        await db`
+          UPDATE users 
+          SET last_login = NOW()
+          WHERE id = ${user.id}
+        `;
+      } catch (e) {
+        console.warn("⚠️ Could not update login timestamp");
+      }
+    }
+    
+    // Gerar JWT
+    const jwt = await new SignJWT({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("3h")
+      .sign(jwtSecretBytes);
+    
+    return c.json({
+      token: jwt,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        is_active: user.is_active,
+        last_login: user.last_login
+      },
+      message: "Login realizado com sucesso"
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    return c.json({ error: "Erro ao realizar login" }, 500);
+  }
+});
+
+// --- Obter informações do usuário autenticado ---
+app.get("/me", requireAuth, async (c) => {
+  try {
+    const payload = c.get("user");
+    
+    const [user] = await db`
+      SELECT id, name, email, role, is_active, created_at, last_login
+      FROM users 
+      WHERE id = ${payload.id}
+    `;
+    
+    if (!user) {
+      return c.json({ error: "Usuário não encontrado" }, 404);
+    }
+    
+    return c.json(user);
+  } catch (error) {
+    console.error("Get user error:", error);
+    return c.json({ error: "Erro ao buscar usuário" }, 500);
+  }
+});
+
+// --- Listar todos os usuários (apenas admin) ---
+app.get("/users", requireAuth, async (c) => {
+  try {
+    const payload = c.get("user");
+    
+    // Verificar se é admin
+    if (payload.role !== 'admin') {
+      return c.json({ error: "Acesso negado. Apenas administradores." }, 403);
+    }
+    
+    const users = await db`
+      SELECT id, name, email, role, is_active, created_at, last_login
+      FROM users
+      ORDER BY created_at DESC
+    `;
+    
+    return c.json(users);
+  } catch (error) {
+    console.error("List users error:", error);
+    return c.json({ error: "Erro ao listar usuários" }, 500);
+  }
+});
+
+// --- Atualizar usuário atual ---
+app.put("/me", requireAuth, async (c) => {
+  try {
+    const payload = c.get("user");
+    const updates = await c.req.json();
+    
+    // Campos permitidos para atualização
+    const allowedFields = ['name', 'email'];
+    const updateData: any = {};
+    
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined) {
+        updateData[field] = updates[field];
+      }
+    }
+    
+    // Se estiver atualizando email, verificar se já existe
+    if (updateData.email) {
+      const exists = await db`
+        SELECT 1 FROM users 
+        WHERE email = ${updateData.email.toLowerCase()} 
+        AND id != ${payload.id}
+      `;
+      
+      if (exists.length) {
+        return c.json({ error: "E-mail já está em uso" }, 400);
+      }
+      
+      updateData.email = updateData.email.toLowerCase();
+    }
+    
+    // Se estiver atualizando senha
+    if (updates.password) {
+      if (updates.password.length < 6) {
+        return c.json({ error: "Senha deve ter no mínimo 6 caracteres" }, 400);
+      }
+      updateData.password_hash = await bcrypt.hash(updates.password, 10);
+    }
+    
+    updateData.updated_at = new Date();
+    
+    const [updated] = await db`
+      UPDATE users
+      SET ${db(updateData)}
+      WHERE id = ${payload.id}
+      RETURNING id, name, email, role, is_active, updated_at
+    `;
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Update user error:", error);
+    return c.json({ error: "Erro ao atualizar usuário" }, 500);
+  }
+});
+
+// --- Atualizar usuário por ID (apenas admin) ---
+app.put("/users/:id", requireAuth, async (c) => {
+  try {
+    const payload = c.get("user");
+    const userId = parseInt(c.req.param("id"));
+    const updates = await c.req.json();
+    
+    // Verificar se é admin
+    if (payload.role !== 'admin') {
+      return c.json({ error: "Acesso negado. Apenas administradores." }, 403);
+    }
+    
+    // Campos permitidos para atualização por admin
+    const allowedFields = ['name', 'email', 'role', 'is_active'];
+    const updateData: any = {};
+    
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined) {
+        updateData[field] = updates[field];
+      }
+    }
+    
+    // Se estiver atualizando email, verificar se já existe
+    if (updateData.email) {
+      const exists = await db`
+        SELECT 1 FROM users 
+        WHERE email = ${updateData.email.toLowerCase()} 
+        AND id != ${userId}
+      `;
+      
+      if (exists.length) {
+        return c.json({ error: "E-mail já está em uso" }, 400);
+      }
+      
+      updateData.email = updateData.email.toLowerCase();
+    }
+    
+    updateData.updated_at = new Date();
+    
+    const [updated] = await db`
+      UPDATE users
+      SET ${db(updateData)}
+      WHERE id = ${userId}
+      RETURNING id, name, email, role, is_active, updated_at
+    `;
+    
+    if (!updated) {
+      return c.json({ error: "Usuário não encontrado" }, 404);
+    }
+    
+    return c.json(updated);
+  } catch (error) {
+    console.error("Update user by ID error:", error);
+    return c.json({ error: "Erro ao atualizar usuário" }, 500);
+  }
+});
+
+// --- Deletar usuário (apenas admin) ---
+app.delete("/users/:id", requireAuth, async (c) => {
+  try {
+    const payload = c.get("user");
+    const userId = parseInt(c.req.param("id"));
+    
+    // Verificar se é admin
+    if (payload.role !== 'admin') {
+      return c.json({ error: "Acesso negado. Apenas administradores." }, 403);
+    }
+    
+    // Não permitir que admin delete a si mesmo
+    if (userId === payload.id) {
+      return c.json({ error: "Você não pode deletar sua própria conta" }, 400);
+    }
+    
+    const [deleted] = await db`
+      DELETE FROM users
+      WHERE id = ${userId}
+      RETURNING id, name, email
+    `;
+    
+    if (!deleted) {
+      return c.json({ error: "Usuário não encontrado" }, 404);
+    }
+    
+    return c.json({ 
+      message: "Usuário deletado com sucesso",
+      user: deleted 
+    });
+  } catch (error) {
+    console.error("Delete user error:", error);
+    return c.json({ error: "Erro ao deletar usuário" }, 500);
+  }
+});
+
+// --- Serve ---
+console.log(`🚀 Users API V2 starting on port ${process.env.PORT || 3000}`);
+console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`🔒 CORS Security: ENABLED with origin validation`);
+console.log(`🌐 Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
+console.log(`🔧 Features: Auto-migration, Rate limiting, JWT auth`);
+console.log(`✅ Railway internal URLs: Enabled for .railway.internal domains`);
+
+Bun.serve({
+  fetch: app.fetch,
+  port: Number(process.env.PORT || 3000),
+});
