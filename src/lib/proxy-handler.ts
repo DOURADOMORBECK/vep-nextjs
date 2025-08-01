@@ -19,7 +19,7 @@ export function createProxyHandler(config: ProxyConfig) {
   const handler = async (request: NextRequest) => {
     try {
       // Use internal URL only when deployed on Railway
-      const isRailwayProduction = process.env.RAILWAY_ENVIRONMENT === 'production';
+      const isRailwayProduction = process.env.RAILWAY_ENV === 'production';
       const baseUrl = isRailwayProduction ? config.internalUrl : config.externalUrl;
       
       // Get the path after /api/proxy/[service]
@@ -37,6 +37,7 @@ export function createProxyHandler(config: ProxyConfig) {
       
       console.log(`[Proxy] ${request.method} ${request.url} -> ${targetUrl}`);
       console.log(`[Proxy] Base URL: ${baseUrl}, Target Path: ${targetPath}`);
+      console.log(`[Proxy] Is Railway Production: ${isRailwayProduction}`);
 
       // Forward the request
       const headers: HeadersInit = {
@@ -72,6 +73,11 @@ export function createProxyHandler(config: ProxyConfig) {
         }
       }
 
+      console.log(`[Proxy] Sending request with headers:`, {
+        ...headers,
+        'Authorization': headers['Authorization'] ? 'Bearer [REDACTED]' : 'Not set'
+      });
+      
       const response = await fetch(targetUrl, {
         method: request.method,
         headers,
@@ -112,9 +118,12 @@ export function createProxyHandler(config: ProxyConfig) {
       }
     } catch (error) {
       console.error('[Proxy] Error:', error);
+      const origin = request.headers.get('origin');
+      const corsHeaders = createCorsHeaders(origin);
+      
       return NextResponse.json(
-        { error: 'Proxy error' },
-        { status: 500 }
+        { error: 'Proxy error', details: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500, headers: corsHeaders }
       );
     }
   };

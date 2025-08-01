@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "build:production": "NODE_ENV=production next build"
   },
   "dependencies": {
     "@types/jsonwebtoken": "^9.0.10",
