@@ -73,10 +73,7 @@ Acesse http://localhost:3000
 
 ## 🔑 Credenciais de Acesso
 
-```
-Email: admin@veplim.com
-Senha: admin123
-```
+As credenciais de acesso são gerenciadas pela API de usuários. Entre em contato com o administrador do sistema para obter suas credenciais.
 
 ## 🗂️ Estrutura do Projeto
 

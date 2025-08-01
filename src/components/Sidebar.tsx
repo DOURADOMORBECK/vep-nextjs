@@ -2,14 +2,34 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 interface SidebarProps {
   isCollapsed?: boolean;
 }
 
+interface User {
+  name?: string;
+  email?: string;
+  role?: string;
+}
+
 export default function Sidebar({ isCollapsed = false }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // Load user data from localStorage
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    }
+  }, []);
 
   const menuItems = [
     { icon: 'fa-chart-line', label: 'Dashboard', path: '/dashboard' },
@@ -27,8 +47,9 @@ export default function Sidebar({ isCollapsed = false }: SidebarProps) {
   ];
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('userId');
     router.push('/login');
   };
 
@@ -81,8 +102,8 @@ export default function Sidebar({ isCollapsed = false }: SidebarProps) {
             {!isCollapsed && (
               <>
                 <div className="ml-3 hidden md:block">
-                  <p className="text-sm font-medium text-white">Admin</p>
-                  <p className="text-xs text-gray-400">admin@empresa.com</p>
+                  <p className="text-sm font-medium text-white">{user?.name || 'Usuário'}</p>
+                  <p className="text-xs text-gray-400">{user?.email || 'Carregando...'}</p>
                 </div>
                 <button 
                   onClick={handleLogout}

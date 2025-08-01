@@ -35,7 +35,7 @@ Based on testing and documentation analysis, here's the current status of the Ra
 
 ## Issues Found
 
-1. **Authentication**: The login endpoint returns 401 with the provided credentials (admin@veplim.com / admin123)
+1. **Authentication**: The login endpoint requires valid credentials from the API
 2. **Database Connections**: Several APIs show database connection errors (500)
 3. **404 Errors**: Most APIs return 404, which could mean:
    - Wrong endpoints
