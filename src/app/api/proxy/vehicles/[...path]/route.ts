@@ -1,20 +1,10 @@
 import { createProxyHandler } from '@/lib/proxy-handler';
-import { API_CONFIG } from '@/config/api';
 
-// Get URLs from centralized configuration
-const getVehiclesApiUrls = () => {
-  const isRailwayProduction = process.env.RAILWAY_ENV === 'production';
-  const configUrl = API_CONFIG.VEHICLES_API;
-  
-  return {
-    internalUrl: isRailwayProduction ? configUrl : 'https://api-vehicles-production-75f8.up.railway.app',
-    externalUrl: 'https://api-vehicles-production-75f8.up.railway.app'
-  };
+// Configuração do proxy para API de Vehicles (catch-all)
+const proxyConfig = {
+  internalUrl: 'http://api-vehicles.railway.internal:8080',
+  externalUrl: 'https://api-vehicles-production.up.railway.app'
 };
 
-const { internalUrl, externalUrl } = getVehiclesApiUrls();
-
-export const { GET, POST, PUT, DELETE, PATCH } = createProxyHandler({
-  internalUrl,
-  externalUrl
-});
+// Exporta todos os métodos HTTP suportados
+export const { GET, POST, PUT, DELETE, PATCH, OPTIONS } = createProxyHandler(proxyConfig);

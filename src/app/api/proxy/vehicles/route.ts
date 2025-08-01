@@ -1,9 +1,9 @@
 import { createProxyHandler } from '@/lib/proxy-handler';
 
-// Configuração do proxy para API de Customers (catch-all)
+// Configuração do proxy para API de Vehicles
 const proxyConfig = {
-  internalUrl: 'http://api-customers.railway.internal:8080',
-  externalUrl: 'https://api-customers-production.up.railway.app'
+  internalUrl: 'http://api-vehicles.railway.internal:8080',
+  externalUrl: 'https://api-vehicles-production.up.railway.app'
 };
 
 // Exporta todos os métodos HTTP suportados
