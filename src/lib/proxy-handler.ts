@@ -36,6 +36,7 @@ export function createProxyHandler(config: ProxyConfig) {
       const targetUrl = `${baseUrl}${targetPath}${url.search}`;
       
       console.log(`[Proxy] ${request.method} ${request.url} -> ${targetUrl}`);
+      console.log(`[Proxy] Base URL: ${baseUrl}, Target Path: ${targetPath}`);
 
       // Forward the request
       const headers: HeadersInit = {
@@ -53,6 +54,7 @@ export function createProxyHandler(config: ProxyConfig) {
       const authToken = cookies.get('veplim-auth-token');
       if (authToken && !authHeader) {
         headers['Authorization'] = `Bearer ${authToken.value}`;
+        console.log(`[Proxy] Added auth token to headers`);
       }
 
       // Forward cookies

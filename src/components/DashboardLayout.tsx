@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { useAuth } from '@/hooks/useAuth';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -13,14 +14,23 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
   const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
     // Check if user is authenticated
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!isLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [router]);
+  }, [router, isAuthenticated, isLoading]);
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="bg-gray-900 text-white flex h-screen items-center justify-center">
+        <div className="text-xl">Carregando...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-900 text-white flex h-screen overflow-hidden font-sans">
