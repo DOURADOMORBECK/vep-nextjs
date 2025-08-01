@@ -84,7 +84,6 @@ async function loginHandler(request: NextRequest, validatedData?: LoginRequest):
         email: user.email,
         role: user.role || 'user',
         is_active: user.is_active,
-        last_login: user.last_login
       },
       message: 'Login realizado com sucesso'
     };

@@ -15,7 +15,6 @@ export class UserService {
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_login TIMESTAMP,
         login_attempts INTEGER DEFAULT 0,
         locked_until TIMESTAMP
       )
@@ -143,7 +142,7 @@ export class UserService {
   // Reset login attempts
   static async resetLoginAttempts(id: number): Promise<void> {
     await query(
-      'UPDATE users SET login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1',
+      'UPDATE users SET login_attempts = 0, locked_until = NULL WHERE id = $1',
       [id]
     );
   }
@@ -151,7 +150,7 @@ export class UserService {
   // Get all users (admin only)
   static async getAll(): Promise<User[]> {
     return query<User>(
-      'SELECT id, name, email, role, is_active, created_at, last_login FROM users ORDER BY created_at DESC'
+      'SELECT id, name, email, role, is_active, created_at FROM users ORDER BY created_at DESC'
     );
   }
 

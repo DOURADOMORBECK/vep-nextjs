@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthToken, verifyToken } from '@/lib/auth';
 import { createCorsHeaders } from '@/config/cors';
-import { UserService } from '@/services/database/userService';
 
 export async function OPTIONS(request: NextRequest) {
   const origin = request.headers.get('origin');
@@ -35,6 +34,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get fresh user data from database
+    const { UserService } = await import('@/services/database/userService');
     const user = await UserService.findById(parseInt(authUser.id));
     
     if (!user) {
@@ -52,8 +52,7 @@ export async function GET(request: NextRequest) {
           email: user.email,
           role: user.role,
           is_active: user.is_active,
-          created_at: user.created_at,
-          last_login: user.last_login
+          created_at: user.created_at
         }
       },
       { headers: corsHeaders }

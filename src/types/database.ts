@@ -11,7 +11,6 @@ export interface User extends QueryResultRow {
   is_active?: boolean;
   created_at?: Date;
   updated_at?: Date;
-  last_login?: Date;
   login_attempts?: number;
   locked_until?: Date;
 }
