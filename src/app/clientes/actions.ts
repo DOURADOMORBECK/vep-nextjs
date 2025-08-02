@@ -207,7 +207,7 @@ export async function deleteClient(id: string) {
   }
 }
 
-export async function searchClientsByLocation(_lat: number, _lng: number, _radiusKm: number = 10) {
+export async function searchClientsByLocation(_lat: number, _lng: number, _radiusKm: number) {
   try {
     // Por enquanto, retorna todos os clientes
     // Em produção, você precisaria implementar busca por localização

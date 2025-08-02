@@ -221,13 +221,20 @@ export default function FornecedoresPage() {
       };
 
       if (editingSupplier) {
-        // Por enquanto, apenas atualiza localmente
-        // Em produção, você precisaria criar uma rota PATCH
-        const response = { ok: true, json: async () => ({ ...editingSupplier, ...formData }) };
+        // Atualizar fornecedor via API
+        const response = await fetch(`/api/fornecedores/${editingSupplier.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
         if (response.ok) {
           const updatedSupplier = await response.json();
           setSuppliers(suppliers.map(s => s.id === editingSupplier.id ? updatedSupplier : s));
-          logUserAction('UPDATE_SUPPLIER', { supplierId: editingSupplier.id, ...supplierData });
+          logAction({ 
+            action: USER_ACTIONS.UPDATE,
+            module: MODULES.SUPPLIERS,
+            details: { supplierId: editingSupplier.id, ...formData }
+          });
           alert('Fornecedor atualizado com sucesso!');
         } else {
           alert('Erro ao atualizar fornecedor');

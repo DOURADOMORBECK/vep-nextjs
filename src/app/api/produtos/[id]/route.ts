@@ -67,7 +67,7 @@ export async function DELETE(
       RETURNING fnc_pro_id as id
     `;
     
-    const result = await pool.query(query, [id]);
+    const result = await pool().query(query, [id]);
     
     if (result.rowCount === 0) {
       return NextResponse.json(

@@ -26,7 +26,7 @@ class OperadorService {
         ORDER BY nome
       `;
       
-      const result = await pool.query(query);
+      const result = await pool().query(query);
       return result.rows;
     } catch (error) {
       console.error('Erro ao buscar operadores:', error);
@@ -49,7 +49,7 @@ class OperadorService {
         WHERE id = $1
       `;
       
-      const result = await pool.query(query, [id]);
+      const result = await pool().query(query, [id]);
       return result.rows[0] || null;
     } catch (error) {
       console.error('Erro ao buscar operador:', error);
@@ -65,7 +65,7 @@ class OperadorService {
         WHERE ativo = true
       `;
       
-      const result = await pool.query(query);
+      const result = await pool().query(query);
       return parseInt(result.rows[0]?.total || '0');
     } catch (error) {
       console.error('Erro ao contar operadores ativos:', error);

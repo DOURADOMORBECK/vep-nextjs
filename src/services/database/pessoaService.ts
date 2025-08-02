@@ -156,7 +156,7 @@ export class PessoaService {
         data.active ? 'A' : 'I' // status
       ];
       
-      const result = await pool.query<PessoaFinancesweb>(query, values);
+      const result = await pool().query<PessoaFinancesweb>(query, values);
       return this.mapFinanceswebToPessoa(result.rows[0]);
     } catch (error) {
       console.error('Error creating pessoa:', error);
@@ -205,7 +205,7 @@ export class PessoaService {
         RETURNING *
       `;
       
-      const result = await pool.query<PessoaFinancesweb>(updateQuery, values);
+      const result = await pool().query<PessoaFinancesweb>(updateQuery, values);
       
       if (result.rowCount === 0) {
         return null;

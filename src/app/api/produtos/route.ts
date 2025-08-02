@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       data.active !== false
     ];
     
-    const result = await pool.query(query, values);
+    const result = await pool().query(query, values);
     const newProduct = result.rows[0];
     
     // Adicionar campos que faltam
