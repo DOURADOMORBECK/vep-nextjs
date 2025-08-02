@@ -1,5 +1,53 @@
 import { query, queryOne } from '@/lib/db-wrapper';
-import { PedidoDetalheFinancesweb } from './financesweb/pedidoDetalheFinanceswebService';
+
+// Interface para mapear os dados reais do PostgreSQL
+interface PedidoVendaProdutos {
+  fnc_pvp_id: bigint;
+  fnc_pve_id?: bigint;
+  fnc_tpe_codigo?: bigint;
+  fnc_tpe_descricao?: string;
+  fnc_pve_sequencial_pedido?: bigint;
+  fnc_emp_id?: bigint;
+  fnc_pve_data_emissao?: Date;
+  fnc_pve_situacao?: string;
+  fnc_pve_data_situacao?: Date;
+  fnc_nat_descricao?: string;
+  fnc_nat_origem?: string;
+  fnc_mod_modelo?: string;
+  fnc_mod_descricao?: string;
+  fnc_pve_numero_documento?: bigint;
+  fnc_pve_serie_documento?: string;
+  fnc_pes_id?: bigint;
+  fnc_pes_nome_fantasia?: string;
+  fnc_pes_razao_social?: string;
+  fnc_pes_cidade?: string;
+  fnc_pes_uf?: string;
+  fnc_ope_id?: bigint;
+  fnc_ope_nome?: string;
+  fnc_pla_id?: bigint;
+  fnc_pla_descricao?: string;
+  fnc_fpg_id?: bigint;
+  fnc_fpg_descricao?: string;
+  fnc_pro_id?: bigint;
+  fnc_pro_descricao?: string;
+  fnc_pro_codigo_automacao?: string;
+  fnc_gpr_descricao?: string;
+  fnc_dep_descricao?: string;
+  fnc_mar_descricao?: string;
+  fnc_pvp_quantidade?: number;
+  fnc_pvp_preco_unitario?: number;
+  fnc_pvp_valor_desconto?: number;
+  fnc_pvp_valor_acrescimo?: number;
+  fnc_pvp_total_item?: number;
+  fnc_pvp_valor_frete?: number;
+  fnc_pvp_valor_seguro?: number;
+  fnc_pvp_valor_outras_desp?: number;
+  fnc_pvp_valor_icms_st?: number;
+  fnc_pvp_valor_ipi?: number;
+  fnc_pvp_valor_ipi_devolvido?: number;
+  fnc_pvp_valor_fcp_st?: number;
+  sync_date?: Date;
+}
 
 export interface Pedido {
   id: string;
@@ -40,11 +88,11 @@ export interface PedidoResumido {
 
 export class PedidoService {
   // Agrupa itens do pedido por número do pedido
-  private static groupPedidosByNumero(detalhes: PedidoDetalheFinancesweb[]): Map<number, PedidoDetalheFinancesweb[]> {
-    const pedidosMap = new Map<number, PedidoDetalheFinancesweb[]>();
+  private static groupPedidosByNumero(detalhes: PedidoVendaProdutos[]): Map<number, PedidoVendaProdutos[]> {
+    const pedidosMap = new Map<number, PedidoVendaProdutos[]>();
     
     detalhes.forEach(detalhe => {
-      const numeroDoc = detalhe.fnc_pve_numero_documento;
+      const numeroDoc = Number(detalhe.fnc_pve_numero_documento);
       if (numeroDoc) {
         if (!pedidosMap.has(numeroDoc)) {
           pedidosMap.set(numeroDoc, []);
@@ -56,8 +104,8 @@ export class PedidoService {
     return pedidosMap;
   }
 
-  // Converte grupo de detalhes do FinancesWeb para formato da aplicação
-  private static mapFinanceswebToPedido(numeroDoc: number, detalhes: PedidoDetalheFinancesweb[]): Pedido {
+  // Converte grupo de detalhes do PostgreSQL real para formato da aplicação
+  private static mapPostgresToPedido(numeroDoc: number, detalhes: PedidoVendaProdutos[]): Pedido {
     const primeiroItem = detalhes[0];
     
     const itens: PedidoItem[] = detalhes.map(detalhe => ({
@@ -78,7 +126,7 @@ export class PedidoService {
       pedidoNumero: numeroDoc.toString(),
       clienteId: primeiroItem.fnc_pes_id?.toString() || '',
       clienteNome: primeiroItem.fnc_pes_nome_fantasia || primeiroItem.fnc_pes_razao_social || '',
-      dataEmissao: primeiroItem.fnc_pve_data_emissao || new Date().toISOString(),
+      dataEmissao: primeiroItem.fnc_pve_data_emissao?.toISOString() || new Date().toISOString(),
       situacao: primeiroItem.fnc_pve_situacao || 'PENDENTE',
       total,
       itens,
@@ -86,8 +134,8 @@ export class PedidoService {
       vendedorNome: primeiroItem.fnc_ope_nome,
       formaPagamento: primeiroItem.fnc_fpg_descricao,
       observacoes: '',
-      createdAt: primeiroItem.created_at?.toISOString() || new Date().toISOString(),
-      updatedAt: primeiroItem.updated_at?.toISOString() || new Date().toISOString()
+      createdAt: primeiroItem.sync_date?.toISOString() || new Date().toISOString(),
+      updatedAt: primeiroItem.sync_date?.toISOString() || new Date().toISOString()
     };
   }
 
@@ -126,8 +174,8 @@ export class PedidoService {
         paramCount++;
       }
 
-      const result = await query<PedidoDetalheFinancesweb>(
-        `SELECT * FROM pedidos_detalhe_financesweb 
+      const result = await query<PedidoVendaProdutos>(
+        `SELECT * FROM vw_pedidos_venda_produtos 
          ${whereClause}
          ORDER BY fnc_pve_data_emissao DESC, fnc_pve_numero_documento DESC`,
         params
@@ -139,7 +187,7 @@ export class PedidoService {
       // Converte para formato da aplicação
       const pedidos: Pedido[] = [];
       pedidosMap.forEach((detalhes, numeroDoc) => {
-        pedidos.push(this.mapFinanceswebToPedido(numeroDoc, detalhes));
+        pedidos.push(this.mapPostgresToPedido(numeroDoc, detalhes));
       });
 
       return pedidos;
@@ -152,14 +200,14 @@ export class PedidoService {
   static async getById(id: string): Promise<Pedido | null> {
     try {
       const numeroDoc = parseInt(id);
-      const result = await query<PedidoDetalheFinancesweb>(
-        'SELECT * FROM pedidos_detalhe_financesweb WHERE fnc_pve_numero_documento = $1',
+      const result = await query<PedidoVendaProdutos>(
+        'SELECT * FROM vw_pedidos_venda_produtos WHERE fnc_pve_numero_documento = $1',
         [numeroDoc]
       );
       
       if (result.length === 0) return null;
       
-      return this.mapFinanceswebToPedido(numeroDoc, result);
+      return this.mapPostgresToPedido(numeroDoc, result);
     } catch (error) {
       console.error('Error fetching pedido by id:', error);
       return null;
@@ -172,8 +220,8 @@ export class PedidoService {
 
   static async search(searchTerm: string): Promise<Pedido[]> {
     try {
-      const result = await query<PedidoDetalheFinancesweb>(
-        `SELECT * FROM pedidos_detalhe_financesweb 
+      const result = await query<PedidoVendaProdutos>(
+        `SELECT * FROM vw_pedidos_venda_produtos 
          WHERE fnc_pve_numero_documento::text LIKE $1
             OR fnc_pes_nome_fantasia ILIKE $2
             OR fnc_pes_razao_social ILIKE $2
@@ -188,7 +236,7 @@ export class PedidoService {
       // Converte para formato da aplicação
       const pedidos: Pedido[] = [];
       pedidosMap.forEach((detalhes, numeroDoc) => {
-        pedidos.push(this.mapFinanceswebToPedido(numeroDoc, detalhes));
+        pedidos.push(this.mapPostgresToPedido(numeroDoc, detalhes));
       });
 
       return pedidos;
@@ -207,19 +255,19 @@ export class PedidoService {
     try {
       // Total de pedidos (contando documentos únicos)
       const totalResult = await queryOne<{ count: string }>(
-        'SELECT COUNT(DISTINCT fnc_pve_numero_documento) as count FROM pedidos_detalhe_financesweb'
+        'SELECT COUNT(DISTINCT fnc_pve_numero_documento) as count FROM vw_pedidos_venda_produtos'
       );
       
       // Pedidos de hoje
       const hoje = new Date().toISOString().split('T')[0];
       const hojeResult = await queryOne<{ count: string }>(
-        'SELECT COUNT(DISTINCT fnc_pve_numero_documento) as count FROM pedidos_detalhe_financesweb WHERE DATE(fnc_pve_data_emissao) = $1',
+        'SELECT COUNT(DISTINCT fnc_pve_numero_documento) as count FROM vw_pedidos_venda_produtos WHERE DATE(fnc_pve_data_emissao) = $1',
         [hoje]
       );
       
       // Valor total
       const valorResult = await queryOne<{ total: string }>(
-        'SELECT COALESCE(SUM(fnc_pvp_total_item), 0) as total FROM pedidos_detalhe_financesweb'
+        'SELECT COALESCE(SUM(fnc_pvp_total_item), 0) as total FROM vw_pedidos_venda_produtos'
       );
       
       const totalPedidos = parseInt(totalResult?.count || '0');
@@ -255,7 +303,7 @@ export class PedidoService {
           fnc_pes_nome_fantasia,
           fnc_pes_razao_social,
           SUM(fnc_pvp_total_item) OVER (PARTITION BY fnc_pve_numero_documento) as valor_total
-        FROM pedidos_detalhe_financesweb
+        FROM vw_pedidos_venda_produtos
         ORDER BY fnc_pve_data_emissao DESC
         LIMIT $1`,
         [limit]
@@ -293,7 +341,7 @@ export class PedidoService {
           fnc_pes_nome_fantasia,
           fnc_pes_razao_social,
           SUM(fnc_pvp_total_item) OVER (PARTITION BY fnc_pve_numero_documento) as valor_total
-        FROM pedidos_detalhe_financesweb
+        FROM vw_pedidos_venda_produtos
         ORDER BY fnc_pve_data_emissao DESC`
       );
 

@@ -1,1 +1,0 @@
-{"connection":false,"tables":[],"schemas":{},"queries":{},"stats":{},"errors":[{"step":"connection","error":"password authentication failed for user \"postgres\""}]}

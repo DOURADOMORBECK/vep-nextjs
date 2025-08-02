@@ -55,19 +55,19 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Inserir produto no banco de dados
+    // Inserir produto no banco de dados real
     const query = `
-      INSERT INTO produtos_financesweb (
+      INSERT INTO fnc_produtos_e_servicos (
         fnc_pro_codigo_automacao,
         fnc_pro_descricao,
         fnc_gpr_descricao,
         fnc_uni_codigo,
-        fnc_pro_preco_venda,
+        fnc_pro_preco_a_vista,
         fnc_pro_estoque_atual,
         fnc_pro_estoque_minimo,
-        fnc_pro_ativo,
-        created_at,
-        updated_at
+        fnc_pro_status,
+        fnc_pro_dh_atualizacao,
+        sync_date
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
       RETURNING 
         fnc_pro_id as id,
@@ -75,12 +75,12 @@ export async function POST(request: NextRequest) {
         fnc_pro_descricao as name,
         fnc_gpr_descricao as category,
         fnc_uni_codigo as unit,
-        fnc_pro_preco_venda as price,
+        fnc_pro_preco_a_vista as price,
         fnc_pro_estoque_atual as stock,
         fnc_pro_estoque_minimo as minStock,
-        fnc_pro_ativo as active,
-        created_at as "createdAt",
-        updated_at as "updatedAt"
+        fnc_pro_status as status,
+        fnc_pro_dh_atualizacao as "createdAt",
+        sync_date as "updatedAt"
     `;
     
     const values = [
@@ -91,13 +91,15 @@ export async function POST(request: NextRequest) {
       data.price || 0,
       data.stock || 0,
       data.minStock || 0,
-      data.active !== false
+      data.active !== false ? 'Ativo' : 'Inativo'
     ];
     
     const result = await pool().query(query, values);
     const newProduct = result.rows[0];
     
-    // Adicionar campos que faltam
+    // Adicionar campos que faltam e converter status para boolean
+    newProduct.active = newProduct.status === 'Ativo';
+    delete newProduct.status;
     newProduct.description = data.description || '';
     newProduct.supplier = data.supplier || '';
     newProduct.barcode = data.barcode || '';

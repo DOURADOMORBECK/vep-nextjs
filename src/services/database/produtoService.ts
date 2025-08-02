@@ -1,5 +1,4 @@
 import { query, queryOne } from '@/lib/db-wrapper';
-import { ProdutoFinancesweb } from './financesweb/produtoFinanceswebService';
 
 export interface Produto {
   id: string;
@@ -18,35 +17,57 @@ export interface Produto {
   updatedAt: string;
 }
 
+// Interface para mapear os dados reais do PostgreSQL
+interface ProdutoPostgres {
+  fnc_pro_id: bigint;
+  fnc_pro_descricao?: string;
+  fnc_pro_codigo_automacao?: string;
+  fnc_pro_codigo_referencia?: string;
+  fnc_uni_codigo?: string;
+  fnc_gpr_descricao?: string;
+  fnc_dep_descricao?: string;
+  fnc_mar_descricao?: string;
+  fnc_pro_tipo_cadastro?: string;
+  fnc_pro_status?: string;
+  fnc_pro_preco_a_vista?: number;
+  fnc_pro_preco_a_prazo?: number;
+  fnc_pro_estoque_atual?: number;
+  fnc_pro_estoque_minimo?: number;
+  fnc_pro_estoque_maximo?: number;
+  fnc_pro_codigo_gtin?: string;
+  fnc_pro_dh_atualizacao?: Date;
+  sync_date?: Date;
+}
+
 export class ProdutoService {
-  // Converte produto do FinancesWeb para formato da aplicação
-  private static mapFinanceswebToProduct(produto: ProdutoFinancesweb): Produto {
+  // Converte produto do PostgreSQL real para formato da aplicação
+  private static mapPostgresToProduct(produto: ProdutoPostgres): Produto {
     return {
       id: produto.fnc_pro_id.toString(),
-      code: produto.fnc_pro_codigo || '',
+      code: produto.fnc_pro_codigo_automacao || produto.fnc_pro_codigo_referencia || '',
       name: produto.fnc_pro_descricao || '',
-      description: produto.fnc_pro_descricao_nf || produto.fnc_pro_descricao || '',
+      description: produto.fnc_pro_descricao || '',
       category: produto.fnc_gpr_descricao || 'Outros',
-      unit: produto.fnc_pro_unidade_medida || 'UN',
-      price: produto.fnc_pro_preco_venda || 0,
+      unit: produto.fnc_uni_codigo || 'UN',
+      price: produto.fnc_pro_preco_a_vista || 0,
       stock: produto.fnc_pro_estoque_atual || 0,
       minStock: produto.fnc_pro_estoque_minimo || 0,
       supplier: produto.fnc_mar_descricao || '',
-      barcode: produto.fnc_pro_codigo_barras || '',
-      active: produto.fnc_pro_status === '1',
-      createdAt: produto.created_at?.toISOString() || new Date().toISOString(),
-      updatedAt: produto.updated_at?.toISOString() || new Date().toISOString()
+      barcode: produto.fnc_pro_codigo_gtin || '',
+      active: produto.fnc_pro_status === 'Ativo' || produto.fnc_pro_status === '1',
+      createdAt: produto.fnc_pro_dh_atualizacao?.toISOString() || new Date().toISOString(),
+      updatedAt: produto.sync_date?.toISOString() || new Date().toISOString()
     };
   }
 
   static async getAll(): Promise<Produto[]> {
     try {
-      // Buscar produtos do FinancesWeb (fonte principal de dados)
-      const result = await query<ProdutoFinancesweb>(
-        'SELECT * FROM produtos_financesweb ORDER BY fnc_pro_descricao'
+      // Buscar produtos direto da tabela real do PostgreSQL
+      const result = await query<ProdutoPostgres>(
+        'SELECT * FROM fnc_produtos_e_servicos ORDER BY fnc_pro_descricao'
       );
       
-      return result.map(this.mapFinanceswebToProduct);
+      return result.map(this.mapPostgresToProduct);
     } catch (error) {
       console.error('Error fetching products:', error);
       return [];
@@ -55,13 +76,13 @@ export class ProdutoService {
 
   static async getById(id: string): Promise<Produto | null> {
     try {
-      const result = await queryOne<ProdutoFinancesweb>(
-        'SELECT * FROM produtos_financesweb WHERE fnc_pro_id = $1',
+      const result = await queryOne<ProdutoPostgres>(
+        'SELECT * FROM fnc_produtos_e_servicos WHERE fnc_pro_id = $1',
         [parseInt(id)]
       );
       
       if (!result) return null;
-      return this.mapFinanceswebToProduct(result);
+      return this.mapPostgresToProduct(result);
     } catch (error) {
       console.error('Error fetching product by id:', error);
       return null;
@@ -70,17 +91,18 @@ export class ProdutoService {
 
   static async search(searchTerm: string): Promise<Produto[]> {
     try {
-      const result = await query<ProdutoFinancesweb>(
-        `SELECT * FROM produtos_financesweb 
+      const result = await query<ProdutoPostgres>(
+        `SELECT * FROM fnc_produtos_e_servicos 
          WHERE fnc_pro_descricao ILIKE $1 
-            OR fnc_pro_codigo ILIKE $1 
-            OR fnc_pro_codigo_barras ILIKE $1
+            OR fnc_pro_codigo_automacao ILIKE $1 
+            OR fnc_pro_codigo_referencia ILIKE $1
+            OR fnc_pro_codigo_gtin ILIKE $1
          ORDER BY fnc_pro_descricao
          LIMIT 50`,
         [`%${searchTerm}%`]
       );
       
-      return result.map(this.mapFinanceswebToProduct);
+      return result.map(this.mapPostgresToProduct);
     } catch (error) {
       console.error('Error searching products:', error);
       return [];
@@ -89,12 +111,12 @@ export class ProdutoService {
 
   static async getByCategory(category: string): Promise<Produto[]> {
     try {
-      const result = await query<ProdutoFinancesweb>(
-        'SELECT * FROM produtos_financesweb WHERE fnc_gpr_descricao = $1 ORDER BY fnc_pro_descricao',
+      const result = await query<ProdutoPostgres>(
+        'SELECT * FROM fnc_produtos_e_servicos WHERE fnc_gpr_descricao = $1 ORDER BY fnc_pro_descricao',
         [category]
       );
       
-      return result.map(this.mapFinanceswebToProduct);
+      return result.map(this.mapPostgresToProduct);
     } catch (error) {
       console.error('Error fetching products by category:', error);
       return [];
@@ -104,7 +126,7 @@ export class ProdutoService {
   static async getCategories(): Promise<string[]> {
     try {
       const result = await query<{ fnc_gpr_descricao: string }>(
-        'SELECT DISTINCT fnc_gpr_descricao FROM produtos_financesweb WHERE fnc_gpr_descricao IS NOT NULL ORDER BY fnc_gpr_descricao'
+        'SELECT DISTINCT fnc_gpr_descricao FROM fnc_produtos_e_servicos WHERE fnc_gpr_descricao IS NOT NULL ORDER BY fnc_gpr_descricao'
       );
       
       return result.map(row => row.fnc_gpr_descricao);
@@ -119,15 +141,14 @@ export class ProdutoService {
       const product = await this.getById(id);
       if (!product) return null;
       
-      // Log da tentativa de atualização para auditoria
-      console.log(`Tentativa de atualização do produto ${id}:`, {
+      // Por enquanto, apenas retorna o produto sem alterações
+      // Implementar UPDATE quando necessário
+      console.log(`Atualização do produto ${id} solicitada:`, {
         produto: product.name,
         alteracoes: data,
         timestamp: new Date().toISOString()
       });
       
-      // Retorna o produto atual (sem alterações na base do FinancesWeb)
-      // Para implementar alterações reais, seria necessário API do FinancesWeb
       return product;
     } catch (error) {
       console.error('Error updating product:', error);
@@ -143,20 +164,20 @@ export class ProdutoService {
   }> {
     try {
       const totalResult = await queryOne<{ count: string }>(
-        'SELECT COUNT(*) as count FROM produtos_financesweb'
+        'SELECT COUNT(*) as count FROM fnc_produtos_e_servicos'
       );
       
       const activeResult = await queryOne<{ count: string }>(
-        'SELECT COUNT(*) as count FROM produtos_financesweb WHERE fnc_pro_status = $1',
-        ['1']
+        'SELECT COUNT(*) as count FROM fnc_produtos_e_servicos WHERE fnc_pro_status = $1',
+        ['Ativo']
       );
       
       const lowStockResult = await queryOne<{ count: string }>(
-        'SELECT COUNT(*) as count FROM produtos_financesweb WHERE fnc_pro_estoque_atual <= fnc_pro_estoque_minimo'
+        'SELECT COUNT(*) as count FROM fnc_produtos_e_servicos WHERE fnc_pro_estoque_atual <= fnc_pro_estoque_minimo'
       );
       
       const categoriesResult = await queryOne<{ count: string }>(
-        'SELECT COUNT(DISTINCT fnc_gpr_descricao) as count FROM produtos_financesweb WHERE fnc_gpr_descricao IS NOT NULL'
+        'SELECT COUNT(DISTINCT fnc_gpr_descricao) as count FROM fnc_produtos_e_servicos WHERE fnc_gpr_descricao IS NOT NULL'
       );
       
       return {
