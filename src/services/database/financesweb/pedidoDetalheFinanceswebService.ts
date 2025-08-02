@@ -50,6 +50,23 @@ export interface PedidoDetalheFinancesweb {
   updated_at?: Date;
 }
 
+export interface TotalPorCliente {
+  fnc_pes_id: number;
+  fnc_pes_nome_fantasia: string;
+  fnc_pes_razao_social: string;
+  total_pedidos: string;
+  valor_total: string;
+  quantidade_total: string;
+}
+
+export interface TotalPorProduto {
+  fnc_pro_id: number;
+  fnc_pro_descricao: string;
+  total_pedidos: string;
+  quantidade_vendida: string;
+  valor_total: string;
+}
+
 export class PedidoDetalheFinanceswebService {
   private pool: Pool;
 
@@ -281,7 +298,7 @@ export class PedidoDetalheFinanceswebService {
     return result.rows;
   }
 
-  async getTotalsByCliente(): Promise<any[]> {
+  async getTotalsByCliente(): Promise<TotalPorCliente[]> {
     const result = await this.pool.query(`
       SELECT 
         fnc_pes_id,
@@ -297,7 +314,7 @@ export class PedidoDetalheFinanceswebService {
     return result.rows;
   }
 
-  async getTotalsByProduto(): Promise<any[]> {
+  async getTotalsByProduto(): Promise<TotalPorProduto[]> {
     const result = await this.pool.query(`
       SELECT 
         fnc_pro_id,

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromAPI } from './config';
-import { ProdutoFinanceswebService } from '@/services/database/financesweb/produtoFinanceswebService';
-import { OperadorFinanceswebService } from '@/services/database/financesweb/operadorFinanceswebService';
-import { PessoaFinanceswebService } from '@/services/database/financesweb/pessoaFinanceswebService';
-import { PedidoDetalheFinanceswebService } from '@/services/database/financesweb/pedidoDetalheFinanceswebService';
+import { ProdutoFinanceswebService, ProdutoFinancesweb } from '@/services/database/financesweb/produtoFinanceswebService';
+import { OperadorFinanceswebService, OperadorFinancesweb } from '@/services/database/financesweb/operadorFinanceswebService';
+import { PessoaFinanceswebService, PessoaFinancesweb } from '@/services/database/financesweb/pessoaFinanceswebService';
+import { PedidoDetalheFinanceswebService, PedidoDetalheFinancesweb } from '@/services/database/financesweb/pedidoDetalheFinanceswebService';
+import { SyncResponse, BaseService, SyncResult, EntityData } from './types';
 
 export async function POST(request: NextRequest) {
   // Verifica se a API key está configurada
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const entity = searchParams.get('entity');
 
-    const results: any = {
+    const results: SyncResponse = {
       timestamp: new Date().toISOString(),
       results: {},
       errors: [],
@@ -29,11 +30,11 @@ export async function POST(request: NextRequest) {
     };
 
     // Função auxiliar para processar cada entidade
-    const syncEntity = async (
+    const syncEntity = async <T extends EntityData>(
       name: string,
-      fetchFunc: () => Promise<any>,
-      service: any,
-      processFunc: (data: any[]) => Promise<any>
+      fetchFunc: () => Promise<T[]>,
+      service: BaseService,
+      processFunc: (data: T[]) => Promise<SyncResult>
     ) => {
       try {
         console.log(`🔄 Sincronizando ${name}...`);
@@ -69,36 +70,36 @@ export async function POST(request: NextRequest) {
     if (entity) {
       switch (entity) {
         case 'produtos':
-          await syncEntity(
+          await syncEntity<ProdutoFinancesweb>(
             'produtos',
-            () => fetchFromAPI("fnc_produtos_e_servicos"),
+            () => fetchFromAPI("fnc_produtos_e_servicos") as Promise<ProdutoFinancesweb[]>,
             new ProdutoFinanceswebService(),
             (data) => new ProdutoFinanceswebService().upsertMany(data)
           );
           break;
         
         case 'operadores':
-          await syncEntity(
+          await syncEntity<OperadorFinancesweb>(
             'operadores',
-            () => fetchFromAPI("fnc_operadores"),
+            () => fetchFromAPI("fnc_operadores") as Promise<OperadorFinancesweb[]>,
             new OperadorFinanceswebService(),
             (data) => new OperadorFinanceswebService().upsertMany(data)
           );
           break;
         
         case 'pessoas':
-          await syncEntity(
+          await syncEntity<PessoaFinancesweb>(
             'pessoas',
-            () => fetchFromAPI("fnc_pessoas", "fnc_pes_tipo_pessoa=eq.2"),
+            () => fetchFromAPI("fnc_pessoas", "fnc_pes_tipo_pessoa=eq.2") as Promise<PessoaFinancesweb[]>,
             new PessoaFinanceswebService(),
             (data) => new PessoaFinanceswebService().upsertMany(data)
           );
           break;
         
         case 'pedidos':
-          await syncEntity(
+          await syncEntity<PedidoDetalheFinancesweb>(
             'pedidos',
-            () => fetchFromAPI("vw_pedidos_venda_produtos", "fnc_nat_origem=eq.1"),
+            () => fetchFromAPI("vw_pedidos_venda_produtos", "fnc_nat_origem=eq.1") as Promise<PedidoDetalheFinancesweb[]>,
             new PedidoDetalheFinanceswebService(),
             (data) => new PedidoDetalheFinanceswebService().upsertMany(data)
           );
@@ -112,30 +113,30 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Sincroniza todas as entidades
-      await syncEntity(
+      await syncEntity<ProdutoFinancesweb>(
         'produtos',
-        () => fetchFromAPI("fnc_produtos_e_servicos"),
+        () => fetchFromAPI("fnc_produtos_e_servicos") as Promise<ProdutoFinancesweb[]>,
         new ProdutoFinanceswebService(),
         (data) => new ProdutoFinanceswebService().upsertMany(data)
       );
 
-      await syncEntity(
+      await syncEntity<OperadorFinancesweb>(
         'operadores',
-        () => fetchFromAPI("fnc_operadores"),
+        () => fetchFromAPI("fnc_operadores") as Promise<OperadorFinancesweb[]>,
         new OperadorFinanceswebService(),
         (data) => new OperadorFinanceswebService().upsertMany(data)
       );
 
-      await syncEntity(
+      await syncEntity<PessoaFinancesweb>(
         'pessoas',
-        () => fetchFromAPI("fnc_pessoas", "fnc_pes_tipo_pessoa=eq.2"),
+        () => fetchFromAPI("fnc_pessoas", "fnc_pes_tipo_pessoa=eq.2") as Promise<PessoaFinancesweb[]>,
         new PessoaFinanceswebService(),
         (data) => new PessoaFinanceswebService().upsertMany(data)
       );
 
-      await syncEntity(
+      await syncEntity<PedidoDetalheFinancesweb>(
         'pedidos',
-        () => fetchFromAPI("vw_pedidos_venda_produtos", "fnc_nat_origem=eq.1"),
+        () => fetchFromAPI("vw_pedidos_venda_produtos", "fnc_nat_origem=eq.1") as Promise<PedidoDetalheFinancesweb[]>,
         new PedidoDetalheFinanceswebService(),
         (data) => new PedidoDetalheFinanceswebService().upsertMany(data)
       );
