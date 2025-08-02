@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       produtos = await ProdutoService.getAll();
     }
     
-    return NextResponse.json(produtos);
+    return NextResponse.json({ products: produtos });
   } catch (error) {
     console.error('Error fetching products:', error);
     return NextResponse.json(

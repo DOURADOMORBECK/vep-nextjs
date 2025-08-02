@@ -18,11 +18,11 @@ export class DashboardService {
     );
     
     const operatorsResult = await queryOne<{ total: string }>(
-      'SELECT COUNT(*) AS total FROM users'
+      'SELECT COUNT(*) AS total FROM operadores_financesweb'
     );
     
     const productsResult = await queryOne<{ total: string }>(
-      'SELECT COUNT(*) AS total FROM produtos'
+      'SELECT COUNT(*) AS total FROM produtos_financesweb'
     );
     
     const vehiclesResult = await queryOne<{ total: string }>(
@@ -30,7 +30,7 @@ export class DashboardService {
     );
     
     const customersResult = await queryOne<{ total: string }>(
-      'SELECT COUNT(*) AS total FROM pessoas'
+      'SELECT COUNT(*) AS total FROM pessoas_financesweb'
     );
 
     // Try to get recent deliveries (table might not exist)

@@ -60,24 +60,8 @@ export default function DeliveryMap({ orders = [] }: DeliveryMapProps) {
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(mapInstanceRef.current);
 
-      // Add default markers if no orders provided
-      if (orders.length === 0) {
-        // Sample delivery points
-        const sampleOrders = [
-          { lat: -23.550520, lng: -46.633308, id: '#PED-1234', customer: 'Marcos Oliveira', address: 'Rua das Flores, 123' },
-          { lat: -23.557920, lng: -46.639820, id: '#PED-1235', customer: 'Ana Silva', address: 'Av. Paulista, 1000' }
-        ];
-
-        sampleOrders.forEach((order) => {
-          window.L.marker([order.lat, order.lng])
-            .addTo(mapInstanceRef.current!)
-            .bindPopup(`<b>${order.id}</b><br>${order.customer}<br>${order.address}`);
-        });
-
-        // Draw sample route
-        const routeCoords: [number, number][] = sampleOrders.map(order => [order.lat, order.lng]);
-        window.L.polyline(routeCoords, { color: '#22c55e', weight: 5 }).addTo(mapInstanceRef.current!);
-      }
+      // No sample data - map will show empty when no real orders exist
+      // This ensures users only see real delivery data
     }
   }, [orders]);
 
@@ -132,10 +116,20 @@ export default function DeliveryMap({ orders = [] }: DeliveryMapProps) {
   }, [orders]);
 
   return (
-    <div 
-      ref={mapRef} 
-      className="h-full w-full rounded-lg border border-gray-700"
-      style={{ minHeight: '300px' }}
-    />
+    <div className="relative h-full w-full">
+      <div 
+        ref={mapRef} 
+        className="h-full w-full rounded-lg border border-gray-700"
+        style={{ minHeight: '300px' }}
+      />
+      {orders.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 rounded-lg">
+          <div className="text-center p-6 bg-gray-800 rounded-lg shadow-lg">
+            <p className="text-gray-300 text-lg">Nenhuma entrega em andamento</p>
+            <p className="text-gray-400 text-sm mt-2">As rotas de entrega aparecerão aqui quando houver pedidos</p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

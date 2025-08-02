@@ -19,39 +19,7 @@ interface Product {
   fnc_pro_estoque_minimo?: number;
 }
 
-// Dados de demonstração
-const DEMO_PRODUCTS: Product[] = [
-  {
-    fnc_pro_id: 1,
-    fnc_pro_descricao: 'Detergente Neutro 5L',
-    fnc_pro_codigo: 'DET001',
-    fnc_gpr_descricao: 'Limpeza',
-    fnc_pro_preco_venda: 25.90,
-    fnc_pro_status: 'Ativo',
-    fnc_pro_estoque_atual: 150,
-    fnc_pro_estoque_minimo: 20
-  },
-  {
-    fnc_pro_id: 2,
-    fnc_pro_descricao: 'Desinfetante Lavanda 2L',
-    fnc_pro_codigo: 'DES002',
-    fnc_gpr_descricao: 'Desinfetantes',
-    fnc_pro_preco_venda: 15.50,
-    fnc_pro_status: 'Ativo',
-    fnc_pro_estoque_atual: 85,
-    fnc_pro_estoque_minimo: 30
-  },
-  {
-    fnc_pro_id: 3,
-    fnc_pro_descricao: 'Álcool 70% 1L',
-    fnc_pro_codigo: 'ALC003',
-    fnc_gpr_descricao: 'Higienização',
-    fnc_pro_preco_venda: 12.00,
-    fnc_pro_status: 'Ativo',
-    fnc_pro_estoque_atual: 200,
-    fnc_pro_estoque_minimo: 50
-  }
-];
+// Sem dados de demonstração - apenas dados reais do banco
 
 export default function ProdutosPageV2() {
   const { logAction } = useUserLogger();
@@ -68,7 +36,7 @@ export default function ProdutosPageV2() {
     refresh 
   } = useSmartData<Product>({
     endpoint: '/api/produtos',
-    fallbackData: DEMO_PRODUCTS,
+    fallbackData: [], // Sem dados de demonstração
     showToasts: true
   });
 

@@ -21,45 +21,7 @@ interface Customer {
   fnc_pes_endereco?: string;
 }
 
-// Dados de demonstração
-const DEMO_CUSTOMERS: Customer[] = [
-  {
-    fnc_pes_id: 1,
-    fnc_pes_nome_fantasia: 'Supermercado Central',
-    fnc_pes_razao_social: 'Supermercado Central LTDA',
-    fnc_pes_cpf_cnpj: '12.345.678/0001-90',
-    fnc_pes_email: 'compras@supercentral.com.br',
-    fnc_pes_telefone: '(11) 3456-7890',
-    fnc_pes_cidade: 'São Paulo',
-    fnc_pes_uf: 'SP',
-    fnc_pes_status: 'Ativo',
-    fnc_pes_endereco: 'Av. Paulista, 1000'
-  },
-  {
-    fnc_pes_id: 2,
-    fnc_pes_nome_fantasia: 'Hotel Plaza',
-    fnc_pes_razao_social: 'Hotel Plaza S/A',
-    fnc_pes_cpf_cnpj: '98.765.432/0001-10',
-    fnc_pes_email: 'contato@hotelplaza.com.br',
-    fnc_pes_telefone: '(21) 2345-6789',
-    fnc_pes_cidade: 'Rio de Janeiro',
-    fnc_pes_uf: 'RJ',
-    fnc_pes_status: 'Ativo',
-    fnc_pes_endereco: 'Rua Copacabana, 500'
-  },
-  {
-    fnc_pes_id: 3,
-    fnc_pes_nome_fantasia: 'Restaurante Sabor & Arte',
-    fnc_pes_razao_social: 'Sabor e Arte Restaurante ME',
-    fnc_pes_cpf_cnpj: '45.678.901/0001-23',
-    fnc_pes_email: 'reservas@saborearte.com.br',
-    fnc_pes_telefone: '(11) 9876-5432',
-    fnc_pes_cidade: 'São Paulo',
-    fnc_pes_uf: 'SP',
-    fnc_pes_status: 'Ativo',
-    fnc_pes_endereco: 'Rua Augusta, 200'
-  }
-];
+// Sem dados de demonstração - apenas dados reais do banco
 
 export default function ClientesPageV2() {
   const { logAction } = useUserLogger();
@@ -77,7 +39,7 @@ export default function ClientesPageV2() {
     refresh 
   } = useSmartData<Customer>({
     endpoint: '/api/clientes',
-    fallbackData: DEMO_CUSTOMERS,
+    fallbackData: [], // Sem dados de demonstração
     showToasts: true
   });
 

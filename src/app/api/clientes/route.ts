@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       clientes = await PessoaService.getCustomers();
     }
     
-    return NextResponse.json(clientes);
+    return NextResponse.json({ customers: clientes });
   } catch (error) {
     console.error('Error fetching customers:', error);
     return NextResponse.json(

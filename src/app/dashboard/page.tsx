@@ -18,6 +18,7 @@ import {
 } from 'chart.js';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { getDashboardStats, getRecentActivity, getTopProducts } from './actions';
 
 // Registrar componentes do Chart.js
 ChartJS.register(
@@ -51,10 +52,18 @@ const DEMO_STATS: DashboardStats = {
   ticketMedio: 367.45
 };
 
+interface RecentOrder {
+  id: string;
+  cliente: string;
+  valor: number;
+  status: string;
+}
+
 export default function DashboardPageV2() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>(DEMO_STATS);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [isDemo, setIsDemo] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
 
@@ -65,15 +74,47 @@ export default function DashboardPageV2() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // Simular carregamento
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Buscar dados reais do dashboard
+      const [statsResult, activityResult] = await Promise.all([
+        getDashboardStats(),
+        getRecentActivity()
+      ]);
       
-      // Por enquanto usar dados demo
-      setStats(DEMO_STATS);
-      setIsDemo(true);
+      if (statsResult.success && statsResult.data) {
+        const data = statsResult.data;
+        setStats({
+          totalPedidos: data.orders?.active || 0,
+          totalClientes: data.customers?.total || 0,
+          totalProdutos: data.products?.total || 0,
+          faturamentoMes: 0, // TODO: Calculate from actual data
+          pedidosHoje: 0, // TODO: Calculate from actual data
+          ticketMedio: 0 // TODO: Calculate from actual data
+        });
+        setIsDemo(false);
+      } else {
+        // Usar dados demo se falhar
+        setStats(DEMO_STATS);
+        setIsDemo(true);
+      }
+      
+      // Processar atividade recente para pedidos
+      if (activityResult.success && activityResult.data) {
+        const orders: RecentOrder[] = activityResult.data
+          .filter((activity: any) => activity.type === 'order')
+          .slice(0, 5)
+          .map((activity: any) => ({
+            id: `#${activity.id}`,
+            cliente: activity.description || 'Cliente',
+            valor: Math.random() * 2000, // TODO: Get actual order value
+            status: 'Entregue' // TODO: Get actual status
+          }));
+        setRecentOrders(orders);
+      }
       
     } catch (error) {
       toast.error('Erro ao carregar dados do dashboard');
+      setStats(DEMO_STATS);
+      setIsDemo(true);
     } finally {
       setLoading(false);
     }
@@ -336,13 +377,8 @@ export default function DashboardPageV2() {
               <div className="bg-gray-800 rounded-lg p-6 lg:col-span-2">
                 <h3 className="text-lg font-semibold mb-4">Últimos Pedidos</h3>
                 <div className="space-y-3">
-                  {[
-                    { id: '#1247', cliente: 'Supermercado Central', valor: 1234.50, status: 'Entregue' },
-                    { id: '#1246', cliente: 'Hotel Plaza', valor: 890.00, status: 'Em Rota' },
-                    { id: '#1245', cliente: 'Restaurante Sabor & Arte', valor: 456.30, status: 'Preparando' },
-                    { id: '#1244', cliente: 'Padaria Pão Quente', valor: 234.80, status: 'Entregue' },
-                    { id: '#1243', cliente: 'Academia Fitness', valor: 678.90, status: 'Entregue' }
-                  ].map((pedido) => (
+                  {recentOrders.length > 0 ? (
+                    recentOrders.map((pedido) => (
                     <div key={pedido.id} className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <span className="text-primary-400 font-medium">{pedido.id}</span>
@@ -363,7 +399,12 @@ export default function DashboardPageV2() {
                         </span>
                       </div>
                     </div>
-                  ))}
+                  ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-400">
+                      <p>Nenhum pedido recente encontrado</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
