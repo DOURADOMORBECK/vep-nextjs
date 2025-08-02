@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import DashboardLayout from '@/components/DashboardLayout';
-import { railwayApi } from '@/lib/api-interceptor';
+import { localApi } from '@/lib/local-api';
 import { toast } from 'react-hot-toast';
 
 interface Order {
@@ -48,7 +48,7 @@ export default function JornadaPedidoPage() {
 
   const fetchOrders = async () => {
     try {
-      const response = await railwayApi.getOrders();
+      const response = await localApi.getOrders();
       if (response.ok) {
         const data = await response.json();
         setOrders(data);

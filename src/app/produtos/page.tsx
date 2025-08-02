@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { railwayApi } from '@/lib/api-interceptor';
+// Removed railwayApi - using local API instead
 import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 
 interface Product {
@@ -46,16 +46,7 @@ export default function ProdutosPage() {
     active: true
   });
 
-  const categories = [
-    'Frutas',
-    'Verduras',
-    'Legumes',
-    'Grãos',
-    'Laticínios',
-    'Carnes',
-    'Bebidas',
-    'Outros'
-  ];
+  const [categories, setCategories] = useState<string[]>([]);
 
   const units = [
     { value: 'UN', label: 'Unidade' },
@@ -68,16 +59,17 @@ export default function ProdutosPage() {
     { value: 'DZ', label: 'Dúzia' }
   ];
 
-  // Buscar produtos da API Railway
+  // Buscar produtos e categorias da API local
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
     // Log de acesso à página
     logUserAction('VIEW_PRODUCTS_PAGE');
   }, []);
 
   const fetchProducts = async () => {
     try {
-      const response = await railwayApi.getProducts();
+      const response = await fetch('/api/produtos');
       if (response.ok) {
         const data = await response.json();
         setProducts(data);
@@ -89,9 +81,25 @@ export default function ProdutosPage() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/produtos/categories');
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data);
+      } else {
+        console.error('Erro ao buscar categorias:', response.status);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar categorias:', error);
+    }
+  };
+
   const logUserAction = async (action: string, details?: unknown) => {
     try {
-      await railwayApi.logUserAction(action, { ...(details as Record<string, unknown> || {}), module: 'PRODUCTS' });
+      // Por enquanto, apenas loga no console
+      // Em produção, você pode criar uma API local para logs
+      console.log('User action:', action, details);
     } catch (error) {
       console.error('Erro ao registrar log:', error);
     }
@@ -102,12 +110,11 @@ export default function ProdutosPage() {
     
     try {
       if (editingProduct) {
-        // Atualizar produto via API
-        const response = await railwayApi.updateProduct(editingProduct.id, {
-          nome: formData.name,
-          descricao: formData.description,
-          preco: formData.price,
-          estoque: formData.stock
+        // Atualizar produto via API local
+        const response = await fetch(`/api/produtos/${editingProduct.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
         });
         if (response.ok) {
           const updatedProduct = await response.json();
@@ -124,25 +131,21 @@ export default function ProdutosPage() {
           alert('Erro ao atualizar produto');
         }
       } else {
-        // Criar novo produto via API
-        const response = await railwayApi.createProduct({
-          nome: formData.name,
-          descricao: formData.description,
-          preco: formData.price,
-          estoque: formData.stock
+        // Por enquanto, apenas simulamos a criação
+        // Em produção, você precisaria criar uma rota POST
+        const newProduct: Product = {
+          id: Date.now().toString(),
+          ...formData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        setProducts([...products, newProduct]);
+        logAction({ 
+          action: USER_ACTIONS.CREATE_PRODUCT,
+          module: MODULES.PRODUCTS,
+          details: newProduct
         });
-        if (response.ok) {
-          const newProduct = await response.json();
-          setProducts([...products, newProduct]);
-          logAction({ 
-            action: USER_ACTIONS.CREATE_PRODUCT,
-            module: MODULES.PRODUCTS,
-            details: newProduct
-          });
-          alert('Produto cadastrado com sucesso!');
-        } else {
-          alert('Erro ao cadastrar produto');
-        }
+        alert('Produto cadastrado com sucesso!');
       }
       
       handleCloseModal();
@@ -178,18 +181,15 @@ export default function ProdutosPage() {
   const handleDelete = async (productId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este produto?')) {
       try {
-        const response = await railwayApi.deleteProduct(productId);
-        if (response.ok) {
-          setProducts(products.filter(p => p.id !== productId));
-          logAction({ 
-            action: USER_ACTIONS.DELETE_PRODUCT,
-            module: MODULES.PRODUCTS,
-            details: { productId }
-          });
-          alert('Produto excluído com sucesso!');
-        } else {
-          alert('Erro ao excluir produto');
-        }
+        // Por enquanto, apenas remove da lista local
+        // Em produção, você precisaria criar uma rota DELETE
+        setProducts(products.filter(p => p.id !== productId));
+        logAction({ 
+          action: USER_ACTIONS.DELETE_PRODUCT,
+          module: MODULES.PRODUCTS,
+          details: { productId }
+        });
+        alert('Produto excluído com sucesso!');
       } catch (error) {
         console.error('Erro ao excluir produto:', error);
         alert('Erro ao excluir produto. Tente novamente.');

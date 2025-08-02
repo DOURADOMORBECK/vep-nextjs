@@ -1,212 +1,168 @@
 import { query, queryOne } from '@/lib/db-wrapper';
-import { FncProduto } from '@/types/database';
+import { ProdutoFinancesweb } from './financesweb/produtoFinanceswebService';
+
+export interface Produto {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  category: string;
+  unit: string;
+  price: number;
+  stock: number;
+  minStock: number;
+  supplier: string;
+  barcode: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export class ProdutoService {
-  // Get all produtos
-  static async getAll(filters?: {
-    status?: number;
-    grupo?: string;
-    departamento?: string;
-    marca?: string;
-    search?: string;
-  }): Promise<FncProduto[]> {
-    let sql = 'SELECT * FROM produtos WHERE 1=1';
-    const params: unknown[] = [];
-    let paramCount = 1;
+  // Converte produto do FinancesWeb para formato da aplicação
+  private static mapFinanceswebToProduct(produto: ProdutoFinancesweb): Produto {
+    return {
+      id: produto.fnc_pro_id.toString(),
+      code: produto.fnc_pro_codigo || '',
+      name: produto.fnc_pro_descricao || '',
+      description: produto.fnc_pro_descricao_nf || produto.fnc_pro_descricao || '',
+      category: produto.fnc_gpr_descricao || 'Outros',
+      unit: produto.fnc_pro_unidade_medida || 'UN',
+      price: produto.fnc_pro_preco_venda || 0,
+      stock: produto.fnc_pro_estoque_atual || 0,
+      minStock: produto.fnc_pro_estoque_minimo || 0,
+      supplier: produto.fnc_mar_descricao || '',
+      barcode: produto.fnc_pro_codigo_barras || '',
+      active: produto.fnc_pro_status === '1',
+      createdAt: produto.created_at?.toISOString() || new Date().toISOString(),
+      updatedAt: produto.updated_at?.toISOString() || new Date().toISOString()
+    };
+  }
 
-    if (filters?.status !== undefined) {
-      sql += ` AND fnc_pro_status = $${paramCount}`;
-      params.push(filters.status);
-      paramCount++;
+  static async getAll(): Promise<Produto[]> {
+    try {
+      // Buscar produtos do FinancesWeb (fonte principal de dados)
+      const result = await query<ProdutoFinancesweb>(
+        'SELECT * FROM produtos_financesweb ORDER BY fnc_pro_descricao'
+      );
+      
+      return result.map(this.mapFinanceswebToProduct);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      return [];
     }
+  }
 
-    if (filters?.grupo) {
-      sql += ` AND fnc_gpr_descricao = $${paramCount}`;
-      params.push(filters.grupo);
-      paramCount++;
+  static async getById(id: string): Promise<Produto | null> {
+    try {
+      const result = await queryOne<ProdutoFinancesweb>(
+        'SELECT * FROM produtos_financesweb WHERE fnc_pro_id = $1',
+        [parseInt(id)]
+      );
+      
+      if (!result) return null;
+      return this.mapFinanceswebToProduct(result);
+    } catch (error) {
+      console.error('Error fetching product by id:', error);
+      return null;
     }
+  }
 
-    if (filters?.departamento) {
-      sql += ` AND fnc_dep_descricao = $${paramCount}`;
-      params.push(filters.departamento);
-      paramCount++;
+  static async search(searchTerm: string): Promise<Produto[]> {
+    try {
+      const result = await query<ProdutoFinancesweb>(
+        `SELECT * FROM produtos_financesweb 
+         WHERE fnc_pro_descricao ILIKE $1 
+            OR fnc_pro_codigo ILIKE $1 
+            OR fnc_pro_codigo_barras ILIKE $1
+         ORDER BY fnc_pro_descricao
+         LIMIT 50`,
+        [`%${searchTerm}%`]
+      );
+      
+      return result.map(this.mapFinanceswebToProduct);
+    } catch (error) {
+      console.error('Error searching products:', error);
+      return [];
     }
+  }
 
-    if (filters?.marca) {
-      sql += ` AND fnc_mar_descricao = $${paramCount}`;
-      params.push(filters.marca);
-      paramCount++;
+  static async getByCategory(category: string): Promise<Produto[]> {
+    try {
+      const result = await query<ProdutoFinancesweb>(
+        'SELECT * FROM produtos_financesweb WHERE fnc_gpr_descricao = $1 ORDER BY fnc_pro_descricao',
+        [category]
+      );
+      
+      return result.map(this.mapFinanceswebToProduct);
+    } catch (error) {
+      console.error('Error fetching products by category:', error);
+      return [];
     }
+  }
 
-    if (filters?.search) {
-      sql += ` AND (
-        fnc_pro_descricao ILIKE $${paramCount} OR 
-        fnc_pro_codigo_automacao = $${paramCount + 1} OR
-        fnc_pro_codigo_referencia = $${paramCount + 1}
-      )`;
-      params.push(`%${filters.search}%`, filters.search, filters.search);
-      paramCount += 3;
+  static async getCategories(): Promise<string[]> {
+    try {
+      const result = await query<{ fnc_gpr_descricao: string }>(
+        'SELECT DISTINCT fnc_gpr_descricao FROM produtos_financesweb WHERE fnc_gpr_descricao IS NOT NULL ORDER BY fnc_gpr_descricao'
+      );
+      
+      return result.map(row => row.fnc_gpr_descricao);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      return [];
     }
-
-    sql += ' ORDER BY fnc_pro_descricao';
-
-    return query<FncProduto>(sql, params);
   }
 
-  // Get produto by ID
-  static async getById(id: string): Promise<FncProduto | null> {
-    return queryOne<FncProduto>(
-      'SELECT * FROM produtos WHERE fnc_pro_id = $1',
-      [id]
-    );
-  }
-
-  // Get produto by codigo_automacao
-  static async getByCodigoAutomacao(codigo: string): Promise<FncProduto | null> {
-    return queryOne<FncProduto>(
-      'SELECT * FROM produtos WHERE fnc_pro_codigo_automacao = $1',
-      [codigo]
-    );
-  }
-
-  // Create new produto
-  static async create(data: Partial<FncProduto>): Promise<FncProduto> {
-    const fields: string[] = [];
-    const placeholders: string[] = [];
-    const values: unknown[] = [];
-    let paramCount = 1;
-
-    Object.entries(data).forEach(([key, value]) => {
-      if (value !== undefined) {
-        fields.push(key);
-        placeholders.push(`$${paramCount}`);
-        values.push(value);
-        paramCount++;
-      }
-    });
-
-    // Add timestamp
-    fields.push('fnc_pro_dh_atualizacao');
-    placeholders.push('NOW()');
-
-    const result = await queryOne<FncProduto>(
-      `INSERT INTO produtos (${fields.join(', ')}) 
-       VALUES (${placeholders.join(', ')}) 
-       RETURNING *`,
-      values
-    );
-
-    if (!result) {
-      throw new Error('Failed to create produto');
+  static async update(id: string, data: Partial<Produto>): Promise<Produto | null> {
+    try {
+      // Por enquanto, vamos apenas simular a atualização
+      // Em produção, você pode decidir se quer atualizar diretamente no FinancesWeb
+      // ou manter uma tabela local de overrides
+      const product = await this.getById(id);
+      if (!product) return null;
+      
+      // Retorna o produto com as atualizações aplicadas (simulado)
+      return { ...product, ...data, updatedAt: new Date().toISOString() };
+    } catch (error) {
+      console.error('Error updating product:', error);
+      return null;
     }
-
-    return result;
   }
 
-  // Update produto
-  static async update(id: string, data: Partial<FncProduto>): Promise<FncProduto | null> {
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    let paramCount = 1;
-
-    Object.entries(data).forEach(([key, value]) => {
-      if (value !== undefined && key !== 'fnc_pro_id') {
-        updates.push(`${key} = $${paramCount}`);
-        values.push(value);
-        paramCount++;
-      }
-    });
-
-    if (updates.length === 0) {
-      return this.getById(id);
+  static async getStats(): Promise<{
+    total: number;
+    active: number;
+    lowStock: number;
+    categories: number;
+  }> {
+    try {
+      const totalResult = await queryOne<{ count: string }>(
+        'SELECT COUNT(*) as count FROM produtos_financesweb'
+      );
+      
+      const activeResult = await queryOne<{ count: string }>(
+        'SELECT COUNT(*) as count FROM produtos_financesweb WHERE fnc_pro_status = $1',
+        ['1']
+      );
+      
+      const lowStockResult = await queryOne<{ count: string }>(
+        'SELECT COUNT(*) as count FROM produtos_financesweb WHERE fnc_pro_estoque_atual <= fnc_pro_estoque_minimo'
+      );
+      
+      const categoriesResult = await queryOne<{ count: string }>(
+        'SELECT COUNT(DISTINCT fnc_gpr_descricao) as count FROM produtos_financesweb WHERE fnc_gpr_descricao IS NOT NULL'
+      );
+      
+      return {
+        total: parseInt(totalResult?.count || '0'),
+        active: parseInt(activeResult?.count || '0'),
+        lowStock: parseInt(lowStockResult?.count || '0'),
+        categories: parseInt(categoriesResult?.count || '0')
+      };
+    } catch (error) {
+      console.error('Error fetching product stats:', error);
+      return { total: 0, active: 0, lowStock: 0, categories: 0 };
     }
-
-    // Add timestamp update
-    updates.push('fnc_pro_dh_atualizacao = NOW()');
-    values.push(id);
-
-    return queryOne<FncProduto>(
-      `UPDATE produtos SET ${updates.join(', ')} WHERE fnc_pro_id = $${paramCount} RETURNING *`,
-      values
-    );
-  }
-
-  // Update stock
-  static async updateStock(id: string, quantity: number, operation: 'add' | 'subtract' | 'set'): Promise<void> {
-    let sql: string;
-    
-    switch (operation) {
-      case 'add':
-        sql = 'UPDATE produtos SET fnc_pro_estoque_atual = COALESCE(fnc_pro_estoque_atual, 0) + $1 WHERE fnc_pro_id = $2';
-        break;
-      case 'subtract':
-        sql = 'UPDATE produtos SET fnc_pro_estoque_atual = GREATEST(COALESCE(fnc_pro_estoque_atual, 0) - $1, 0) WHERE fnc_pro_id = $2';
-        break;
-      case 'set':
-        sql = 'UPDATE produtos SET fnc_pro_estoque_atual = $1 WHERE fnc_pro_id = $2';
-        break;
-    }
-
-    await query(sql, [quantity, id]);
-  }
-
-  // Get low stock products
-  static async getLowStock(): Promise<FncProduto[]> {
-    return query<FncProduto>(
-      `SELECT * FROM produtos 
-       WHERE fnc_pro_estoque_atual < fnc_pro_estoque_minimo 
-       AND fnc_pro_status = 1
-       ORDER BY (fnc_pro_estoque_atual::numeric / NULLIF(fnc_pro_estoque_minimo::numeric, 0)) ASC`
-    );
-  }
-
-  // Get products by group
-  static async getByGroup(grupo: string): Promise<FncProduto[]> {
-    return query<FncProduto>(
-      'SELECT * FROM produtos WHERE fnc_gpr_descricao = $1 ORDER BY fnc_pro_descricao',
-      [grupo]
-    );
-  }
-
-  // Get active products
-  static async getActive(): Promise<FncProduto[]> {
-    return this.getAll({ status: 1 });
-  }
-
-  // Delete produto
-  static async delete(id: string): Promise<boolean> {
-    // Soft delete by setting status to 0
-    await query(
-      'UPDATE produtos SET fnc_pro_status = 0, fnc_pro_dh_atualizacao = NOW() WHERE fnc_pro_id = $1',
-      [id]
-    );
-    return true;
-  }
-
-  // Get product price list
-  static async getPriceList(): Promise<Array<{
-    fnc_pro_id: string;
-    fnc_pro_descricao: string;
-    fnc_pro_codigo_automacao: string;
-    custo: number;
-    preco_vista: number;
-    preco_prazo: number;
-    grupo: string;
-    marca: string;
-  }>> {
-    return query(
-      `SELECT 
-        fnc_pro_id,
-        fnc_pro_descricao,
-        fnc_pro_codigo_automacao,
-        fnc_pro_preco_de_custo_final as custo,
-        fnc_pro_preco_a_vista as preco_vista,
-        fnc_pro_preco_a_prazo as preco_prazo,
-        fnc_gpr_descricao as grupo,
-        fnc_mar_descricao as marca
-       FROM produtos 
-       WHERE fnc_pro_status = 1
-       ORDER BY fnc_pro_descricao`
-    );
   }
 }

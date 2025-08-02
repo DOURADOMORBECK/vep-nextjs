@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { railwayApi } from '@/lib/api-interceptor';
+import { localApi } from '@/lib/local-api';
 
 interface Supplier {
   id: string;
@@ -116,7 +116,7 @@ export default function FornecedoresPage() {
 
   const fetchSuppliers = async () => {
     try {
-      const response = await railwayApi.getSuppliers();
+      const response = await localApi.getSuppliers();
       if (response.ok) {
         const data = await response.json();
         setSuppliers(data);

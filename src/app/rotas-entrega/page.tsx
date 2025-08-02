@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { railwayApi } from '@/lib/api-interceptor';
+import { localApi } from '@/lib/local-api';
 import { toast } from 'react-hot-toast';
 import { DeliveryRoute, DeliveryStats, DriverStats } from '@/types/delivery';
 
@@ -22,7 +22,7 @@ export default function RotasEntregaPage() {
       if (selectedStatus) params.status = selectedStatus;
       if (selectedDriver) params.driver_id = selectedDriver;
       
-      const response = await railwayApi.getDeliveries(params);
+      const response = await localApi.getDeliveries(params);
       if (response.ok) {
         const data = await response.json();
         setRoutes(data);
@@ -37,7 +37,7 @@ export default function RotasEntregaPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await railwayApi.getDeliveryStats();
+      const response = await localApi.getDeliveryStats();
       if (response.ok) {
         const data = await response.json();
         setStats(data);
@@ -49,7 +49,7 @@ export default function RotasEntregaPage() {
 
   const fetchDriverStats = async (driverId: string) => {
     try {
-      const response = await railwayApi.getDriverDeliveryStats(driverId);
+      const response = await localApi.getDriverDeliveryStats(driverId);
       if (response.ok) {
         const data = await response.json();
         setDriverStats(data);
