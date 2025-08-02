@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { railwayApi } from '@/lib/api-interceptor';
+import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 
 interface Operator {
   id: string;
@@ -20,6 +20,7 @@ interface Operator {
 }
 
 export default function OperadoresPage() {
+  const { logAction } = useUserLogger();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOperator, setEditingOperator] = useState<Operator | null>(null);
@@ -78,12 +79,16 @@ export default function OperadoresPage() {
   // Buscar operadores
   useEffect(() => {
     fetchOperators();
-    logUserAction('VIEW_OPERATORS_PAGE');
-  }, []);
+    logAction({ 
+      action: USER_ACTIONS.VIEW,
+      module: MODULES.OPERATORS,
+      details: { page: 'operators' }
+    });
+  }, [logAction]);
 
   const fetchOperators = async () => {
     try {
-      const response = await railwayApi.getOperators();
+      const response = await fetch('/api/operadores');
       if (response.ok) {
         const data = await response.json();
         setOperators(data);
@@ -95,13 +100,7 @@ export default function OperadoresPage() {
     }
   };
 
-  const logUserAction = async (action: string, details?: unknown) => {
-    try {
-      await railwayApi.logUserAction(action, { ...(details as Record<string, unknown> || {}), module: 'OPERATORS' });
-    } catch (error) {
-      console.error('Erro ao registrar log:', error);
-    }
-  };
+  // Removida função duplicada - usando logAction do hook
 
   const generateOperatorCode = () => {
     const prefix = 'OP';
@@ -140,21 +139,37 @@ export default function OperadoresPage() {
           finalOperatorData = dataWithoutPassword as typeof operatorData;
         }
         
-        const response = await railwayApi.updateOperator(editingOperator.id, finalOperatorData);
+        const response = await fetch(`/api/operadores/${editingOperator.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(finalOperatorData)
+        });
         if (response.ok) {
           const updatedOperator = await response.json();
           setOperators(operators.map(o => o.id === editingOperator.id ? updatedOperator : o));
-          logUserAction('UPDATE_OPERATOR', { operatorId: editingOperator.id, ...operatorData });
+          logAction({ 
+            action: USER_ACTIONS.UPDATE,
+            module: MODULES.OPERATORS,
+            details: { operatorId: editingOperator.id, ...operatorData }
+          });
           alert('Operador atualizado com sucesso!');
         } else {
           alert('Erro ao atualizar operador');
         }
       } else {
-        const response = await railwayApi.createOperator(operatorData);
+        const response = await fetch('/api/operadores', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(operatorData)
+        });
         if (response.ok) {
           const newOperator = await response.json();
           setOperators([...operators, newOperator]);
-          logUserAction('CREATE_OPERATOR', newOperator);
+          logAction({ 
+            action: USER_ACTIONS.CREATE,
+            module: MODULES.OPERATORS,
+            details: newOperator
+          });
           alert('Operador cadastrado com sucesso!');
         } else {
           alert('Erro ao cadastrar operador');
@@ -182,16 +197,26 @@ export default function OperadoresPage() {
       active: operator.active
     });
     setIsModalOpen(true);
-    logUserAction('OPEN_EDIT_OPERATOR', { operatorId: operator.id });
+    logAction({ 
+      action: USER_ACTIONS.VIEW,
+      module: MODULES.OPERATORS,
+      details: { operatorId: operator.id, action: 'open_edit' }
+    });
   };
 
   const handleDelete = async (operatorId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este operador?')) {
       try {
-        const response = await railwayApi.deleteOperator(operatorId);
+        const response = await fetch(`/api/operadores/${operatorId}`, {
+          method: 'DELETE'
+        });
         if (response.ok) {
           setOperators(operators.filter(o => o.id !== operatorId));
-          logUserAction('DELETE_OPERATOR', { operatorId });
+          logAction({ 
+            action: USER_ACTIONS.DELETE,
+            module: MODULES.OPERATORS,
+            details: { operatorId }
+          });
           alert('Operador excluído com sucesso!');
         } else {
           alert('Erro ao excluir operador');
@@ -321,7 +346,11 @@ export default function OperadoresPage() {
             <button
               onClick={() => {
                 setIsModalOpen(true);
-                logUserAction('OPEN_CREATE_OPERATOR');
+                logAction({ 
+                  action: USER_ACTIONS.VIEW,
+                  module: MODULES.OPERATORS,
+                  details: { action: 'open_create' }
+                });
               }}
               className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg font-medium flex items-center"
             >
