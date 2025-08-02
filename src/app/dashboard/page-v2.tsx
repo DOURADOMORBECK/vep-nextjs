@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
-import EmptyState from '@/components/common/EmptyState';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -15,8 +14,7 @@ import {
   ArcElement,
   Title,
   Tooltip,
-  Legend,
-  ChartOptions
+  Legend
 } from 'chart.js';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -82,7 +80,7 @@ export default function DashboardPageV2() {
   };
 
   // Configurações dos gráficos
-  const chartOptions: ChartOptions<any> = {
+  const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {

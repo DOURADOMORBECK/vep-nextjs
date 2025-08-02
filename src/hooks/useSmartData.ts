@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 
 interface UseSmartDataOptions {
@@ -30,7 +30,7 @@ export function useSmartData<T = unknown>({
   const [isDemo, setIsDemo] = useState(false);
 
   // Função para buscar dados
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -72,10 +72,10 @@ export function useSmartData<T = unknown>({
     } finally {
       setLoading(false);
     }
-  };
+  }, [endpoint, fallbackData, showToasts]);
 
   // Função para sincronizar dados
-  const sync = async () => {
+  const sync = useCallback(async () => {
     const toastId = toast.loading('Sincronizando dados...');
     
     try {
@@ -99,19 +99,19 @@ export function useSmartData<T = unknown>({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao sincronizar', { id: toastId });
     }
-  };
+  }, [fetchData]);
 
   // Carregar dados ao montar
   useEffect(() => {
     fetchData();
-  }, [endpoint]);
+  }, [fetchData]);
 
   // Auto sincronizar se necessário
   useEffect(() => {
     if (autoSync && isDemo && !loading) {
       sync();
     }
-  }, [autoSync, isDemo, loading]);
+  }, [autoSync, isDemo, loading, sync]);
 
   return {
     data,

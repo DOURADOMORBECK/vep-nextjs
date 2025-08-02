@@ -86,7 +86,11 @@ export default function ProdutosPageV2() {
   // Função para sincronizar
   const handleSync = async () => {
     setSyncLoading(true);
-    logAction(USER_ACTIONS.SYNC_DATA, { entity: 'produtos' }, MODULES.PRODUCTS);
+    logAction({ 
+      action: USER_ACTIONS.SYNC_DATA, 
+      module: MODULES.PRODUCTS,
+      details: { entity: 'produtos' }
+    });
     
     try {
       await sync();
@@ -98,13 +102,17 @@ export default function ProdutosPageV2() {
 
   // Função para editar produto
   const handleEdit = (product: Product) => {
-    logAction(USER_ACTIONS.VIEW, { productId: product.fnc_pro_id }, MODULES.PRODUCTS);
-    toast.info('Edição de produtos em desenvolvimento');
+    logAction({ 
+      action: USER_ACTIONS.VIEW, 
+      module: MODULES.PRODUCTS,
+      details: { productId: product.fnc_pro_id }
+    });
+    toast('Edição de produtos em desenvolvimento');
   };
 
   // Função para exportar
   const handleExport = () => {
-    toast.info('Exportação será implementada em breve');
+    toast('Exportação será implementada em breve');
   };
 
   return (

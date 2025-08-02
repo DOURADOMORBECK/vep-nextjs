@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -66,14 +66,24 @@ export default function SyncUnifiedPage() {
     
     // Carregar status inicial
     loadSyncStatus();
-    
+  }, [isAdmin, router]);
+
+  // Sincronizar tudo
+  const syncAll = useCallback(() => {
+    const allIds = entities.map(e => e.id);
+    setSelectedEntities(allIds);
+  }, [entities]);
+
+  useEffect(() => {
     // Auto sync se habilitado
-    const interval = autoSync ? setInterval(performAutoSync, 300000) : null; // 5 minutos
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isAdmin, router, autoSync]);
+    if (autoSync && !syncing) {
+      const interval = setInterval(async () => {
+        await syncAll();
+      }, 300000); // 5 minutos
+      
+      return () => clearInterval(interval);
+    }
+  }, [autoSync, syncing, syncAll]);
 
   // Carregar status de sincronização
   const loadSyncStatus = async () => {
@@ -153,7 +163,7 @@ export default function SyncUnifiedPage() {
           } else {
             throw new Error(data.error || 'Erro na sincronização');
           }
-        } catch (error) {
+        } catch {
           // Marcar como erro
           setEntities(prev => 
             prev.map(e => 
@@ -171,23 +181,10 @@ export default function SyncUnifiedPage() {
       setLastSyncTime(new Date());
       setSelectedEntities([]);
       
-    } catch (error) {
+    } catch {
       toast.error('Erro durante sincronização', { id: toastId });
     } finally {
       setSyncing(false);
-    }
-  };
-
-  // Sincronizar tudo
-  const syncAll = async () => {
-    setSelectedEntities(entities.map(e => e.id));
-    setTimeout(() => syncSelected(), 100);
-  };
-
-  // Auto sync
-  const performAutoSync = async () => {
-    if (!syncing) {
-      await syncAll();
     }
   };
 
@@ -251,7 +248,11 @@ export default function SyncUnifiedPage() {
 
               {/* Botões de ação */}
               <button
-                onClick={syncAll}
+                onClick={() => {
+                  syncAll();
+                  // Aguardar estado atualizar e executar sync
+                  setTimeout(() => syncSelected(), 100);
+                }}
                 disabled={syncing}
                 className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-700 text-white rounded-lg transition-colors flex items-center gap-2"
               >

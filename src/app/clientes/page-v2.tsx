@@ -100,7 +100,11 @@ export default function ClientesPageV2() {
   // Função para sincronizar
   const handleSync = async () => {
     setSyncLoading(true);
-    logAction(USER_ACTIONS.SYNC_DATA, { entity: 'clientes' }, MODULES.CUSTOMERS);
+    logAction({ 
+      action: USER_ACTIONS.SYNC_DATA, 
+      module: MODULES.CLIENTS,
+      details: { entity: 'clientes' }
+    });
     
     try {
       await sync();
@@ -112,8 +116,12 @@ export default function ClientesPageV2() {
 
   // Função para ver detalhes
   const handleViewDetails = (customer: Customer) => {
-    logAction(USER_ACTIONS.VIEW, { customerId: customer.fnc_pes_id }, MODULES.CUSTOMERS);
-    toast.info('Detalhes do cliente em desenvolvimento');
+    logAction({ 
+      action: USER_ACTIONS.VIEW, 
+      module: MODULES.CLIENTS,
+      details: { customerId: customer.fnc_pes_id }
+    });
+    toast('Detalhes do cliente em desenvolvimento');
   };
 
   // Função para enviar email
@@ -186,7 +194,7 @@ export default function ClientesPageV2() {
           {/* Botões de ação */}
           <div className="flex gap-2">
             <button
-              onClick={() => toast.info('Adicionar cliente em desenvolvimento')}
+              onClick={() => toast('Adicionar cliente em desenvolvimento')}
               className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors flex items-center gap-2"
             >
               <i className="fas fa-plus"></i>
@@ -247,7 +255,7 @@ export default function ClientesPageV2() {
                   } : undefined}
                   secondaryAction={{
                     label: "Adicionar Cliente",
-                    onClick: () => toast.info('Em desenvolvimento')
+                    onClick: () => toast('Em desenvolvimento')
                   }}
                 />
               ) : (
@@ -341,7 +349,7 @@ export default function ClientesPageV2() {
                           </button>
                           
                           <button
-                            onClick={() => toast.info('Edição em desenvolvimento')}
+                            onClick={() => toast('Edição em desenvolvimento')}
                             className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
                             title="Editar"
                           >
