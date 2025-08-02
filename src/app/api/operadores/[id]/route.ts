@@ -49,23 +49,40 @@ export async function PATCH(
   try {
     const data = await request.json();
     
-    // Por enquanto, simular atualização
-    // Em produção, você precisaria atualizar na tabela operadores_financesweb
-    const updatedOperator = {
-      id: id,
-      code: data.code || `OP${id.padStart(4, '0')}`,
-      name: data.name,
+    // Atualizar operador real no banco de dados
+    const updateData = {
+      nome: data.name,
       email: data.email,
-      phone: data.phone,
-      cpf: data.cpf,
-      role: data.role,
-      permissions: data.permissions || [],
-      active: data.active !== false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      telefone: data.phone,
+      ativo: data.active
     };
     
-    return NextResponse.json(updatedOperator);
+    const updatedOperador = await operadorService.updateOperador(parseInt(id), updateData);
+    
+    if (!updatedOperador) {
+      return NextResponse.json(
+        { error: 'Operator not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Converter para formato esperado pela página
+    const operatorFormatted = {
+      id: updatedOperador.id.toString(),
+      code: `OP${updatedOperador.id.toString().padStart(4, '0')}`,
+      name: updatedOperador.nome,
+      email: updatedOperador.email || '',
+      phone: updatedOperador.telefone || '',
+      cpf: data.cpf || '', // Campo extra
+      role: data.role || 'operator',
+      permissions: data.permissions || [],
+      active: updatedOperador.ativo,
+      createdAt: updatedOperador.data_criacao?.toISOString() || new Date().toISOString(),
+      updatedAt: updatedOperador.data_atualizacao?.toISOString() || new Date().toISOString(),
+      lastLogin: undefined
+    };
+    
+    return NextResponse.json(operatorFormatted);
   } catch (error) {
     console.error('Error updating operator:', error);
     return NextResponse.json(
@@ -81,8 +98,15 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    // Por enquanto, apenas retornar sucesso
-    // Em produção, você precisaria fazer soft delete na tabela
+    // Deletar operador real do banco de dados (soft delete)
+    const success = await operadorService.deleteOperador(parseInt(id));
+    
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Operator not found' },
+        { status: 404 }
+      );
+    }
     
     return NextResponse.json({ message: 'Operator deleted successfully' });
   } catch (error) {

@@ -48,23 +48,33 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
     
-    // Por enquanto, simular criação
-    // Em produção, você precisaria adicionar na tabela operadores_financesweb
-    const newOperator = {
-      id: Date.now().toString(),
-      code: data.code || `OP${Date.now().toString().slice(-4)}`,
-      name: data.name,
+    // Criar operador real no banco de dados
+    const operadorData = {
+      nome: data.name,
       email: data.email,
-      phone: data.phone,
-      cpf: data.cpf,
-      role: data.role,
-      permissions: data.permissions || [],
-      active: data.active !== false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      telefone: data.phone,
+      ativo: data.active !== false
     };
     
-    return NextResponse.json(newOperator, { status: 201 });
+    const newOperador = await operadorService.createOperador(operadorData);
+    
+    // Converter para formato esperado pela página
+    const operatorFormatted = {
+      id: newOperador.id.toString(),
+      code: `OP${newOperador.id.toString().padStart(4, '0')}`,
+      name: newOperador.nome,
+      email: newOperador.email || '',
+      phone: newOperador.telefone || '',
+      cpf: data.cpf || '', // Campo extra que não existe no banco
+      role: data.role || 'operator',
+      permissions: data.permissions || [],
+      active: newOperador.ativo,
+      createdAt: newOperador.data_criacao?.toISOString() || new Date().toISOString(),
+      updatedAt: newOperador.data_atualizacao?.toISOString() || new Date().toISOString(),
+      lastLogin: undefined
+    };
+    
+    return NextResponse.json(operatorFormatted, { status: 201 });
   } catch (error) {
     console.error('Error creating operator:', error);
     return NextResponse.json(

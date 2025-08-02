@@ -145,8 +145,7 @@ export default function OperadoresPage() {
           body: JSON.stringify(finalOperatorData)
         });
         if (response.ok) {
-          const updatedOperator = await response.json();
-          setOperators(operators.map(o => o.id === editingOperator.id ? updatedOperator : o));
+          await fetchOperators(); // Recarregar lista completa
           logAction({ 
             action: USER_ACTIONS.UPDATE,
             module: MODULES.OPERATORS,
@@ -163,12 +162,11 @@ export default function OperadoresPage() {
           body: JSON.stringify(operatorData)
         });
         if (response.ok) {
-          const newOperator = await response.json();
-          setOperators([...operators, newOperator]);
+          await fetchOperators(); // Recarregar lista completa
           logAction({ 
             action: USER_ACTIONS.CREATE,
             module: MODULES.OPERATORS,
-            details: newOperator
+            details: operatorData
           });
           alert('Operador cadastrado com sucesso!');
         } else {
@@ -211,7 +209,7 @@ export default function OperadoresPage() {
           method: 'DELETE'
         });
         if (response.ok) {
-          setOperators(operators.filter(o => o.id !== operatorId));
+          await fetchOperators(); // Recarregar lista completa
           logAction({ 
             action: USER_ACTIONS.DELETE,
             module: MODULES.OPERATORS,
