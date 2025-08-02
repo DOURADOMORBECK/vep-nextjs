@@ -90,7 +90,7 @@ export class PedidoService {
   }): Promise<Pedido[]> {
     try {
       let whereClause = 'WHERE 1=1';
-      const params: any[] = [];
+      const params: (string | number)[] = [];
       let paramCount = 1;
 
       if (filters?.clienteId) {

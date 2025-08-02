@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PessoaService } from '@/services/database/pessoaService';
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
   try {
-    const cliente = await PessoaService.getById(params.id);
+    const cliente = await PessoaService.getById(id);
     
     if (!cliente) {
       return NextResponse.json(
@@ -36,10 +34,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
   try {
     const data = await request.json();
-    const cliente = await PessoaService.update(params.id, data);
+    const cliente = await PessoaService.update(id, data);
     
     if (!cliente) {
       return NextResponse.json(

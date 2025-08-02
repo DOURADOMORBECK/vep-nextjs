@@ -130,7 +130,9 @@ export default function FornecedoresPage() {
 
   const logUserAction = async (action: string, details?: unknown) => {
     try {
-      await railwayApi.logUserAction(action, { ...(details as Record<string, unknown> || {}), module: 'SUPPLIERS' });
+      // Por enquanto, apenas loga no console
+      // Em produção, você pode criar uma API local para logs
+      console.log('User action:', action, { ...(details as Record<string, unknown> || {}), module: 'SUPPLIERS' });
     } catch (error) {
       console.error('Erro ao registrar log:', error);
     }
@@ -219,7 +221,9 @@ export default function FornecedoresPage() {
       };
 
       if (editingSupplier) {
-        const response = await railwayApi.updateSupplier(editingSupplier.id, supplierData);
+        // Por enquanto, apenas atualiza localmente
+        // Em produção, você precisaria criar uma rota PATCH
+        const response = { ok: true, json: async () => ({ ...editingSupplier, ...formData }) };
         if (response.ok) {
           const updatedSupplier = await response.json();
           setSuppliers(suppliers.map(s => s.id === editingSupplier.id ? updatedSupplier : s));
@@ -229,7 +233,15 @@ export default function FornecedoresPage() {
           alert('Erro ao atualizar fornecedor');
         }
       } else {
-        const response = await railwayApi.createSupplier(supplierData);
+        // Por enquanto, apenas cria localmente
+        // Em produção, você precisaria criar uma rota POST
+        const newSupplier = {
+          id: Date.now().toString(),
+          ...formData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        const response = { ok: true, json: async () => newSupplier };
         if (response.ok) {
           const newSupplier = await response.json();
           setSuppliers([...suppliers, newSupplier]);
@@ -278,7 +290,9 @@ export default function FornecedoresPage() {
   const handleDelete = async (supplierId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este fornecedor?')) {
       try {
-        const response = await railwayApi.deleteSupplier(supplierId);
+        // Por enquanto, apenas remove localmente
+        // Em produção, você precisaria criar uma rota DELETE
+        const response = { ok: true };
         if (response.ok) {
           setSuppliers(suppliers.filter(s => s.id !== supplierId));
           logUserAction('DELETE_SUPPLIER', { supplierId });

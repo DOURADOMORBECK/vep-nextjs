@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProdutoService } from '@/services/database/produtoService';
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
   try {
-    const produto = await ProdutoService.getById(params.id);
+    const produto = await ProdutoService.getById(id);
     
     if (!produto) {
       return NextResponse.json(
@@ -28,10 +26,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
   try {
     const data = await request.json();
-    const produto = await ProdutoService.update(params.id, data);
+    const produto = await ProdutoService.update(id, data);
     
     if (!produto) {
       return NextResponse.json(

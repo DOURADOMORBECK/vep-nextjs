@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PedidoService } from '@/services/database/pedidoService';
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
   try {
-    const pedido = await PedidoService.getById(params.id);
+    const pedido = await PedidoService.getById(id);
     
     if (!pedido) {
       return NextResponse.json(

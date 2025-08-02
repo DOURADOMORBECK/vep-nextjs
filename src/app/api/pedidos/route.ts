@@ -16,10 +16,10 @@ export async function GET(request: NextRequest) {
       pedidos = await PedidoService.search(search);
     } else {
       pedidos = await PedidoService.getAll({
-        clienteId,
-        situacao,
-        dataInicio,
-        dataFim
+        clienteId: clienteId || undefined,
+        situacao: situacao || undefined,
+        dataInicio: dataInicio || undefined,
+        dataFim: dataFim || undefined
       });
     }
     

@@ -52,7 +52,7 @@ export class PessoaService {
   static async getAll(type?: 'customer' | 'supplier' | 'both'): Promise<Pessoa[]> {
     try {
       let whereClause = '';
-      const params: any[] = [];
+      const params: string[] = [];
       
       if (type === 'customer') {
         whereClause = "WHERE fnc_pes_tipo_pessoa = '1'";

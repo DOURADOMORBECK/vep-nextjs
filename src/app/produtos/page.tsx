@@ -143,7 +143,7 @@ export default function ProdutosPage() {
         logAction({ 
           action: USER_ACTIONS.CREATE_PRODUCT,
           module: MODULES.PRODUCTS,
-          details: newProduct
+          details: { ...newProduct }
         });
         alert('Produto cadastrado com sucesso!');
       }

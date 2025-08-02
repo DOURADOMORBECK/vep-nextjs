@@ -95,7 +95,7 @@ export const localApi = {
     return new Response(JSON.stringify([]), { status: 200 });
   },
 
-  async getDeliveries(params?: Record<string, string>) {
+  async getDeliveries(_params?: Record<string, string>) {
     // TODO: Implement local deliveries API
     return new Response(JSON.stringify([]), { status: 200 });
   },
@@ -110,7 +110,7 @@ export const localApi = {
     }), { status: 200 });
   },
 
-  async getDriverDeliveryStats(driverId: string) {
+  async getDriverDeliveryStats(_driverId: string) {
     // TODO: Implement local driver stats API
     return new Response(JSON.stringify({
       totalRoutes: 0,
