@@ -165,4 +165,11 @@ export class ProdutoService {
       return { total: 0, active: 0, lowStock: 0, categories: 0 };
     }
   }
+
+  // Adicionar método para obter todos os produtos
+  static async getAllProdutos(): Promise<Produto[]> {
+    return this.getAll();
+  }
 }
+
+export const produtoService = new ProdutoService();

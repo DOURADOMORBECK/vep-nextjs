@@ -1,22 +1,26 @@
 import { Suspense } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import UnifiedSearch from '@/components/UnifiedSearch';
-import { railwayApi } from '@/lib/api-interceptor';
+import { ProdutoService } from '@/services/database/produtoService';
+import { PedidoService } from '@/services/database/pedidoService';
+import { operadorService } from '@/services/database/operadorService';
 
 // Server Component for fetching dashboard stats
 async function DashboardStats() {
   try {
-    const response = await railwayApi.getDashboardStats();
-    if (!response.ok) {
-      throw new Error('Failed to fetch dashboard stats');
-    }
+    // Buscar dados reais do banco de dados local
+    const [pedidos, produtos, operadores] = await Promise.all([
+      PedidoService.getAllPedidos(),
+      ProdutoService.getAllProdutos(),
+      operadorService.getAllOperadores()
+    ]);
     
-    const data = await response.json();
+    // Calcular estatísticas
     const stats = {
-      activeOrders: data.orders?.active || 0,
-      deliveriesInProgress: data.deliveries?.in_progress || 0,
-      activeOperators: data.operators?.active || 0,
-      totalProducts: data.products?.total || 0
+      activeOrders: pedidos.filter(p => p.status === 'PENDENTE' || p.status === 'EM_PROCESSAMENTO').length,
+      deliveriesInProgress: pedidos.filter(p => p.status === 'EM_ENTREGA').length,
+      activeOperators: operadores.filter(o => o.ativo).length,
+      totalProducts: produtos.length
     };
 
     return (
@@ -107,18 +111,35 @@ function StatsCard({ icon, color, label, value }: {
 
 // Server Component for Recent Activity
 async function RecentActivity() {
-  // Simulate fetching recent activity
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  return (
-    <div className="space-y-4">
-      <div className="text-gray-400 text-sm">
-        <p>• Novo pedido #1234 criado</p>
-        <p>• Entrega #5678 concluída</p>
-        <p>• Operador João Silva iniciou turno</p>
+  try {
+    // Buscar últimos pedidos do banco de dados
+    const recentPedidos = await PedidoService.getRecentPedidos(5);
+    
+    if (recentPedidos.length === 0) {
+      return (
+        <div className="text-gray-400 text-sm">
+          <p>Nenhuma atividade recente</p>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-2">
+        {recentPedidos.map((pedido, index) => (
+          <div key={index} className="text-gray-400 text-sm">
+            <p>• Pedido #{pedido.num_pedido || pedido.id} - {pedido.status}</p>
+          </div>
+        ))}
       </div>
-    </div>
-  );
+    );
+  } catch (error) {
+    console.error('Error fetching recent activity:', error);
+    return (
+      <div className="text-gray-400 text-sm">
+        <p>Erro ao carregar atividades recentes</p>
+      </div>
+    );
+  }
 }
 
 // Loading skeleton for activity

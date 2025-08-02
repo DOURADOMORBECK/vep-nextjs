@@ -29,6 +29,15 @@ export interface PedidoItem {
   total: number;
 }
 
+export interface PedidoResumido {
+  id: number;
+  num_pedido: number;
+  status: string;
+  data_emissao?: string;
+  cliente_nome?: string;
+  valor_total?: number;
+}
+
 export class PedidoService {
   // Agrupa itens do pedido por número do pedido
   private static groupPedidosByNumero(detalhes: PedidoDetalheFinancesweb[]): Map<number, PedidoDetalheFinancesweb[]> {
@@ -227,4 +236,80 @@ export class PedidoService {
       return { totalPedidos: 0, pedidosHoje: 0, valorTotal: 0, ticketMedio: 0 };
     }
   }
+
+  // Método para obter pedidos recentes
+  static async getRecentPedidos(limit: number = 5): Promise<PedidoResumido[]> {
+    try {
+      const result = await query<{
+        fnc_pve_numero_documento: number;
+        fnc_pve_situacao: string;
+        fnc_pve_data_emissao: string;
+        fnc_pes_nome_fantasia?: string;
+        fnc_pes_razao_social?: string;
+        valor_total?: number;
+      }>(
+        `SELECT DISTINCT 
+          fnc_pve_numero_documento,
+          fnc_pve_situacao,
+          fnc_pve_data_emissao,
+          fnc_pes_nome_fantasia,
+          fnc_pes_razao_social,
+          SUM(fnc_pvp_total_item) OVER (PARTITION BY fnc_pve_numero_documento) as valor_total
+        FROM pedidos_detalhe_financesweb
+        ORDER BY fnc_pve_data_emissao DESC
+        LIMIT $1`,
+        [limit]
+      );
+
+      return result.map(row => ({
+        id: row.fnc_pve_numero_documento,
+        num_pedido: row.fnc_pve_numero_documento,
+        status: row.fnc_pve_situacao || 'PENDENTE',
+        data_emissao: row.fnc_pve_data_emissao,
+        cliente_nome: row.fnc_pes_nome_fantasia || row.fnc_pes_razao_social || 'Cliente não identificado',
+        valor_total: row.valor_total || 0
+      }));
+    } catch (error) {
+      console.error('Error fetching recent pedidos:', error);
+      return [];
+    }
+  }
+
+  // Método para obter todos os pedidos como resumo
+  static async getAllPedidos(): Promise<PedidoResumido[]> {
+    try {
+      const result = await query<{
+        fnc_pve_numero_documento: number;
+        fnc_pve_situacao: string;
+        fnc_pve_data_emissao: string;
+        fnc_pes_nome_fantasia?: string;
+        fnc_pes_razao_social?: string;
+        valor_total?: number;
+      }>(
+        `SELECT DISTINCT 
+          fnc_pve_numero_documento,
+          fnc_pve_situacao,
+          fnc_pve_data_emissao,
+          fnc_pes_nome_fantasia,
+          fnc_pes_razao_social,
+          SUM(fnc_pvp_total_item) OVER (PARTITION BY fnc_pve_numero_documento) as valor_total
+        FROM pedidos_detalhe_financesweb
+        ORDER BY fnc_pve_data_emissao DESC`
+      );
+
+      return result.map(row => ({
+        id: row.fnc_pve_numero_documento,
+        num_pedido: row.fnc_pve_numero_documento,
+        status: row.fnc_pve_situacao || 'PENDENTE',
+        data_emissao: row.fnc_pve_data_emissao,
+        cliente_nome: row.fnc_pes_nome_fantasia || row.fnc_pes_razao_social || 'Cliente não identificado',
+        valor_total: row.valor_total || 0
+      }));
+    } catch (error) {
+      console.error('Error fetching all pedidos:', error);
+      return [];
+    }
+  }
 }
+
+export const pedidoService = new PedidoService();
