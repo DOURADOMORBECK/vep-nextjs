@@ -47,7 +47,7 @@ export default function RotasEntregaPage() {
     }
   };
 
-  const fetchDriverStats = async (_driverId: string) => {
+  const fetchDriverStats = async () => {
     try {
       const response = await localApi.getDriverDeliveryStats();
       if (response.ok) {
@@ -301,7 +301,7 @@ export default function RotasEntregaPage() {
                         onClick={() => {
                           setSelectedRoute(route);
                           if (route.driver_id) {
-                            fetchDriverStats(route.driver_id.toString());
+                            fetchDriverStats();
                           }
                         }}
                         className="text-primary-400 hover:text-primary-300 mr-3"

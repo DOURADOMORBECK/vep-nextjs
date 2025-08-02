@@ -76,11 +76,11 @@ export function useSmartData<T = unknown>({
       } else {
         // Sem dados reais, usar fallback
         setData(fallbackData as T[]);
-        setIsDemo(true);
+        setIsDemo(fallbackData.length > 0);
         
         if (showToasts && fallbackData.length > 0) {
-          toast('Usando dados de demonstração. Sincronize para obter dados reais.', {
-            icon: '💡',
+          toast('Nenhum dado encontrado. Configure o banco de dados para visualizar dados reais.', {
+            icon: '⚠️',
             duration: 4000
           });
         }
@@ -88,10 +88,13 @@ export function useSmartData<T = unknown>({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
       setData(fallbackData as T[]);
-      setIsDemo(true);
+      setIsDemo(fallbackData.length > 0);
       
       if (showToasts) {
-        toast.error('Erro ao carregar dados. Usando dados de demonstração.');
+        const errorMessage = err instanceof Error && err.message.includes('fetch') 
+          ? 'Erro de conexão. Verifique sua internet.'
+          : 'Erro ao carregar dados do servidor.';
+        toast.error(errorMessage);
       }
     } finally {
       setLoading(false);

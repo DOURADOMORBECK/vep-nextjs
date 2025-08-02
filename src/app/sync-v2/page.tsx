@@ -107,7 +107,7 @@ export default function SyncV2Page() {
           });
         }
       }
-    } catch (error) {
+    } catch {
       toast.error('Erro ao conectar com servidor', { id: toastId });
     } finally {
       setSyncing(false);

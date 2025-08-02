@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { withApiMiddleware } from '@/lib/api-middleware';
 import { DataInitializationService } from '@/services/dataInitializationService';
 

@@ -1,21 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { SyncService } from '@/services/database/syncService';
+
+interface SyncStatusData {
+  lastSync: string | null;
+  recordCount: number;
+  status: 'success' | 'error' | 'running' | 'idle';
+}
 
 /**
  * API para retornar status de sincronização
  * Busca dados reais do banco de dados
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Buscar status real do banco de dados
     const syncStatuses = await SyncService.getSyncStatus();
     
     // Formatar resposta no formato esperado
-    const status: Record<string, any> = {};
+    const status: Record<string, SyncStatusData> = {};
     
     for (const syncStatus of syncStatuses) {
       status[syncStatus.entity] = {
-        lastSync: syncStatus.lastSync,
+        lastSync: syncStatus.lastSync ? syncStatus.lastSync.toISOString() : null,
         recordCount: syncStatus.recordCount,
         status: syncStatus.status === 'completed' ? 'success' : 
                 syncStatus.status === 'error' ? 'error' : 

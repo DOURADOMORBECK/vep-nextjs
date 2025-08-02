@@ -18,7 +18,7 @@ import {
 } from 'chart.js';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-import { getDashboardStats, getRecentActivity, getTopProducts } from './actions';
+import { getDashboardStats, getRecentActivity } from './actions';
 
 // Registrar componentes do Chart.js
 ChartJS.register(
@@ -99,10 +99,16 @@ export default function DashboardPageV2() {
       
       // Processar atividade recente para pedidos
       if (activityResult.success && activityResult.data) {
+        interface ActivityData {
+          id: string | number;
+          type: string;
+          description?: string;
+        }
+        
         const orders: RecentOrder[] = activityResult.data
-          .filter((activity: any) => activity.type === 'order')
+          .filter((activity: ActivityData) => activity.type === 'order')
           .slice(0, 5)
-          .map((activity: any) => ({
+          .map((activity: ActivityData) => ({
             id: `#${activity.id}`,
             cliente: activity.description || 'Cliente',
             valor: Math.random() * 2000, // TODO: Get actual order value
@@ -111,7 +117,7 @@ export default function DashboardPageV2() {
         setRecentOrders(orders);
       }
       
-    } catch (error) {
+    } catch {
       toast.error('Erro ao carregar dados do dashboard');
       setStats(DEMO_STATS);
       setIsDemo(true);

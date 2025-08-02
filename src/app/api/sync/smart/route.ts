@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       await query('SELECT 1');
       dbAvailable = true;
       console.log('[Smart Sync] Banco de dados disponível');
-    } catch (dbError) {
+    } catch {
       console.log('[Smart Sync] Banco de dados indisponível, continuando sem persistência');
     }
 

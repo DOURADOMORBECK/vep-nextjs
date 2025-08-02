@@ -112,7 +112,7 @@ class EntregaService {
           itens: pedido.qtd_itens || 1,
           coords: pedido.latitude && pedido.longitude 
             ? [pedido.latitude, pedido.longitude] as [number, number]
-            : this.getDefaultCoords(pedido.cidade, pedido.uf),
+            : this.getDefaultCoords(pedido.cidade),
           dataEmissao: pedido.data_emissao?.toISOString() || new Date().toISOString(),
           valorTotal: pedido.valor_total || 0
         };
@@ -246,7 +246,7 @@ class EntregaService {
   }
 
   // Métodos auxiliares
-  private getDefaultCoords(cidade: string, _uf: string): [number, number] {
+  private getDefaultCoords(cidade: string): [number, number] {
     // Mapeamento de coordenadas de cidades reais do RS
     const coordenadas: Record<string, [number, number]> = {
       'PORTO ALEGRE': [-30.0346, -51.2177],

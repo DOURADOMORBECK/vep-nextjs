@@ -227,7 +227,7 @@ export default function FornecedoresPage() {
         const response = await fetch(`/api/fornecedores/${editingSupplier.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+          body: JSON.stringify(supplierData)
         });
         if (response.ok) {
           const updatedSupplier = await response.json();

@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { fetchFromAPI } from '@/app/api/financesweb/sync/config';
 
 /**
  * API de teste para verificar se a sincronização funciona
  * Foca em FUNCIONAR, não em perfeição
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // 1. Verificar API Key
     if (!process.env.FINANCESWEB_API_KEY) {

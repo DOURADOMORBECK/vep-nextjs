@@ -20,9 +20,24 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({ products: produtos });
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error('[API] Error fetching products:', error);
+    
+    // Check if it's a database connection error
+    if (error instanceof Error && error.message.includes('DATABASE_URL')) {
+      return NextResponse.json(
+        { 
+          error: 'Database connection not configured',
+          products: []
+        },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to fetch products' },
+      { 
+        error: 'Failed to fetch products',
+        products: []
+      },
       { status: 500 }
     );
   }
@@ -31,6 +46,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
+    
+    // Validate required fields
+    if (!data.name || !data.code) {
+      return NextResponse.json(
+        { error: 'Product name and code are required' },
+        { status: 400 }
+      );
+    }
     
     // Inserir produto no banco de dados
     const query = `
@@ -64,8 +87,8 @@ export async function POST(request: NextRequest) {
       data.code,
       data.name,
       data.category,
-      data.unit,
-      data.price,
+      data.unit || 'UN',
+      data.price || 0,
       data.stock || 0,
       data.minStock || 0,
       data.active !== false
@@ -81,7 +104,24 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(newProduct, { status: 201 });
   } catch (error) {
-    console.error('Error creating product:', error);
+    console.error('[API] Error creating product:', error);
+    
+    // Check for duplicate product code
+    if (error instanceof Error && 'code' in error && error.code === '23505') {
+      return NextResponse.json(
+        { error: 'Product code already exists' },
+        { status: 409 }
+      );
+    }
+    
+    // Check if it's a database connection error
+    if (error instanceof Error && error.message.includes('DATABASE_URL')) {
+      return NextResponse.json(
+        { error: 'Database connection not configured' },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Failed to create product' },
       { status: 500 }

@@ -52,7 +52,7 @@ export default function SmartSyncPage() {
       } else {
         toast.error(data.error || 'Erro na sincronização', { id: toastId });
       }
-    } catch (error) {
+    } catch {
       toast.error('Erro ao conectar com servidor', { id: toastId });
     } finally {
       setSyncing(false);

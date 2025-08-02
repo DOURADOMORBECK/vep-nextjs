@@ -93,7 +93,7 @@ export async function POST() {
   for (const table of tables) {
     try {
       await query(table.sql);
-    } catch (error) {
+    } catch {
       // Ignora erros - tabela pode já existir
       console.log(`Tabela ${table.name} verificada`);
     }

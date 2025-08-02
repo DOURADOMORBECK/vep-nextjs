@@ -63,7 +63,7 @@ export class RobustSyncService {
     // 1. Verificar conexão com banco
     try {
       await query('SELECT 1');
-    } catch (error) {
+    } catch {
       return { ready: false, reason: 'Banco de dados não está acessível' };
     }
     

@@ -30,7 +30,7 @@ export async function GET(
         location: getLocationFromProduct(index),
         batch: generateBatch(item.produtoId),
         expiry: generateExpiry(),
-        image: getProductImage(item.produtoNome)
+        image: getProductImage()
       }))
     };
     
@@ -79,7 +79,7 @@ function generateExpiry(): string {
   return date.toISOString().split('T')[0];
 }
 
-function getProductImage(_productName: string): string {
+function getProductImage(): string {
   // Retorna uma imagem padrão para produtos sem imagem específica
   // Em produção, isso viria do cadastro de produtos no FinancesWeb
   return `/images/products/default-product.jpg`;
