@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PessoaService } from '@/services/database/pessoaService';
-import { pool } from '@/lib/db';
+
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,7 +47,31 @@ export async function POST(request: NextRequest) {
     };
     
     const newPessoa = await PessoaService.create(pessoaData);
-    const supplier = convertPessoaToSupplier(newPessoa);
+    
+    // Convert the new pessoa to supplier format
+    const supplier = {
+      id: newPessoa.id,
+      code: newPessoa.code,
+      name: newPessoa.name,
+      document: newPessoa.cpf_cnpj,
+      email: newPessoa.email,
+      phone: newPessoa.phone,
+      whatsapp: newPessoa.phone,
+      contact: '',
+      address: newPessoa.address?.split(', ')[0] || '',
+      number: newPessoa.address?.split(', ')[1] || '', 
+      complement: newPessoa.address?.split(', ')[2] || '',
+      city: newPessoa.city,
+      state: newPessoa.state,
+      zipCode: newPessoa.cep,
+      categories: [],
+      paymentTerms: '30 dias',
+      deliveryDays: [],
+      minimumOrder: 0,
+      active: newPessoa.active,
+      createdAt: newPessoa.createdAt,
+      updatedAt: newPessoa.updatedAt
+    };
     
     // Adicionar campos extras do formulário
     supplier.contact = data.contact || '';

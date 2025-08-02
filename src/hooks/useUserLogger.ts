@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { railwayApi } from '@/lib/api-interceptor';
 
 export interface LogAction {
   action: string;
@@ -13,13 +12,20 @@ export function useUserLogger() {
       // Log para desenvolvimento
       console.log(`[UserLog] ${module} - ${action}`, details);
       
-      // Enviar log para API
-      await railwayApi.logUserAction(action, {
-        module,
-        ...details,
-        userAgent: navigator.userAgent,
-        screenResolution: `${window.screen.width}x${window.screen.height}`,
-        timestamp: new Date().toISOString()
+      // Enviar log para API local
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          module,
+          ...details,
+          userAgent: navigator.userAgent,
+          screenResolution: `${window.screen.width}x${window.screen.height}`,
+          timestamp: new Date().toISOString()
+        })
       });
     } catch (error) {
       // Não bloquear a aplicação se o log falhar

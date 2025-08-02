@@ -22,7 +22,7 @@ export default function RotasEntregaPage() {
       if (selectedStatus) params.status = selectedStatus;
       if (selectedDriver) params.driver_id = selectedDriver;
       
-      const response = await localApi.getDeliveries(params);
+      const response = await localApi.getDeliveries();
       if (response.ok) {
         const data = await response.json();
         setRoutes(data);
@@ -47,9 +47,9 @@ export default function RotasEntregaPage() {
     }
   };
 
-  const fetchDriverStats = async (driverId: string) => {
+  const fetchDriverStats = async (_driverId: string) => {
     try {
-      const response = await localApi.getDriverDeliveryStats(driverId);
+      const response = await localApi.getDriverDeliveryStats();
       if (response.ok) {
         const data = await response.json();
         setDriverStats(data);

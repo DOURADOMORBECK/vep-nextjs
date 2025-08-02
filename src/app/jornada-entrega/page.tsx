@@ -3,30 +3,34 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import DeliveryMap from '@/components/DeliveryMap';
-import { railwayApi } from '@/lib/api-interceptor';
 import { toast } from 'react-hot-toast';
+import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 import { DeliveryRoute, DeliveryPoint, DeliveryStats } from '@/types/delivery';
 
 interface PendingOrder {
   id: string;
-  customer: string;
-  address: string;
-  items: string;
-  weight: string;
+  pedidoNumero: string;
+  clienteNome: string;
+  clienteEndereco: string;
+  status: 'Verificado' | 'Em_Rota' | 'Entregue' | 'Problema';
+  peso: number;
+  itens: number;
   coords: [number, number];
-  status: string;
+  dataEmissao: string;
+  valorTotal: number;
 }
 
 interface Vehicle {
   id: string;
-  plate: string;
-  driver: string;
-  driver_id: string;
-  status: string;
-  capacity: string;
+  placa: string;
+  motorista: string;
+  motoristaId: string;
+  status: 'Disponivel' | 'Em_Rota' | 'Manutencao';
+  capacidade: string;
 }
 
 export default function JornadaEntregaPage() {
+  const { logAction } = useUserLogger();
   const [currentStep, setCurrentStep] = useState(1); // 1: Seleção, 2: Rota, 3: Carregamento, 4: Entrega, 5: Resumo
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState('');
@@ -50,11 +54,16 @@ export default function JornadaEntregaPage() {
     fetchDeliveryStats();
     fetchPendingOrders();
     fetchVehicles();
-  }, []);
+    logAction({ 
+      action: USER_ACTIONS.VIEW,
+      module: MODULES.DELIVERY,
+      details: { page: 'jornada-entrega' }
+    });
+  }, [logAction]);
 
   const fetchDeliveryStats = async () => {
     try {
-      const response = await railwayApi.getDeliveryStats();
+      const response = await fetch('/api/entregas/stats');
       if (response.ok) {
         const data = await response.json();
         setDeliveryStats(data);
@@ -66,7 +75,7 @@ export default function JornadaEntregaPage() {
 
   const fetchPendingOrders = async () => {
     try {
-      const response = await railwayApi.getOrders();
+      const response = await fetch('/api/entregas/pedidos');
       if (response.ok) {
         const data = await response.json();
         setPendingOrders(data);
@@ -82,7 +91,7 @@ export default function JornadaEntregaPage() {
 
   const fetchVehicles = async () => {
     try {
-      const response = await railwayApi.getVehicles();
+      const response = await fetch('/api/entregas/veiculos');
       if (response.ok) {
         const data = await response.json();
         setVehicles(data);
@@ -159,14 +168,14 @@ export default function JornadaEntregaPage() {
   const getTotalWeight = () => {
     return selectedOrders.reduce((total, orderId) => {
       const order = pendingOrders.find(o => o.id === orderId);
-      return total + (order ? parseFloat(order.weight.replace(' kg', '')) : 0);
+      return total + (order ? order.peso : 0);
     }, 0).toFixed(1);
   };
 
   const getTotalItems = () => {
     return selectedOrders.reduce((total, orderId) => {
       const order = pendingOrders.find(o => o.id === orderId);
-      return total + (order ? Number(order.items) || 0 : 0);
+      return total + (order ? order.itens : 0);
     }, 0);
   };
 
@@ -179,13 +188,17 @@ export default function JornadaEntregaPage() {
       const routeCode = `ROTA-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
       
       // Create route
-      const routeResponse = await railwayApi.createDeliveryRoute({
-        route_code: routeCode,
-        driver_id: vehicle?.driver_id ? Number(vehicle.driver_id) : undefined,
-        driver_name: vehicle?.driver,
-        vehicle_id: selectedVehicle,
-        total_points: selectedOrders.length,
-        distance_km: 18.5 // This would be calculated by a real routing service
+      const routeResponse = await fetch('/api/entregas/rotas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          route_code: routeCode,
+          driver_id: vehicle?.motoristaId ? Number(vehicle.motoristaId) : undefined,
+          driver_name: vehicle?.motorista,
+          vehicle_id: selectedVehicle,
+          total_points: selectedOrders.length,
+          distance_km: 18.5 // This would be calculated by a real routing service
+        })
       });
       
       const route = await routeResponse.json();
@@ -196,13 +209,17 @@ export default function JornadaEntregaPage() {
       for (let i = 0; i < selectedOrders.length; i++) {
         const order = pendingOrders.find(o => o.id === selectedOrders[i]);
         if (order) {
-          const pointResponse = await railwayApi.addDeliveryPoint(route.id.toString(), {
-            sequence: i + 1,
-            customer_name: order.customer,
-            address: order.address,
-            lat: order.coords[0],
-            lng: order.coords[1],
-            notes: `Pedido: ${order.id} - ${order.items} itens - ${order.weight}`
+          const pointResponse = await fetch(`/api/entregas/rotas/${route.id}/pontos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sequence: i + 1,
+              customer_name: order.clienteNome,
+              address: order.clienteEndereco,
+              lat: order.coords[0],
+              lng: order.coords[1],
+              notes: `Pedido: ${order.pedidoNumero} - ${order.itens} itens - ${order.peso}kg`
+            })
           });
           const point = await pointResponse.json();
           points.push(point);
@@ -227,10 +244,14 @@ export default function JornadaEntregaPage() {
     
     setLoading(true);
     try {
-      await railwayApi.startDeliveryRoute(activeRoute.id.toString());
-      setActiveRoute({ ...activeRoute, status: 'EM_ANDAMENTO' });
-      setDeliveryStatus('in_transit');
-      toast.success('Rota iniciada!');
+      const response = await fetch(`/api/entregas/rotas/${activeRoute.id}?action=start`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        setActiveRoute({ ...activeRoute, status: 'EM_ANDAMENTO' });
+        setDeliveryStatus('in_transit');
+        toast.success('Rota iniciada!');
+      }
     } catch (error) {
       console.error('Error starting route:', error);
       toast.error('Erro ao iniciar rota');
@@ -242,22 +263,32 @@ export default function JornadaEntregaPage() {
   const markDelivered = async (pointId: string, notes: string = '') => {
     setLoading(true);
     try {
-      await railwayApi.markPointAsDelivered(pointId, {
-        notes,
-        // In a real app, you would upload photo/signature and get URLs
-        photo_url: undefined,
-        signature_url: undefined
+      const response = await fetch(`/api/entregas/pontos/${pointId}/entregue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notes,
+          // In a real app, you would upload photo/signature and get URLs
+          photo_url: undefined,
+          signature_url: undefined
+        })
       });
       
-      // Update local state
-      setDeliveredOrders(prev => [...prev, pointId]);
-      setDeliveryNotes(prev => ({ ...prev, [pointId]: notes }));
-      
-      // Update route progress
-      if (activeRoute) {
-        await railwayApi.updateDeliveryRoute(activeRoute.id.toString(), {
-          completed_points: deliveredOrders.length + 1
-        });
+      if (response.ok) {
+        // Update local state
+        setDeliveredOrders(prev => [...prev, pointId]);
+        setDeliveryNotes(prev => ({ ...prev, [pointId]: notes }));
+        
+        // Update route progress
+        if (activeRoute) {
+          await fetch(`/api/entregas/rotas/${activeRoute.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              completed_points: deliveredOrders.length + 1
+            })
+          });
+        }
       }
       
       toast.success('Entrega confirmada!');
@@ -282,11 +313,15 @@ export default function JornadaEntregaPage() {
     
     setLoading(true);
     try {
-      await railwayApi.finishDeliveryRoute(activeRoute.id.toString());
-      setActiveRoute({ ...activeRoute, status: 'CONCLUIDA' });
-      setDeliveryStatus('completed');
-      toast.success('Rota finalizada!');
-      setTimeout(() => handleStepComplete(), 1000);
+      const response = await fetch(`/api/entregas/rotas/${activeRoute.id}?action=finish`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        setActiveRoute({ ...activeRoute, status: 'CONCLUIDA' });
+        setDeliveryStatus('completed');
+        toast.success('Rota finalizada!');
+        setTimeout(() => handleStepComplete(), 1000);
+      }
     } catch (error) {
       console.error('Error finishing route:', error);
       toast.error('Erro ao finalizar rota');
@@ -326,16 +361,16 @@ export default function JornadaEntregaPage() {
                       />
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-white">#{order.id}</h4>
+                          <h4 className="font-medium text-white">#{order.pedidoNumero}</h4>
                           <span className="text-xs bg-green-900 text-green-300 px-2 py-1 rounded">
                             {order.status}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-300 mb-1">{order.customer}</p>
-                        <p className="text-sm text-gray-400 mb-2">{order.address}</p>
+                        <p className="text-sm text-gray-300 mb-1">{order.clienteNome}</p>
+                        <p className="text-sm text-gray-400 mb-2">{order.clienteEndereco}</p>
                         <div className="flex items-center space-x-4 text-xs text-gray-400">
-                          <span><i className="fa-solid fa-box mr-1"></i>{order.items} itens</span>
-                          <span><i className="fa-solid fa-weight-hanging mr-1"></i>{order.weight}</span>
+                          <span><i className="fa-solid fa-box mr-1"></i>{order.itens} itens</span>
+                          <span><i className="fa-solid fa-weight-hanging mr-1"></i>{order.peso}kg</span>
                           <span><i className="fa-solid fa-truck mr-1"></i>{order.status}</span>
                         </div>
                       </div>
@@ -379,7 +414,7 @@ export default function JornadaEntregaPage() {
                   const order = pendingOrders.find(o => o.id === orderId);
                   return order ? (
                     <div key={orderId} className="flex items-center justify-between p-2 bg-gray-700/30 rounded">
-                      <span className="text-sm text-white">#{order.id}</span>
+                      <span className="text-sm text-white">#{order.pedidoNumero}</span>
                       <button 
                         onClick={() => removeSelectedOrder(orderId)}
                         className="text-gray-400 hover:text-red-400"
@@ -452,8 +487,8 @@ export default function JornadaEntregaPage() {
                       {index + 1}
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-white">#{order.id} - {order.customer}</p>
-                      <p className="text-xs text-gray-400">{order.address}</p>
+                      <p className="text-sm font-medium text-white">#{order.pedidoNumero} - {order.clienteNome}</p>
+                      <p className="text-xs text-gray-400">{order.clienteEndereco}</p>
                     </div>
                     <div className="text-xs text-gray-400">
                       {index === 0 ? 'Partida' : `${(index * 0.5 + 0.5).toFixed(1)}h`}
@@ -528,12 +563,12 @@ export default function JornadaEntregaPage() {
                     />
                     <div className="flex-1">
                       <div className="flex justify-between items-center mb-1">
-                        <p className="font-medium text-white">{vehicle.plate}</p>
+                        <p className="font-medium text-white">{vehicle.placa}</p>
                         <span className="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">
-                          {vehicle.capacity}
+                          {vehicle.capacidade}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-400">Placa: {vehicle.plate} • Motorista: {vehicle.driver}</p>
+                      <p className="text-sm text-gray-400">Placa: {vehicle.placa} • Motorista: {vehicle.motorista}</p>
                     </div>
                   </div>
                 </div>
@@ -615,13 +650,13 @@ export default function JornadaEntregaPage() {
               <div className="flex justify-between">
                 <span className="text-gray-300">Veículo:</span>
                 <span className="text-white">
-                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.plate : 'N/A'}
+                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.placa : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-300">Motorista:</span>
                 <span className="text-white">
-                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.driver : 'N/A'}
+                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.motorista : 'N/A'}
                 </span>
               </div>
             </div>
@@ -669,9 +704,9 @@ export default function JornadaEntregaPage() {
                 <h5 className="text-sm font-medium text-white mb-3">Entrega Atual:</h5>
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <p className="font-medium text-white">#{currentOrder.id}</p>
-                    <p className="text-sm text-gray-300">{currentOrder.customer}</p>
-                    <p className="text-sm text-gray-400">{currentOrder.address}</p>
+                    <p className="font-medium text-white">#{currentOrder.pedidoNumero}</p>
+                    <p className="text-sm text-gray-300">{currentOrder.clienteNome}</p>
+                    <p className="text-sm text-gray-400">{currentOrder.clienteEndereco}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-400">Progresso</p>
@@ -768,8 +803,8 @@ export default function JornadaEntregaPage() {
                           {isDelivered ? <i className="fa-solid fa-check"></i> : index + 1}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-white">#{order.id}</p>
-                          <p className="text-xs text-gray-400">{order.customer}</p>
+                          <p className="text-sm font-medium text-white">#{order.pedidoNumero}</p>
+                          <p className="text-xs text-gray-400">{order.clienteNome}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -868,13 +903,13 @@ export default function JornadaEntregaPage() {
               <div className="flex justify-between">
                 <span className="text-gray-300">Veículo utilizado:</span>
                 <span className="text-white">
-                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.plate : 'N/A'}
+                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.placa : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-300">Motorista:</span>
                 <span className="text-white">
-                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.driver : 'N/A'}
+                  {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.motorista : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -907,8 +942,8 @@ export default function JornadaEntregaPage() {
                         <i className="fa-solid fa-check"></i>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-white">#{order.id}</p>
-                        <p className="text-xs text-gray-400">{order.customer}</p>
+                        <p className="text-sm font-medium text-white">#{order.pedidoNumero}</p>
+                        <p className="text-xs text-gray-400">{order.clienteNome}</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -985,13 +1020,13 @@ export default function JornadaEntregaPage() {
             <div>
               <span className="text-xs text-gray-400">Veículo</span>
               <div className="font-medium">
-                {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.plate : 'Não selecionado'}
+                {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.placa : 'Não selecionado'}
               </div>
             </div>
             <div>
               <span className="text-xs text-gray-400">Motorista</span>
               <div className="font-medium">
-                {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.driver : 'Não definido'}
+                {selectedVehicle ? vehicles.find(v => v.id === selectedVehicle)?.motorista : 'Não definido'}
               </div>
             </div>
             <div>

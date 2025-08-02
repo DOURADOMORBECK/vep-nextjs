@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import dynamic from 'next/dynamic';
 import { getClients, createClient, updateClient, deleteClient, type ClientData } from './actions';
+import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 
 // Importar mapa dinamicamente para evitar SSR issues
 const ClientMap = dynamic(() => import('@/components/ClientMap'), { ssr: false });
@@ -11,6 +12,7 @@ const ClientMap = dynamic(() => import('@/components/ClientMap'), { ssr: false }
 // Use ClientData type from actions instead of defining Client interface
 
 export default function ClientesPage() {
+  const { logAction } = useUserLogger();
   const [clients, setClients] = useState<ClientData[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientData | null>(null);

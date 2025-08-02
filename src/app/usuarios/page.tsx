@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import DashboardLayout from '@/components/DashboardLayout';
-import { railwayApi } from '@/lib/api-interceptor';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 
 interface User {
   id: string;
@@ -22,6 +22,7 @@ interface User {
 }
 
 function UsuariosContent() {
+  const { logAction } = useUserLogger();
   const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -69,12 +70,16 @@ function UsuariosContent() {
   // Buscar usuários
   useEffect(() => {
     fetchUsers();
-    logUserAction('VIEW_USERS_PAGE');
-  }, []);
+    logAction({ 
+      action: USER_ACTIONS.VIEW,
+      module: MODULES.USERS,
+      details: { page: 'users' }
+    });
+  }, [logAction]);
 
   const fetchUsers = async () => {
     try {
-      const response = await railwayApi.getUsers();
+      const response = await fetch('/api/usuarios');
       if (response.ok) {
         const data = await response.json();
         setUsers(data);
@@ -86,13 +91,7 @@ function UsuariosContent() {
     }
   };
 
-  const logUserAction = async (action: string, details?: unknown) => {
-    try {
-      await railwayApi.logUserAction(action, { ...(details as Record<string, unknown> || {}), module: 'USERS' });
-    } catch (error) {
-      console.error('Erro ao registrar log:', error);
-    }
-  };
+  // Removida função duplicada - usando logAction do hook
 
   const formatCPF = (cpf: string) => {
     const cleaned = cpf.replace(/\D/g, '');
@@ -123,21 +122,35 @@ function UsuariosContent() {
           userData = dataWithoutPassword as typeof userData;
         }
         
-        const response = await railwayApi.updateUser(editingUser.id, userData);
+        const response = await fetch(`/api/usuarios/${editingUser.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userData)
+        });
         if (response.ok) {
-          const updatedUser = await response.json();
-          setUsers(users.map(u => u.id === editingUser.id ? updatedUser : u));
-          logUserAction('UPDATE_USER', { userId: editingUser.id, ...userData });
+          await fetchUsers(); // Recarregar lista completa
+          logAction({ 
+            action: USER_ACTIONS.UPDATE,
+            module: MODULES.USERS,
+            details: { userId: editingUser.id, ...userData }
+          });
           alert('Usuário atualizado com sucesso!');
         } else {
           alert('Erro ao atualizar usuário');
         }
       } else {
-        const response = await railwayApi.createUser(userData);
+        const response = await fetch('/api/usuarios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userData)
+        });
         if (response.ok) {
-          const newUser = await response.json();
-          setUsers([...users, newUser]);
-          logUserAction('CREATE_USER', newUser);
+          await fetchUsers(); // Recarregar lista completa
+          logAction({ 
+            action: USER_ACTIONS.CREATE,
+            module: MODULES.USERS,
+            details: userData
+          });
           alert('Usuário cadastrado com sucesso!');
         } else {
           alert('Erro ao cadastrar usuário');
@@ -164,16 +177,26 @@ function UsuariosContent() {
       active: user.active
     });
     setIsModalOpen(true);
-    logUserAction('OPEN_EDIT_USER', { userId: user.id });
+    logAction({ 
+      action: USER_ACTIONS.VIEW,
+      module: MODULES.USERS,
+      details: { userId: user.id, action: 'open_edit' }
+    });
   };
 
   const handleDelete = async (userId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
       try {
-        const response = await railwayApi.deleteUser(userId);
+        const response = await fetch(`/api/usuarios/${userId}`, {
+          method: 'DELETE'
+        });
         if (response.ok) {
-          setUsers(users.filter(u => u.id !== userId));
-          logUserAction('DELETE_USER', { userId });
+          await fetchUsers(); // Recarregar lista completa
+          logAction({ 
+            action: USER_ACTIONS.DELETE,
+            module: MODULES.USERS,
+            details: { userId }
+          });
           alert('Usuário excluído com sucesso!');
         } else {
           alert('Erro ao excluir usuário');
@@ -327,7 +350,11 @@ function UsuariosContent() {
             <button
               onClick={() => {
                 setIsModalOpen(true);
-                logUserAction('OPEN_CREATE_USER');
+                logAction({ 
+                  action: USER_ACTIONS.VIEW,
+                  module: MODULES.USERS,
+                  details: { action: 'open_create' }
+                });
               }}
               className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg font-medium flex items-center"
             >

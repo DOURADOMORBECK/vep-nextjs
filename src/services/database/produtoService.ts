@@ -116,14 +116,19 @@ export class ProdutoService {
 
   static async update(id: string, data: Partial<Produto>): Promise<Produto | null> {
     try {
-      // Por enquanto, vamos apenas simular a atualização
-      // Em produção, você pode decidir se quer atualizar diretamente no FinancesWeb
-      // ou manter uma tabela local de overrides
       const product = await this.getById(id);
       if (!product) return null;
       
-      // Retorna o produto com as atualizações aplicadas (simulado)
-      return { ...product, ...data, updatedAt: new Date().toISOString() };
+      // Log da tentativa de atualização para auditoria
+      console.log(`Tentativa de atualização do produto ${id}:`, {
+        produto: product.name,
+        alteracoes: data,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Retorna o produto atual (sem alterações na base do FinancesWeb)
+      // Para implementar alterações reais, seria necessário API do FinancesWeb
+      return product;
     } catch (error) {
       console.error('Error updating product:', error);
       return null;

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { localApi } from '@/lib/local-api';
+import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 
 interface Supplier {
   id: string;
@@ -31,6 +32,7 @@ interface Supplier {
 }
 
 export default function FornecedoresPage() {
+  const { logAction } = useUserLogger();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);

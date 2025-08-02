@@ -18,8 +18,7 @@ interface Usuario {
 class UsuarioService {
   async getAllUsuarios(): Promise<Usuario[]> {
     try {
-      // Por enquanto, vamos simular dados baseados nos operadores
-      // Em produção, você teria uma tabela específica para usuários
+      // Usar dados reais dos operadores como usuários do sistema
       const query = `
         SELECT 
           id,
@@ -85,7 +84,7 @@ class UsuarioService {
 
   async createUsuario(userData: Omit<Usuario, 'id' | 'data_criacao' | 'data_atualizacao'>): Promise<Usuario> {
     try {
-      // Simular criação inserindo na tabela de operadores
+      // Criar usuário como operador na tabela operadores_financesweb
       const query = `
         INSERT INTO operadores_financesweb (
           nome,
@@ -131,7 +130,7 @@ class UsuarioService {
   async updateUsuario(id: number, userData: Partial<Usuario>): Promise<Usuario | null> {
     try {
       const setParts: string[] = [];
-      const values: (string | boolean)[] = [];
+      const values: (string | boolean | number)[] = [];
       let paramCount = 1;
 
       if (userData.nome !== undefined) {
@@ -178,7 +177,7 @@ class UsuarioService {
       
       const result = await pool().query(updateQuery, values);
       
-      if (result.rowCount === 0) {
+      if ((result.rowCount ?? 0) === 0) {
         return null;
       }
       
@@ -207,7 +206,7 @@ class UsuarioService {
       
       const result = await pool().query(query, [id]);
       
-      return result.rowCount > 0;
+      return (result.rowCount ?? 0) > 0;
     } catch (error) {
       console.error('Erro ao excluir usuário:', error);
       return false;

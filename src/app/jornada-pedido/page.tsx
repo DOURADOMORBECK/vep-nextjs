@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import DashboardLayout from '@/components/DashboardLayout';
 import { localApi } from '@/lib/local-api';
 import { toast } from 'react-hot-toast';
+import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 
 interface Order {
   id: string;
@@ -35,6 +36,7 @@ export default function JornadaPedidoPage() {
   const [, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const { logAction } = useUserLogger();
 
   const progressSteps = [
     { id: 1, name: 'Separação', icon: 'fa-box', active: currentStep === 1, completed: currentStep > 1 },
@@ -42,11 +44,7 @@ export default function JornadaPedidoPage() {
     { id: 3, name: 'Verificação', icon: 'fa-check-double', active: currentStep === 3, completed: false },
   ];
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const response = await localApi.getOrders();
       if (response.ok) {
@@ -54,17 +52,41 @@ export default function JornadaPedidoPage() {
         setOrders(data);
         if (data.length > 0) {
           setSelectedOrder(data[0]);
+          logAction({
+            action: USER_ACTIONS.VIEW,
+            module: MODULES.JOURNEY_ORDER,
+            details: { orderId: data[0].id, customerName: data[0].customer }
+          });
         }
       } else {
         toast.error('Erro ao buscar pedidos');
+        logAction({
+          action: 'FETCH_ORDERS_ERROR',
+          module: MODULES.JOURNEY_ORDER,
+          details: { error: 'Failed to fetch orders' }
+        });
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast.error('Erro ao conectar com servidor de pedidos');
+      logAction({
+        action: 'FETCH_ORDERS_ERROR',
+        module: MODULES.JOURNEY_ORDER,
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [logAction]);
+
+  useEffect(() => {
+    fetchOrders();
+    logAction({
+      action: USER_ACTIONS.VIEW,
+      module: MODULES.JOURNEY_ORDER,
+      details: { page: 'jornada-pedido' }
+    });
+  }, [logAction, fetchOrders]);
 
   const currentProductData = selectedOrder?.products[currentProduct] || null;
   const totalProducts = selectedOrder?.products.length || 0;
@@ -96,11 +118,37 @@ export default function JornadaPedidoPage() {
   const handleStepComplete = () => {
     if (currentStep === 1 && separationQuantity > 0) {
       setCurrentStep(2);
+      logAction({
+        action: USER_ACTIONS.COMPLETE_STEP,
+        module: MODULES.JOURNEY_ORDER,
+        details: { 
+          step: 'separacao', 
+          productId: currentProductData?.id,
+          productName: currentProductData?.name,
+          separatedQuantity: separationQuantity,
+          expectedQuantity: currentProductData?.expectedQuantity
+        }
+      });
     } else if (currentStep === 2 && labelingQuantity > 0) {
       setCurrentStep(3);
       // Check for discrepancy
-      if (currentProductData && Math.abs(labelingQuantity - currentProductData.expectedQuantity) > 0) {
-        setHasDiscrepancy(true);
+      const hasDiscrepancyCheck = currentProductData && Math.abs(labelingQuantity - currentProductData.expectedQuantity) > 0;
+      setHasDiscrepancy(hasDiscrepancyCheck || false);
+      
+      logAction({
+        action: USER_ACTIONS.COMPLETE_STEP,
+        module: MODULES.JOURNEY_ORDER,
+        details: { 
+          step: 'etiquetagem', 
+          productId: currentProductData?.id,
+          productName: currentProductData?.name,
+          labeledQuantity: labelingQuantity,
+          expectedQuantity: currentProductData?.expectedQuantity,
+          hasDiscrepancy: hasDiscrepancyCheck
+        }
+      });
+      
+      if (hasDiscrepancyCheck) {
         // Play audio alert (would be implemented with Web Audio API)
         playAlertSound();
       }
@@ -120,10 +168,26 @@ export default function JornadaPedidoPage() {
 
   const handleVerification = (status: 'approved' | 'blocked') => {
     setVerificationStatus(status);
+    
+    logAction({
+      action: status === 'approved' ? USER_ACTIONS.CONFIRM_ORDER : 'BLOCK_PRODUCT',
+      module: MODULES.JOURNEY_ORDER,
+      details: { 
+        step: 'verificacao',
+        productId: currentProductData?.id,
+        productName: currentProductData?.name,
+        status,
+        separatedQuantity: separationQuantity,
+        labeledQuantity: labelingQuantity,
+        expectedQuantity: currentProductData?.expectedQuantity,
+        hasDiscrepancy
+      }
+    });
+    
     if (status === 'approved') {
       alert('✅ Item aprovado! Avançando para o próximo produto...');
       // Move to next product or complete
-      if (currentProduct < totalProducts) {
+      if (currentProduct < totalProducts - 1) {
         setCurrentProduct(currentProduct + 1);
         setCurrentStep(1);
         setSeparationQuantity(0);
@@ -132,6 +196,15 @@ export default function JornadaPedidoPage() {
         setHasDiscrepancy(false);
       } else {
         alert('🎉 Todos os produtos foram processados com sucesso!');
+        logAction({
+          action: 'COMPLETE_ORDER_JOURNEY',
+          module: MODULES.JOURNEY_ORDER,
+          details: { 
+            orderId: selectedOrder?.id,
+            customerName: selectedOrder?.customer,
+            totalProducts: totalProducts
+          }
+        });
       }
     }
   };

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { railwayApi } from '@/lib/api-interceptor';
+import { localApi } from '@/lib/local-api';
 import { toast } from 'react-hot-toast';
+import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 
 interface Product {
   id: string;
@@ -12,6 +13,21 @@ interface Product {
   assemblyInstructions?: string;
   components?: string[];
   targetQuantity?: number;
+  category?: string;
+  unit?: string;
+  stock?: number;
+  description?: string;
+}
+
+interface ProductionOrder {
+  id: string;
+  orderId: string;
+  customerName: string;
+  expectedDate: string;
+  operatorName: string;
+  items: Product[];
+  totalItems: number;
+  status: string;
 }
 
 export default function JornadaProdutoPage() {
@@ -30,7 +46,9 @@ export default function JornadaProdutoPage() {
     { id: 4, item: 'Teste de qualidade aprovado', checked: false },
   ]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [productionOrder, setProductionOrder] = useState<ProductionOrder | null>(null);
   const [loading, setLoading] = useState(true);
+  const { logAction } = useUserLogger();
 
   const progressSteps = [
     { id: 1, name: 'Montagem', icon: 'fa-screwdriver-wrench', active: currentStep === 1, completed: currentStep > 1 },
@@ -38,26 +56,51 @@ export default function JornadaProdutoPage() {
     { id: 3, name: 'Verificação Final', icon: 'fa-clipboard-check', active: currentStep === 3, completed: false },
   ];
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
+  const fetchProductionData = useCallback(async () => {
     try {
-      const response = await railwayApi.getProducts();
+      const response = await localApi.getProductionData(10);
       if (response.ok) {
         const data = await response.json();
-        setProducts(data);
+        setProducts(data.products || []);
+        setProductionOrder(data.productionOrder || null);
+        
+        logAction({
+          action: USER_ACTIONS.VIEW,
+          module: MODULES.JOURNEY_PRODUCT,
+          details: { 
+            productCount: data.products?.length || 0,
+            orderId: data.productionOrder?.orderId
+          }
+        });
       } else {
-        toast.error('Erro ao buscar produtos');
+        toast.error('Erro ao buscar dados de produção');
+        logAction({
+          action: 'FETCH_PRODUCTION_ERROR',
+          module: MODULES.JOURNEY_PRODUCT,
+          details: { error: 'Failed to fetch production data' }
+        });
       }
     } catch (error) {
-      console.error('Error fetching products:', error);
-      toast.error('Erro ao conectar com servidor de produtos');
+      console.error('Error fetching production data:', error);
+      toast.error('Erro ao conectar com servidor de produção');
+      logAction({
+        action: 'FETCH_PRODUCTION_ERROR',
+        module: MODULES.JOURNEY_PRODUCT,
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [logAction]);
+
+  useEffect(() => {
+    fetchProductionData();
+    logAction({
+      action: USER_ACTIONS.VIEW,
+      module: MODULES.JOURNEY_PRODUCT,
+      details: { page: 'jornada-produto' }
+    });
+  }, [logAction, fetchProductionData]);
 
   const currentProduct = products[currentItem] || null;
   const totalItems = products.length;
@@ -85,12 +128,42 @@ export default function JornadaProdutoPage() {
 
   const handleStepComplete = () => {
     if (currentStep < 3) {
-      setCurrentStep(currentStep + 1);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      
+      logAction({
+        action: USER_ACTIONS.COMPLETE_STEP,
+        module: MODULES.JOURNEY_PRODUCT,
+        details: { 
+          step: currentStep === 1 ? 'montagem' : 'embalagem',
+          productId: currentProduct?.id,
+          productName: currentProduct?.name,
+          assembledQuantity: currentStep === 1 ? assembledQuantity : undefined,
+          selectedPackaging: currentStep === 2 ? selectedPackaging : undefined,
+          observations: observations || undefined
+        }
+      });
     }
   };
 
   const handleFinalApproval = (status: 'approved' | 'rejected') => {
     setFinalVerificationStatus(status);
+    
+    logAction({
+      action: status === 'approved' ? USER_ACTIONS.CONFIRM_ORDER : 'REJECT_PRODUCT',
+      module: MODULES.JOURNEY_PRODUCT,
+      details: { 
+        step: 'verificacao_final',
+        productId: currentProduct?.id,
+        productName: currentProduct?.name,
+        status,
+        assembledQuantity,
+        selectedPackaging,
+        rejectionReason: status === 'rejected' ? rejectionReason : undefined,
+        observations
+      }
+    });
+    
     if (status === 'approved') {
       alert('🎉 Produto aprovado e liberado para expedição!');
     }
@@ -130,10 +203,37 @@ export default function JornadaProdutoPage() {
             <div className="mb-4">
               <h4 className="text-lg font-medium text-white mb-1">{currentProduct.name}</h4>
               <p className="text-gray-400 text-sm">Código: {currentProduct.code}</p>
-              <p className="text-gray-400 text-sm">Responsável: Carregando...</p>
+              <p className="text-gray-400 text-sm">Categoria: {currentProduct.category || 'N/A'}</p>
+              <p className="text-gray-400 text-sm">Responsável: {productionOrder?.operatorName || 'Operador Sistema'}</p>
               <p className="text-gray-400 text-sm">Tempo decorrido: {getElapsedTime()}</p>
             </div>
           
+          {/* Assembly Instructions */}
+          {currentProduct.assemblyInstructions && (
+            <div className="mb-6">
+              <h5 className="text-sm font-medium text-gray-300 mb-3">Instruções de Montagem</h5>
+              <div className="bg-gray-700/30 p-3 rounded-lg mb-4">
+                <pre className="text-xs text-gray-300 whitespace-pre-wrap font-mono">
+                  {currentProduct.assemblyInstructions}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {/* Components List */}
+          {currentProduct.components && (
+            <div className="mb-6">
+              <h5 className="text-sm font-medium text-gray-300 mb-3">Componentes Necessários</h5>
+              <div className="grid grid-cols-2 gap-2">
+                {currentProduct.components.map((component, index) => (
+                  <div key={index} className="bg-gray-700/30 p-2 rounded text-xs text-gray-300">
+                    • {component}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Assembly Checklist */}
           <div className="mb-6">
             <h5 className="text-sm font-medium text-gray-300 mb-3">Checklist de Montagem</h5>
@@ -157,11 +257,11 @@ export default function JornadaProdutoPage() {
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-gray-700/50 p-3 rounded-lg">
               <p className="text-xs text-gray-400 mb-1">Quantidade Esperada</p>
-              <p className="text-xl font-semibold text-white">20 unidades</p>
+              <p className="text-xl font-semibold text-white">{currentProduct.targetQuantity || 0} {currentProduct.unit || 'unidades'}</p>
             </div>
             <div className="bg-gray-700/50 p-3 rounded-lg">
               <p className="text-xs text-gray-400 mb-1">Quantidade Montada</p>
-              <p className="text-xl font-semibold text-primary-400">{assembledQuantity} unidades</p>
+              <p className="text-xl font-semibold text-primary-400">{assembledQuantity} {currentProduct.unit || 'unidades'}</p>
             </div>
           </div>
           
@@ -238,38 +338,41 @@ export default function JornadaProdutoPage() {
           </div>
 
           <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-            <div className="flex items-center p-3 bg-primary-900/30 rounded-lg border border-primary-800/50">
-              <div className="mr-3">
-                <i className="fa-solid fa-circle-check text-primary-500 text-lg"></i>
-              </div>
-              <div className="flex-1">
-                <h5 className="text-sm font-medium text-white">Tomate Italiano</h5>
-                <p className="text-xs text-gray-400">10 unidades - Montado por Maria Santos</p>
-              </div>
-              <span className="text-xs text-primary-400 font-medium">Completo</span>
-            </div>
-
-            <div className="flex items-center p-3 bg-primary-900/30 rounded-lg border border-primary-800/50">
-              <div className="mr-3">
-                <i className="fa-solid fa-circle-check text-primary-500 text-lg"></i>
-              </div>
-              <div className="flex-1">
-                <h5 className="text-sm font-medium text-white">Cebola Roxa</h5>
-                <p className="text-xs text-gray-400">15 unidades - Montado por João Silva</p>
-              </div>
-              <span className="text-xs text-primary-400 font-medium">Completo</span>
-            </div>
-
-            <div className="flex items-center p-3 bg-primary-900/20 rounded-lg border border-primary-800/20">
-              <div className="mr-3">
-                <i className="fa-solid fa-spinner fa-spin text-primary-400 text-lg"></i>
-              </div>
-              <div className="flex-1">
-                <h5 className="text-sm font-medium text-white">Alface Crespa Orgânica</h5>
-                <p className="text-xs text-gray-400">{assembledQuantity}/20 unidades - João Silva</p>
-              </div>
-              <span className="text-xs text-yellow-400 font-medium">Em Montagem</span>
-            </div>
+            {products.map((product, index) => {
+              const isCompleted = index < currentItem;
+              const isCurrent = index === currentItem;
+              
+              return (
+                <div key={product.id} className={`flex items-center p-3 rounded-lg border ${
+                  isCompleted ? 'bg-primary-900/30 border-primary-800/50' :
+                  isCurrent ? 'bg-primary-900/20 border-primary-800/20' :
+                  'bg-gray-900/20 border-gray-800/20'
+                }`}>
+                  <div className="mr-3">
+                    <i className={`fa-solid text-lg ${
+                      isCompleted ? 'fa-circle-check text-primary-500' :
+                      isCurrent ? 'fa-spinner fa-spin text-primary-400' :
+                      'fa-clock text-gray-500'
+                    }`}></i>
+                  </div>
+                  <div className="flex-1">
+                    <h5 className="text-sm font-medium text-white">{product.name}</h5>
+                    <p className="text-xs text-gray-400">
+                      {isCurrent ? `${assembledQuantity}/${product.targetQuantity || 0}` : product.targetQuantity || 0} {product.unit || 'unidades'} - {productionOrder?.operatorName || 'Sistema'}
+                    </p>
+                  </div>
+                  <span className={`text-xs font-medium ${
+                    isCompleted ? 'text-primary-400' :
+                    isCurrent ? 'text-yellow-400' :
+                    'text-gray-500'
+                  }`}>
+                    {isCompleted ? 'Completo' :
+                     isCurrent ? 'Em Montagem' :
+                     'Pendente'}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -312,16 +415,18 @@ export default function JornadaProdutoPage() {
             <h5 className="text-sm font-medium text-gray-300 mb-3">Etiquetas e Identificação</h5>
             <div className="grid grid-cols-1 gap-4">
               <div className="bg-gray-700/50 p-3 rounded-lg">
-                <div className="text-xs text-gray-400">Etiqueta do Cliente</div>
-                <div className="font-medium text-white">#CLIENTE-001 - Mercado São José</div>
+                <div className="text-xs text-gray-400">Cliente</div>
+                <div className="font-medium text-white">{productionOrder?.customerName || 'Cliente não identificado'}</div>
               </div>
               <div className="bg-gray-700/50 p-3 rounded-lg">
                 <div className="text-xs text-gray-400">Código do Pedido</div>
-                <div className="font-medium text-white">#PED-2023-0458</div>
+                <div className="font-medium text-white">{productionOrder?.orderId || 'N/A'}</div>
               </div>
               <div className="bg-gray-700/50 p-3 rounded-lg">
-                <div className="text-xs text-gray-400">Data de Validade</div>
-                <div className="font-medium text-white">28/08/2023</div>
+                <div className="text-xs text-gray-400">Data Prevista</div>
+                <div className="font-medium text-white">
+                  {productionOrder?.expectedDate ? new Date(productionOrder.expectedDate).toLocaleDateString('pt-BR') : 'N/A'}
+                </div>
               </div>
             </div>
           </div>
@@ -360,7 +465,7 @@ export default function JornadaProdutoPage() {
             <div className="bg-gray-700/50 p-4 rounded-lg">
               <h5 className="text-sm font-medium text-white mb-2">Informações da Embalagem</h5>
               <div className="text-xs text-gray-400 space-y-1">
-                <div>Responsável: João da Silva</div>
+                <div>Responsável: {productionOrder?.operatorName || 'Operador Sistema'}</div>
                 <div>Data/Hora: {new Date().toLocaleString('pt-BR')}</div>
                 <div>Tipo: {packagingOptions.find(p => p.id === selectedPackaging)?.name || 'Não selecionado'}</div>
               </div>
@@ -476,11 +581,11 @@ export default function JornadaProdutoPage() {
               <div className="text-xs text-gray-300 space-y-2">
                 <div className="flex justify-between">
                   <span>Produto:</span>
-                  <span>Alface Crespa Orgânica</span>
+                  <span>{currentProduct?.name || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Quantidade:</span>
-                  <span>{assembledQuantity} unidades</span>
+                  <span>{assembledQuantity} {currentProduct?.unit || 'unidades'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Embalagem:</span>
@@ -492,7 +597,7 @@ export default function JornadaProdutoPage() {
                 </div>
                 <div className="flex justify-between">
                   <span>Responsável:</span>
-                  <span>João da Silva</span>
+                  <span>{productionOrder?.operatorName || 'Operador Sistema'}</span>
                 </div>
               </div>
             </div>
@@ -604,15 +709,22 @@ export default function JornadaProdutoPage() {
 
           <div className="p-4">
             <div className="bg-gray-700/50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-white mb-2">Pedido #PED-2023-0458</h3>
+              <h3 className="text-sm font-medium text-white mb-2">
+                {productionOrder?.orderId || 'Produção Interna'}
+              </h3>
               <div className="space-y-2 text-xs text-gray-300">
                 <div className="flex justify-between">
                   <span>Cliente:</span>
-                  <span className="font-medium">Mercado São José</span>
+                  <span className="font-medium">{productionOrder?.customerName || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Data prevista:</span>
-                  <span className="font-medium">28/07/2023</span>
+                  <span className="font-medium">
+                    {productionOrder?.expectedDate ? 
+                      new Date(productionOrder.expectedDate).toLocaleDateString('pt-BR') : 
+                      'N/A'
+                    }
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Itens:</span>
@@ -620,7 +732,7 @@ export default function JornadaProdutoPage() {
                 </div>
                 <div className="flex justify-between">
                   <span>Operador:</span>
-                  <span className="font-medium">João da Silva</span>
+                  <span className="font-medium">{productionOrder?.operatorName || 'Sistema'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Status:</span>

@@ -103,7 +103,7 @@ class OperadorService {
   async updateOperador(id: number, data: Partial<OperadorCreateData>): Promise<Operador | null> {
     try {
       const setParts: string[] = [];
-      const values: (string | boolean | null)[] = [];
+      const values: (string | boolean | number | null)[] = [];
       let paramCount = 1;
 
       if (data.nome !== undefined) {
@@ -171,7 +171,7 @@ class OperadorService {
       `;
       
       const result = await pool().query(query, [id]);
-      return result.rowCount > 0;
+      return (result.rowCount ?? 0) > 0;
     } catch (error) {
       console.error('Erro ao excluir operador:', error);
       return false;

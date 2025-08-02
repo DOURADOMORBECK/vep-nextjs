@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PessoaService, type Pessoa } from '@/services/database/pessoaService';
-import { pool } from '@/lib/db';
 
 // Interface para Supplier que a página espera
 interface Supplier {

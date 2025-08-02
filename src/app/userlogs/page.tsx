@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { localApi } from '@/lib/local-api';
+import { toast } from 'react-hot-toast';
+import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 
 interface UserLog {
   id: string;
@@ -13,93 +16,136 @@ interface UserLog {
   timestamp: string;
   ip?: string;
   userAgent?: string;
+  sessionId?: string;
+  screenResolution?: string;
+}
+
+interface LogStats {
+  totalLogs: number;
+  logsToday: number;
+  uniqueUsers: number;
+  topModules: Array<{ module: string; count: number }>;
+  topActions: Array<{ action: string; count: number }>;
 }
 
 export default function UserLogsPage() {
   const [logs, setLogs] = useState<UserLog[]>([]);
-  const [filteredLogs, setFilteredLogs] = useState<UserLog[]>([]);
+  const [stats, setStats] = useState<LogStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedModule, setSelectedModule] = useState('all');
   const [selectedAction, setSelectedAction] = useState('all');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [pagination, setPagination] = useState({
+    offset: 0,
+    limit: 50,
+    total: 0,
+    hasMore: false
+  });
+  const { logAction } = useUserLogger();
 
 
-  useEffect(() => {
-    loadLogs();
-  }, []);
-
-  const filterLogs = useCallback(() => {
-    let filtered = logs;
-
-    // Filtro por termo de busca
-    if (searchTerm) {
-      filtered = filtered.filter(log => 
-        log.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.userId.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Filtro por módulo
-    if (selectedModule !== 'all') {
-      filtered = filtered.filter(log => log.module === selectedModule);
-    }
-
-    // Filtro por ação
-    if (selectedAction !== 'all') {
-      filtered = filtered.filter(log => log.action === selectedAction);
-    }
-
-    // Filtro por data
-    if (dateRange.start || dateRange.end) {
-      filtered = filtered.filter(log => {
-        const logDate = new Date(log.timestamp);
-        if (dateRange.start && logDate < new Date(dateRange.start + 'T00:00:00')) {
-          return false;
-        }
-        if (dateRange.end && logDate > new Date(dateRange.end + 'T23:59:59')) {
-          return false;
-        }
-        return true;
-      });
-    }
-
-    setFilteredLogs(filtered);
-  }, [logs, searchTerm, selectedModule, selectedAction, dateRange]);
-
-  useEffect(() => {
-    filterLogs();
-  }, [filterLogs]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async (resetPagination = true, customOffset?: number) => {
     setLoading(true);
     try {
-      // API UserLogs ainda não está implementada no railwayApi
-      // Por enquanto retornar array vazio até a API estar disponível
-      setLogs([]);
+      const currentOffset = resetPagination ? 0 : (customOffset ?? 0);
       
-      // Quando a API estiver disponível:
-      // const response = await railwayApi.getUserLogs();
-      // if (response.ok) {
-      //   const data = await response.json();
-      //   setLogs(data.logs || []);
-      // }
+      const filters = {
+        search: searchTerm || undefined,
+        module: selectedModule !== 'all' ? selectedModule : undefined,
+        action: selectedAction !== 'all' ? selectedAction : undefined,
+        startDate: dateRange.start || undefined,
+        endDate: dateRange.end || undefined,
+        limit: 50, // Fixed limit
+        offset: currentOffset
+      };
+
+      const response = await localApi.getUserLogs(filters);
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
+          const newLogs = data.logs || [];
+          setLogs(currentLogs => resetPagination ? newLogs : [...currentLogs, ...newLogs]);
+          
+          setPagination(currentPagination => ({
+            offset: currentOffset,
+            limit: currentPagination.limit,
+            total: data.total || 0,
+            hasMore: data.hasMore || false
+          }));
+
+          logAction({
+            action: USER_ACTIONS.SEARCH,
+            module: MODULES.SYSTEM,
+            details: { 
+              logsFound: newLogs.length,
+              totalLogs: data.total,
+              filters: filters
+            }
+          });
+        } else {
+          toast.error('Erro ao buscar logs');
+        }
+      } else {
+        toast.error('Erro ao conectar com servidor de logs');
+      }
     } catch (error) {
       console.error('Erro ao carregar logs:', error);
+      toast.error('Erro ao carregar logs');
+      logAction({
+        action: 'FETCH_LOGS_ERROR',
+        module: MODULES.SYSTEM,
+        details: { error: error instanceof Error ? error.message : 'Unknown error' }
+      });
       setLogs([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, selectedModule, selectedAction, dateRange, logAction]);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const response = await localApi.getLogStats();
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setStats(data.stats);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error);
+    }
+  }, []);
+
+  // Load initial data
+  useEffect(() => {
+    loadLogs(true);
+    loadStats();
+  }, [loadLogs, loadStats]);
+
+  // Reload when filters change
+  useEffect(() => {
+    if (searchTerm || selectedModule !== 'all' || selectedAction !== 'all' || dateRange.start || dateRange.end) {
+      loadLogs(true);
+    }
+  }, [searchTerm, selectedModule, selectedAction, dateRange, loadLogs]);
 
 
   const getModules = () => {
+    if (stats?.topModules) {
+      return stats.topModules.map(m => m.module);
+    }
     const modules = new Set(logs.map(log => log.module));
     return Array.from(modules);
   };
 
   const getActions = () => {
+    if (stats?.topActions) {
+      return stats.topActions.map(a => a.action);
+    }
     const actions = new Set(logs.map(log => log.action));
     return Array.from(actions);
   };
@@ -147,7 +193,7 @@ export default function UserLogsPage() {
   };
 
   const exportLogs = () => {
-    const dataStr = JSON.stringify(filteredLogs, null, 2);
+    const dataStr = JSON.stringify(logs, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
     const exportFileDefaultName = `userlogs-${new Date().toISOString().split('T')[0]}.json`;
@@ -156,6 +202,24 @@ export default function UserLogsPage() {
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
+
+    logAction({
+      action: USER_ACTIONS.EXPORT,
+      module: MODULES.SYSTEM,
+      details: { 
+        exportType: 'logs',
+        recordCount: logs.length,
+        fileName: exportFileDefaultName,
+        filters: {
+          search: searchTerm,
+          module: selectedModule,
+          action: selectedAction,
+          dateRange
+        }
+      }
+    });
+
+    toast.success(`${logs.length} logs exportados com sucesso!`);
   };
 
   return (
@@ -239,15 +303,29 @@ export default function UserLogsPage() {
 
           <div className="mt-4 flex justify-between items-center">
             <div className="text-sm text-gray-400">
-              {filteredLogs.length} de {logs.length} registros
+              Mostrando {logs.length} de {pagination.total} registros
+              {pagination.hasMore && ' (carregue mais para ver todos)'}
             </div>
-            <button
-              onClick={exportLogs}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
-            >
-              <i className="fa-solid fa-download mr-2"></i>
-              Exportar Logs
-            </button>
+            <div className="flex space-x-2">
+              {pagination.hasMore && (
+                <button
+                  onClick={() => loadLogs(false, pagination.offset + 50)}
+                  disabled={loading}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm disabled:opacity-50"
+                >
+                  <i className="fa-solid fa-arrow-down mr-2"></i>
+                  Carregar Mais
+                </button>
+              )}
+              <button
+                onClick={exportLogs}
+                disabled={logs.length === 0}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm disabled:opacity-50"
+              >
+                <i className="fa-solid fa-download mr-2"></i>
+                Exportar Logs
+              </button>
+            </div>
           </div>
         </div>
 
@@ -273,7 +351,7 @@ export default function UserLogsPage() {
                       <p>Carregando logs...</p>
                     </td>
                   </tr>
-                ) : filteredLogs.length === 0 ? (
+                ) : logs.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
                       <i className="fa-solid fa-file-circle-xmark text-4xl mb-2"></i>
@@ -281,7 +359,7 @@ export default function UserLogsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredLogs.map((log) => (
+                  logs.map((log) => (
                     <tr key={log.id} className="hover:bg-gray-700/50">
                       <td className="px-6 py-4 text-sm text-gray-300">
                         <div>
@@ -340,7 +418,7 @@ export default function UserLogsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Total de Ações</p>
-                <p className="text-2xl font-bold text-white">{logs.length}</p>
+                <p className="text-2xl font-bold text-white">{stats?.totalLogs || 0}</p>
               </div>
               <i className="fa-solid fa-chart-line text-2xl text-blue-400"></i>
             </div>
@@ -350,9 +428,7 @@ export default function UserLogsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Usuários Ativos</p>
-                <p className="text-2xl font-bold text-white">
-                  {new Set(logs.map(log => log.userId)).size}
-                </p>
+                <p className="text-2xl font-bold text-white">{stats?.uniqueUsers || 0}</p>
               </div>
               <i className="fa-solid fa-users text-2xl text-green-400"></i>
             </div>
@@ -362,7 +438,7 @@ export default function UserLogsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Módulos Usados</p>
-                <p className="text-2xl font-bold text-white">{getModules().length}</p>
+                <p className="text-2xl font-bold text-white">{stats?.topModules?.length || 0}</p>
               </div>
               <i className="fa-solid fa-cubes text-2xl text-purple-400"></i>
             </div>
@@ -372,11 +448,7 @@ export default function UserLogsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">Ações Hoje</p>
-                <p className="text-2xl font-bold text-white">
-                  {logs.filter(log => 
-                    new Date(log.timestamp).toDateString() === new Date().toDateString()
-                  ).length}
-                </p>
+                <p className="text-2xl font-bold text-white">{stats?.logsToday || 0}</p>
               </div>
               <i className="fa-solid fa-calendar-day text-2xl text-yellow-400"></i>
             </div>

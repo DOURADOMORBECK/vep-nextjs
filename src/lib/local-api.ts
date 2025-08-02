@@ -51,8 +51,18 @@ export const localApi = {
     return fetch(`/api/fornecedores?search=${encodeURIComponent(search)}`);
   },
 
-  // Orders
+  // Orders - Compatible with jornada-pedido page
   async getOrders(filters?: {
+    status?: string;
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    
+    return fetch(`/api/orders?${params.toString()}`);
+  },
+
+  // Pedidos - Original format
+  async getPedidos(filters?: {
     clienteId?: string;
     situacao?: string;
     dataInicio?: string;
@@ -68,7 +78,7 @@ export const localApi = {
   },
 
   async getOrder(id: string) {
-    return fetch(`/api/pedidos/${id}`);
+    return fetch(`/api/orders/${id}`);
   },
 
   async searchOrders(search: string) {
@@ -79,44 +89,62 @@ export const localApi = {
     return fetch('/api/pedidos/stats');
   },
 
-  // Placeholder for other endpoints that will be migrated later
+  // Users API - Uses real operadores data
   async getUsers() {
-    // TODO: Implement local users API
-    return new Response(JSON.stringify([]), { status: 200 });
+    return fetch('/api/usuarios');
   },
 
   async getOperators() {
-    // TODO: Implement local operators API
-    return new Response(JSON.stringify([]), { status: 200 });
+    return fetch('/api/operadores');
   },
 
-  async getUserLogs() {
-    // TODO: Implement local user logs API
-    return new Response(JSON.stringify([]), { status: 200 });
-  },
-
+  // Deliveries API - Uses real pedidos data for deliveries
   async getDeliveries() {
-    // TODO: Implement local deliveries API
-    return new Response(JSON.stringify([]), { status: 200 });
+    return fetch('/api/entregas/pedidos');
   },
 
   async getDeliveryStats() {
-    // TODO: Implement local delivery stats API
-    return new Response(JSON.stringify({
-      totalRoutes: 0,
-      activeRoutes: 0,
-      todayDeliveries: 0,
-      totalPoints: 0
-    }), { status: 200 });
+    return fetch('/api/entregas/stats');
   },
 
   async getDriverDeliveryStats() {
-    // TODO: Implement local driver stats API
-    return new Response(JSON.stringify({
-      totalRoutes: 0,
-      completedRoutes: 0,
-      todayDeliveries: 0,
-      avgDeliveryTimeMinutes: 0
-    }), { status: 200 });
+    // Same as delivery stats for now since drivers are operators
+    return fetch('/api/entregas/stats');
+  },
+
+  // Jornada Produto - Production data
+  async getProductionData(limit?: number) {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    
+    return fetch(`/api/jornada-produto?${params.toString()}`);
+  },
+
+  // User Logs - Real logs from PostgreSQL
+  async getUserLogs(filters?: {
+    userId?: string;
+    action?: string;
+    module?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.userId) params.append('userId', filters.userId);
+    if (filters?.action) params.append('action', filters.action);
+    if (filters?.module) params.append('module', filters.module);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.offset) params.append('offset', filters.offset.toString());
+    
+    return fetch(`/api/logs?${params.toString()}`);
+  },
+
+  async getLogStats() {
+    return fetch('/api/logs/stats');
   }
 };
