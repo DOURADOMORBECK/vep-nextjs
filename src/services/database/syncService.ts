@@ -208,17 +208,23 @@ class SyncService {
 
   // Sincronização completa (inicial)
   static async performFullSync(entity?: string): Promise<SyncResult[]> {
+    console.log(`[SyncService] Iniciando sincronização completa${entity ? ` para ${entity}` : ' para todas as entidades'}`);
+    
     const results: SyncResult[] = [];
     const configs = entity 
       ? this.SYNC_CONFIGS.filter(c => c.entity === entity)
       : this.SYNC_CONFIGS;
 
+    console.log(`[SyncService] ${configs.length} entidades para sincronizar`);
+
     for (const config of configs) {
       try {
+        console.log(`[SyncService] Sincronizando ${config.entity}...`);
         const result = await this.syncEntity(config, false);
         results.push(result);
+        console.log(`[SyncService] ${config.entity} sincronizado com sucesso`);
       } catch (error) {
-        console.error(`Erro ao sincronizar ${config.entity}:`, error);
+        console.error(`[SyncService] Erro ao sincronizar ${config.entity}:`, error);
         results.push({
           entity: config.entity,
           totalRecords: 0,
@@ -226,11 +232,13 @@ class SyncService {
           updated: 0,
           errors: 1,
           duration: 0,
-          isIncremental: false
+          isIncremental: false,
+          lastSyncDate: new Date().toISOString()
         });
       }
     }
 
+    console.log(`[SyncService] Sincronização completa finalizada. ${results.length} entidades processadas`);
     return results;
   }
 

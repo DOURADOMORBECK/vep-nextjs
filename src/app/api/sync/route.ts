@@ -75,24 +75,35 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Erro na API de sincronização:', error);
     
-    await UserLogService.create({
-      userId: 'api',
-      userName: 'API de Sincronização',
-      action: 'SYNC_API_ERROR',
-      module: 'SYNC',
-      details: {
-        error: error instanceof Error ? error.message : 'Erro desconhecido'
-      }
-    });
+    // Tentar registrar log apenas se possível
+    try {
+      await UserLogService.create({
+        userId: 'api',
+        userName: 'API de Sincronização',
+        action: 'SYNC_API_ERROR',
+        module: 'SYNC',
+        details: {
+          error: error instanceof Error ? error.message : 'Erro desconhecido',
+          stack: error instanceof Error ? error.stack : undefined
+        }
+      });
+    } catch (logError) {
+      console.error('Erro ao registrar log:', logError);
+    }
 
-    return NextResponse.json(
-      { 
-        success: false,
-        error: 'Erro na sincronização',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
-      },
-      { status: 500 }
-    );
+    // Retornar erro detalhado
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    const errorDetails = {
+      success: false,
+      error: 'Erro na sincronização',
+      message: errorMessage,
+      details: process.env.NODE_ENV === 'development' && error instanceof Error ? {
+        message: error.message,
+        stack: error.stack
+      } : errorMessage
+    };
+
+    return NextResponse.json(errorDetails, { status: 500 });
   }
 }
 

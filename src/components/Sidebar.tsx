@@ -46,7 +46,8 @@ export default function Sidebar({ isCollapsed = false }: SidebarProps) {
     { icon: 'fa-box-open', label: 'Jornada do Pedido', path: '/jornada-pedido', feature: 'orders' },
     { icon: 'fa-industry', label: 'Jornada do Produto', path: '/jornada-produto', feature: 'products' },
     { icon: 'fa-clock-rotate-left', label: 'Histórico de Ações', path: '/userlogs', feature: 'logs', requireAdmin: true },
-    { icon: 'fa-sync', label: 'Sincronização', path: '/sync', feature: 'sync', requireAdmin: true },
+    { icon: 'fa-sync', label: 'Sincronização', path: '/sync-v2', feature: 'sync', requireAdmin: true },
+    { icon: 'fa-magic', label: 'Sincronização Inteligente', path: '/sync-smart', feature: 'sync', requireAdmin: true },
   ];
 
   // Filter menu items based on user permissions

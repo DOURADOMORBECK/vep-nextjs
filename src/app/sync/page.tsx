@@ -102,11 +102,26 @@ export default function SyncPage() {
           }
         });
       } else {
-        toast.error(`Erro na sincronização: ${data.error}`);
+        toast.error(`Erro na sincronização: ${data.error || data.message || 'Erro desconhecido'}`);
+        console.error('Detalhes do erro:', data);
+        
+        // Se for erro de API key, mostrar mensagem específica
+        if (data.message && data.message.includes('FINANCESWEB_API_KEY')) {
+          toast.error('API Key do FinancesWeb não está configurada no Railway!', {
+            duration: 5000
+          });
+        }
       }
     } catch (error) {
       console.error('Erro ao sincronizar:', error);
-      toast.error('Erro ao executar sincronização');
+      
+      if (error instanceof Error && error.message.includes('Unexpected end of JSON')) {
+        toast.error('Erro ao processar resposta do servidor. Verifique o diagnóstico.', {
+          duration: 5000
+        });
+      } else {
+        toast.error('Erro ao executar sincronização. Verifique o diagnóstico.');
+      }
     } finally {
       setSyncing(false);
       setSyncingEntity(null);
@@ -153,6 +168,13 @@ export default function SyncPage() {
               </p>
             </div>
             <div className="flex gap-3">
+              <a
+                href="/diagnostico"
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center"
+              >
+                <i className="fa-solid fa-stethoscope mr-2"></i>
+                Diagnóstico
+              </a>
               <button
                 onClick={() => performSync(undefined, 'incremental')}
                 disabled={syncing}
