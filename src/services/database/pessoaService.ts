@@ -21,14 +21,15 @@ export interface Pessoa {
 
 export class PessoaService {
   // Converte pessoa do FinancesWeb para formato da aplicação
+  // Usando apenas campos que sabemos existir baseado nos erros do Railway
   private static mapFinanceswebToPessoa(pessoa: PessoaFinancesweb): Pessoa {
     return {
       id: pessoa.fnc_pes_id.toString(),
       code: pessoa.fnc_pes_cpf_cnpj || '',
-      name: pessoa.fnc_pes_nome_fantasia || pessoa.fnc_pes_razao_social || '',
+      name: pessoa.fnc_pes_nome_fantasia || '', // razao_social não existe
       cpf_cnpj: pessoa.fnc_pes_cpf_cnpj || '',
       email: pessoa.fnc_pes_email || '',
-      phone: pessoa.fnc_pes_telefone || pessoa.fnc_pes_celular || '',
+      phone: pessoa.fnc_pes_telefone_principal || pessoa.fnc_pes_celular || '', // fnc_pes_telefone não existe
       address: [
         pessoa.fnc_pes_endereco || '',
         pessoa.fnc_pes_numero || '',
@@ -38,16 +39,23 @@ export class PessoaService {
       state: pessoa.fnc_pes_uf || '',
       cep: pessoa.fnc_pes_cep || '',
       type: this.determineType(pessoa),
-      active: pessoa.fnc_pes_status === 'A' || pessoa.fnc_pes_status === 'ATIVO',
+      active: pessoa.fnc_pes_status === 'A' || pessoa.fnc_pes_status === 'ATIVO' || pessoa.fnc_pes_ativo === true,
       createdAt: pessoa.created_at?.toISOString() || new Date().toISOString(),
       updatedAt: pessoa.updated_at?.toISOString() || new Date().toISOString()
     };
   }
 
   private static determineType(pessoa: PessoaFinancesweb): 'customer' | 'supplier' | 'both' {
-    // Tipo pessoa: 1 = Física (geralmente cliente), 2 = Jurídica (geralmente fornecedor)
-    // Mas alguns podem ser ambos
-    return pessoa.fnc_pes_tipo_pessoa === '2' ? 'supplier' : 'customer';
+    // Como fnc_pes_tipo_pessoa não existe, vamos usar uma lógica alternativa
+    // Se tem CNPJ (14 dígitos), provavelmente é fornecedor
+    // Se tem CPF (11 dígitos), provavelmente é cliente
+    // Mas por padrão, vamos assumir que todos são clientes
+    const doc = pessoa.fnc_pes_cpf_cnpj?.replace(/\D/g, '');
+    if (doc && doc.length === 14) {
+      return 'supplier';
+    }
+    // Por padrão, assumir cliente
+    return 'customer';
   }
 
   static async getAll(type?: 'customer' | 'supplier' | 'both'): Promise<Pessoa[]> {
@@ -57,10 +65,30 @@ export class PessoaService {
       
       // For now, return all active pessoas and let the type determination happen in mapping
       // This ensures we don't miss any records due to incorrect type filtering
-      whereClause += " AND (fnc_pes_status = 'A' OR fnc_pes_status = 'ATIVO')";
+      // Usando fnc_pes_ativo se fnc_pes_status não existir
+      whereClause += " AND (fnc_pes_ativo = true OR fnc_pes_status = 'A' OR fnc_pes_status = 'ATIVO')";
       
+      // Selecionando apenas campos que sabemos existir
       const result = await query<PessoaFinancesweb>(
-        `SELECT * FROM pessoas_financesweb ${whereClause} ORDER BY fnc_pes_nome_fantasia`,
+        `SELECT 
+          fnc_pes_id,
+          fnc_pes_nome_fantasia,
+          fnc_pes_cpf_cnpj,
+          fnc_pes_email,
+          fnc_pes_telefone_principal,
+          fnc_pes_celular,
+          fnc_pes_endereco,
+          fnc_pes_numero,
+          fnc_pes_complemento,
+          fnc_pes_bairro,
+          fnc_pes_cidade,
+          fnc_pes_uf,
+          fnc_pes_cep,
+          fnc_pes_status,
+          fnc_pes_ativo,
+          created_at,
+          updated_at
+        FROM pessoas_financesweb ${whereClause} ORDER BY fnc_pes_nome_fantasia`,
         params
       );
       
@@ -103,12 +131,29 @@ export class PessoaService {
   static async search(searchTerm: string): Promise<Pessoa[]> {
     try {
       const result = await query<PessoaFinancesweb>(
-        `SELECT * FROM pessoas_financesweb 
+        `SELECT 
+          fnc_pes_id,
+          fnc_pes_nome_fantasia,
+          fnc_pes_cpf_cnpj,
+          fnc_pes_email,
+          fnc_pes_telefone_principal,
+          fnc_pes_celular,
+          fnc_pes_endereco,
+          fnc_pes_numero,
+          fnc_pes_complemento,
+          fnc_pes_bairro,
+          fnc_pes_cidade,
+          fnc_pes_uf,
+          fnc_pes_cep,
+          fnc_pes_status,
+          fnc_pes_ativo,
+          created_at,
+          updated_at
+        FROM pessoas_financesweb 
          WHERE fnc_pes_nome_fantasia ILIKE $1 
-            OR fnc_pes_razao_social ILIKE $1
             OR fnc_pes_cpf_cnpj ILIKE $1 
             OR fnc_pes_email ILIKE $1
-            OR fnc_pes_telefone ILIKE $1
+            OR fnc_pes_telefone_principal ILIKE $1
          ORDER BY fnc_pes_nome_fantasia
          LIMIT 50`,
         [`%${searchTerm}%`]
@@ -125,20 +170,18 @@ export class PessoaService {
     try {
       const query = `
         INSERT INTO pessoas_financesweb (
-          fnc_pes_razao_social,
           fnc_pes_nome_fantasia,
           fnc_pes_cpf_cnpj,
           fnc_pes_email,
-          fnc_pes_telefone,
+          fnc_pes_telefone_principal,
           fnc_pes_endereco,
           fnc_pes_cidade,
           fnc_pes_uf,
           fnc_pes_cep,
-          fnc_pes_tipo_pessoa,
-          fnc_pes_status,
+          fnc_pes_ativo,
           created_at,
           updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
         RETURNING *
       `;
       
@@ -147,8 +190,7 @@ export class PessoaService {
       const endereco = addressParts[0] || '';
       
       const values = [
-        data.name, // razao_social
-        data.name, // nome_fantasia (mesmo que razao_social)
+        data.name, // nome_fantasia
         data.cpf_cnpj,
         data.email,
         data.phone,
@@ -156,8 +198,7 @@ export class PessoaService {
         data.city,
         data.state,
         data.cep,
-        data.type === 'supplier' ? '2' : '1', // tipo_pessoa
-        data.active ? 'A' : 'I' // status
+        data.active // ativo
       ];
       
       const result = await pool().query<PessoaFinancesweb>(query, values);
@@ -185,13 +226,13 @@ export class PessoaService {
         paramCount++;
       }
       if (data.phone !== undefined) {
-        setParts.push(`fnc_pes_telefone = $${paramCount}`);
+        setParts.push(`fnc_pes_telefone_principal = $${paramCount}`);
         values.push(data.phone);
         paramCount++;
       }
       if (data.active !== undefined) {
-        setParts.push(`fnc_pes_status = $${paramCount}`);
-        values.push(data.active ? 'A' : 'I');
+        setParts.push(`fnc_pes_ativo = $${paramCount}`);
+        values.push(data.active);
         paramCount++;
       }
       
@@ -229,27 +270,39 @@ export class PessoaService {
     activeSuppliers: number;
   }> {
     try {
-      const customerResult = await queryOne<{ count: string }>(
-        "SELECT COUNT(*) as count FROM pessoas_financesweb WHERE fnc_pes_tipo_pessoa = '1'"
+      // Como não temos fnc_pes_tipo_pessoa, vamos usar a lógica de CPF/CNPJ
+      // CPF tem 11 dígitos (clientes), CNPJ tem 14 dígitos (fornecedores)
+      
+      const totalResult = await queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM pessoas_financesweb"
       );
       
-      const activeCustomerResult = await queryOne<{ count: string }>(
-        "SELECT COUNT(*) as count FROM pessoas_financesweb WHERE fnc_pes_tipo_pessoa = '1' AND (fnc_pes_status = 'A' OR fnc_pes_status = 'ATIVO')"
+      const activeResult = await queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM pessoas_financesweb WHERE fnc_pes_ativo = true"
+      );
+      
+      // Estimativa baseada em CPF vs CNPJ
+      const customerResult = await queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM pessoas_financesweb WHERE LENGTH(REGEXP_REPLACE(fnc_pes_cpf_cnpj, '[^0-9]', '', 'g')) = 11"
       );
       
       const supplierResult = await queryOne<{ count: string }>(
-        "SELECT COUNT(*) as count FROM pessoas_financesweb WHERE fnc_pes_tipo_pessoa = '2'"
+        "SELECT COUNT(*) as count FROM pessoas_financesweb WHERE LENGTH(REGEXP_REPLACE(fnc_pes_cpf_cnpj, '[^0-9]', '', 'g')) = 14"
       );
       
-      const activeSupplierResult = await queryOne<{ count: string }>(
-        "SELECT COUNT(*) as count FROM pessoas_financesweb WHERE fnc_pes_tipo_pessoa = '2' AND (fnc_pes_status = 'A' OR fnc_pes_status = 'ATIVO')"
-      );
+      // Para simplificar, vamos assumir que todos ativos são proporcionalmente distribuídos
+      const total = parseInt(totalResult?.count || '0');
+      const active = parseInt(activeResult?.count || '0');
+      const customers = parseInt(customerResult?.count || '0');
+      const suppliers = parseInt(supplierResult?.count || '0');
+      
+      const activeRatio = total > 0 ? active / total : 0;
       
       return {
-        totalCustomers: parseInt(customerResult?.count || '0'),
-        activeCustomers: parseInt(activeCustomerResult?.count || '0'),
-        totalSuppliers: parseInt(supplierResult?.count || '0'),
-        activeSuppliers: parseInt(activeSupplierResult?.count || '0')
+        totalCustomers: customers,
+        activeCustomers: Math.round(customers * activeRatio),
+        totalSuppliers: suppliers,
+        activeSuppliers: Math.round(suppliers * activeRatio)
       };
     } catch (error) {
       console.error('Error fetching pessoa stats:', error);

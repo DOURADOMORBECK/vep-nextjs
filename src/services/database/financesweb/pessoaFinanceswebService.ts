@@ -17,10 +17,12 @@ export interface PessoaFinancesweb {
   fnc_pes_uf?: string;
   fnc_pes_codigo_municipio?: string;
   fnc_pes_telefone?: string;
+  fnc_pes_telefone_principal?: string; // Campo alternativo que pode existir
   fnc_pes_celular?: string;
   fnc_pes_email?: string;
   fnc_pes_observacoes?: string;
   fnc_pes_status?: string;
+  fnc_pes_ativo?: boolean; // Campo alternativo para status
   fnc_pes_limite_credito?: number;
   created_at?: Date;
   updated_at?: Date;

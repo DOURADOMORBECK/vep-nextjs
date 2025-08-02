@@ -3,10 +3,18 @@
  * Carrega automaticamente todos os dados necessários após o login
  */
 
+import { IncrementalSyncClient } from './sync/IncrementalSyncClient';
+
 interface InitializationResult {
   success: boolean;
   errors: string[];
   loadedEntities: string[];
+  syncDetails?: Record<string, {
+    novos: number;
+    atualizados: number;
+    erros: number;
+    total: number;
+  }>;
 }
 
 export class DataInitializationService {
@@ -87,30 +95,37 @@ export class DataInitializationService {
 
       const status = await statusResponse.json();
       
-      // Se não há dados ou última sync foi há mais de 24h, sincroniza
+      // Se não há dados ou última sync foi há mais de 1h, sincroniza
       const needsSync = Object.keys(status).length === 0 || 
-        Object.values(status).every((entityStatus: unknown) => {
-          const statusObj = entityStatus as { lastSync?: string };
+        Object.values(status).some((entityStatus: unknown) => {
+          const statusObj = entityStatus as { lastSync?: string; recordCount?: number };
+          
+          // Se não há registros, precisa sincronizar
+          if (statusObj.recordCount === 0) return true;
+          
+          // Se não há última sync, precisa sincronizar
           if (!statusObj.lastSync) return true;
+          
+          // Se última sync foi há mais de 1 hora, sincroniza incrementalmente
           const lastSync = new Date(statusObj.lastSync);
           const hoursSinceSync = (Date.now() - lastSync.getTime()) / (1000 * 60 * 60);
-          return hoursSinceSync > 24;
+          return hoursSinceSync > 1;
         });
 
       if (needsSync) {
-        console.log('🔄 Sincronizando dados com o ERP...');
+        console.log('🔄 Sincronizando dados com FinancesWeb ERP...');
         
-        // Sincroniza todas as entidades principais
-        const syncResponse = await fetch('/api/sync/smart?entity=all', {
-          method: 'POST'
-        });
+        // Inicia a sincronização via cliente
+        await IncrementalSyncClient.startSync();
         
-        if (syncResponse.ok) {
-          console.log('✅ Sincronização concluída');
-        }
+        // Aguarda um tempo para a sincronização começar
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        console.log('✅ Dados já sincronizados recentemente');
       }
     } catch (error) {
-      console.error('Erro ao verificar/sincronizar:', error);
+      console.error('Erro ao verificar/sincronizar com FinancesWeb:', error);
+      // Não bloqueia o login se a sincronização falhar
     }
   }
 

@@ -14,6 +14,7 @@ export async function fetchFromAPI(tabela: string, filtro?: string) {
 
   console.log(`[FinancesWeb API] Buscando dados de ${tabela}${filtro ? ` com filtro: ${filtro}` : ''}`);
 
+  // Formato correto descoberto nos testes
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "apikey": API_CONFIG.apiKey,
@@ -25,9 +26,9 @@ export async function fetchFromAPI(tabela: string, filtro?: string) {
   }
 
   try {
-    // Criar AbortController para timeout
+    // Criar AbortController para timeout maior (60s para tabelas grandes)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     const response = await fetch(API_CONFIG.baseUrl, {
       method: "GET",

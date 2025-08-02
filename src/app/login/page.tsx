@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
 import { DataInitializationService } from '@/services/dataInitializationService';
+import { RealTimeSyncModal } from '@/components/RealTimeSyncModal';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showSyncProgress, setShowSyncProgress] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,6 +60,9 @@ export default function LoginPage() {
           details: { email, role: data.user?.role, userId: data.user?.id }
         });
         
+        // Mostra modal de progresso de sincronização
+        setShowSyncProgress(true);
+        
         // Inicializar dados após login bem-sucedido
         const initToast = toast.loading('Preparando o sistema...');
         
@@ -75,14 +80,20 @@ export default function LoginPage() {
               duration: 2000 
             });
           }
+          
+          // Aguarda um pouco para mostrar o resultado final
+          setTimeout(() => {
+            setShowSyncProgress(false);
+            // Redirect to dashboard
+            router.push('/dashboard');
+          }, 2000);
         } catch (error) {
           toast.dismiss(initToast);
           console.error('Erro na inicialização:', error);
           // Não bloqueia o login se a inicialização falhar
+          setShowSyncProgress(false);
+          router.push('/dashboard');
         }
-        
-        // Redirect to dashboard
-        router.push('/dashboard');
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Credenciais inválidas' }));
         console.error('Login failed:', errorData);
@@ -242,6 +253,22 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+      
+      {/* Modal de progresso de sincronização em tempo real */}
+      <RealTimeSyncModal 
+        isOpen={showSyncProgress} 
+        onClose={() => {
+          setShowSyncProgress(false);
+          router.push('/dashboard');
+        }}
+        onComplete={(success) => {
+          if (success) {
+            toast.success('Sincronização concluída com sucesso!');
+          } else {
+            toast.error('Alguns erros ocorreram durante a sincronização');
+          }
+        }}
+      />
     </div>
   );
 }

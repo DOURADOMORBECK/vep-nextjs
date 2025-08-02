@@ -35,12 +35,10 @@ export function getPool(): Pool {
     // Create the connection pool with production-ready settings
     pool = new Pool({
       connectionString,
-      // SSL configuration for production
-      ssl: process.env.NODE_ENV === 'production'
-        ? {
-            rejectUnauthorized: false, // Required for Railway PostgreSQL
-          }
-        : undefined,
+      // SSL configuration - Railway PostgreSQL requires SSL
+      ssl: {
+        rejectUnauthorized: false, // Required for Railway PostgreSQL
+      },
       // Connection pool configuration
       max: 20, // Maximum number of clients in the pool
       idleTimeoutMillis: 30000, // Close idle clients after 30 seconds

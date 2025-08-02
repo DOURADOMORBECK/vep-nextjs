@@ -63,7 +63,7 @@ export default function DeliveryMap({ orders = [] }: DeliveryMapProps) {
       // No sample data - map will show empty when no real orders exist
       // This ensures users only see real delivery data
     }
-  }, [orders]);
+  }, []);
 
   useEffect(() => {
     // Load Leaflet CSS and JS dynamically
