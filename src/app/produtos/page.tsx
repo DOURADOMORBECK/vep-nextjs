@@ -64,8 +64,12 @@ export default function ProdutosPage() {
     fetchProducts();
     fetchCategories();
     // Log de acesso à página
-    logUserAction('VIEW_PRODUCTS_PAGE');
-  }, []);
+    logAction({ 
+      action: USER_ACTIONS.VIEW,
+      module: MODULES.PRODUCTS,
+      details: { page: 'products' }
+    });
+  }, [logAction]);
 
   const fetchProducts = async () => {
     try {
@@ -95,15 +99,7 @@ export default function ProdutosPage() {
     }
   };
 
-  const logUserAction = async (action: string, details?: unknown) => {
-    try {
-      // Por enquanto, apenas loga no console
-      // Em produção, você pode criar uma API local para logs
-      console.log('User action:', action, details);
-    } catch (error) {
-      console.error('Erro ao registrar log:', error);
-    }
-  };
+  // Removida função duplicada - usando logAction do hook
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,21 +127,24 @@ export default function ProdutosPage() {
           alert('Erro ao atualizar produto');
         }
       } else {
-        // Por enquanto, apenas simulamos a criação
-        // Em produção, você precisaria criar uma rota POST
-        const newProduct: Product = {
-          id: Date.now().toString(),
-          ...formData,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        setProducts([...products, newProduct]);
-        logAction({ 
-          action: USER_ACTIONS.CREATE_PRODUCT,
-          module: MODULES.PRODUCTS,
-          details: { ...newProduct }
+        // Criar produto via API
+        const response = await fetch('/api/produtos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
         });
-        alert('Produto cadastrado com sucesso!');
+        if (response.ok) {
+          const newProduct = await response.json();
+          await fetchProducts(); // Recarregar lista de produtos
+          logAction({ 
+            action: USER_ACTIONS.CREATE_PRODUCT,
+            module: MODULES.PRODUCTS,
+            details: { ...newProduct }
+          });
+          alert('Produto cadastrado com sucesso!');
+        } else {
+          alert('Erro ao cadastrar produto');
+        }
       }
       
       handleCloseModal();
@@ -181,15 +180,20 @@ export default function ProdutosPage() {
   const handleDelete = async (productId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este produto?')) {
       try {
-        // Por enquanto, apenas remove da lista local
-        // Em produção, você precisaria criar uma rota DELETE
-        setProducts(products.filter(p => p.id !== productId));
-        logAction({ 
-          action: USER_ACTIONS.DELETE_PRODUCT,
-          module: MODULES.PRODUCTS,
-          details: { productId }
+        const response = await fetch(`/api/produtos/${productId}`, {
+          method: 'DELETE'
         });
-        alert('Produto excluído com sucesso!');
+        if (response.ok) {
+          await fetchProducts(); // Recarregar lista de produtos
+          logAction({ 
+            action: USER_ACTIONS.DELETE_PRODUCT,
+            module: MODULES.PRODUCTS,
+            details: { productId }
+          });
+          alert('Produto excluído com sucesso!');
+        } else {
+          alert('Erro ao excluir produto');
+        }
       } catch (error) {
         console.error('Erro ao excluir produto:', error);
         alert('Erro ao excluir produto. Tente novamente.');
@@ -265,7 +269,11 @@ export default function ProdutosPage() {
             <button
               onClick={() => {
                 setIsModalOpen(true);
-                logUserAction('OPEN_CREATE_PRODUCT');
+                logAction({ 
+                  action: USER_ACTIONS.VIEW,
+                  module: MODULES.PRODUCTS,
+                  details: { action: 'open_create' }
+                });
               }}
               className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg font-medium flex items-center"
             >
