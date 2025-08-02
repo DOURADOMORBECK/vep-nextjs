@@ -195,7 +195,17 @@ async function processChunk(entity: string, data: unknown[]) {
   // Implementação simplificada - apenas insere se não existir
   if (entity === 'produtos') {
     for (const item of data) {
-      const produto = item as any;
+      const produto = item as {
+        fnc_pro_id: number;
+        fnc_pro_descricao: string;
+        fnc_pro_codigo?: string;
+        fnc_pro_codigo_automacao?: string;
+        fnc_gpr_descricao: string;
+        fnc_pro_preco_venda?: number;
+        fnc_pro_preco_a_vista?: number;
+        fnc_pro_status: string;
+        fnc_pro_estoque_atual?: number;
+      };
       await query(`
         INSERT INTO produtos_financesweb (
           fnc_pro_id, fnc_pro_descricao, fnc_pro_codigo,
@@ -210,11 +220,11 @@ async function processChunk(entity: string, data: unknown[]) {
       `, [
         produto.fnc_pro_id,
         produto.fnc_pro_descricao,
-        produto.fnc_pro_codigo || produto.fnc_pro_codigo_automacao,
+        produto.fnc_pro_codigo ?? produto.fnc_pro_codigo_automacao ?? '',
         produto.fnc_gpr_descricao,
-        produto.fnc_pro_preco_venda || produto.fnc_pro_preco_a_vista || 0,
+        produto.fnc_pro_preco_venda ?? produto.fnc_pro_preco_a_vista ?? 0,
         produto.fnc_pro_status,
-        produto.fnc_pro_estoque_atual || 0
+        produto.fnc_pro_estoque_atual ?? 0
       ]);
     }
   }
