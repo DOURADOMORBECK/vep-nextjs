@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SyncService } from '@/services/database/syncService';
-import { UserLogService } from '@/services/database/userLogService';
+import { SafeLogService } from '@/services/database/safeLogService';
 
 // POST - Executar sincronização
 export async function POST(request: NextRequest) {
@@ -23,10 +23,9 @@ export async function POST(request: NextRequest) {
 
     // Inicializar tabelas de controle
     await SyncService.initializeSyncControl();
-    await UserLogService.initializeTable();
 
-    // Log de início da sincronização
-    await UserLogService.create({
+    // Log de início da sincronização (seguro - não falha)
+    await SafeLogService.log({
       userId: 'api',
       userName: 'API de Sincronização',
       action: 'SYNC_API_REQUEST',
@@ -75,9 +74,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Erro na API de sincronização:', error);
     
-    // Tentar registrar log apenas se possível
-    try {
-      await UserLogService.create({
+    // Registrar log de erro (seguro - não falha)
+    await SafeLogService.log({
         userId: 'api',
         userName: 'API de Sincronização',
         action: 'SYNC_API_ERROR',
@@ -87,9 +85,6 @@ export async function POST(request: NextRequest) {
           stack: error instanceof Error ? error.stack : undefined
         }
       });
-    } catch (logError) {
-      console.error('Erro ao registrar log:', logError);
-    }
 
     // Retornar erro detalhado
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';

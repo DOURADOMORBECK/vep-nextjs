@@ -1,6 +1,6 @@
 import { query, queryOne } from '@/lib/db-wrapper';
 import { fetchFromAPI } from '@/app/api/financesweb/sync/config';
-import { UserLogService } from './userLogService';
+import { SafeLogService } from './safeLogService';
 
 // Interfaces para os dados do FinancesWeb
 interface ProdutoFinancesWeb {
@@ -291,7 +291,7 @@ class SyncService {
       await this.updateSyncStatus(config.entity, 'running');
 
       // Log de início
-      await UserLogService.create({
+      await SafeLogService.log({
         userId: 'system',
         userName: 'Sistema de Sincronização',
         action: incremental ? 'SYNC_INCREMENTAL_START' : 'SYNC_FULL_START',
@@ -351,7 +351,7 @@ class SyncService {
       await this.updateSyncCompletion(config.entity, totalRecords);
 
       // Log de conclusão
-      await UserLogService.create({
+      await SafeLogService.log({
         userId: 'system',
         userName: 'Sistema de Sincronização',
         action: incremental ? 'SYNC_INCREMENTAL_COMPLETE' : 'SYNC_FULL_COMPLETE',
@@ -382,7 +382,7 @@ class SyncService {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       await this.updateSyncStatus(config.entity, 'error', errorMessage);
       
-      await UserLogService.create({
+      await SafeLogService.log({
         userId: 'system',
         userName: 'Sistema de Sincronização',
         action: 'SYNC_ERROR',

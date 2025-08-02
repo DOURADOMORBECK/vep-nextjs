@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SyncService } from '@/services/database/syncService';
-import { UserLogService } from '@/services/database/userLogService';
+import { SafeLogService } from '@/services/database/safeLogService';
 import { verifyToken, getAuthToken } from '@/lib/auth';
 
 // Este endpoint pode ser chamado por um cron job externo (ex: Vercel Cron, GitHub Actions, etc)
@@ -46,10 +46,9 @@ export async function GET(request: NextRequest) {
 
     // Inicializar tabelas
     await SyncService.initializeSyncControl();
-    await UserLogService.initializeTable();
 
     // Log de início do cron
-    await UserLogService.create({
+    await SafeLogService.log({
       userId: user.id,
       userName: user.name,
       action: 'SYNC_CRON_START',
@@ -78,7 +77,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Log de conclusão
-    await UserLogService.create({
+    await SafeLogService.log({
       userId: user.id,
       userName: user.name,
       action: 'SYNC_CRON_COMPLETE',
@@ -107,7 +106,7 @@ export async function GET(request: NextRequest) {
     const user = token ? await verifyToken(token) : null;
     
     if (user) {
-      await UserLogService.create({
+      await SafeLogService.log({
         userId: user.id,
         userName: user.name,
         action: 'SYNC_CRON_ERROR',
