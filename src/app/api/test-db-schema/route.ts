@@ -1,8 +1,23 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 
+interface TableSchema {
+  columns: unknown[];
+  recordCount: number;
+  sample: unknown | null;
+}
+
+interface SchemaTestResults {
+  connection: boolean;
+  tables: string[];
+  schemas: Record<string, TableSchema>;
+  queries: Record<string, unknown>;
+  stats: Record<string, unknown>;
+  errors: Array<{ step: string; error: string }>;
+}
+
 export async function GET() {
-  const results: any = {
+  const results: SchemaTestResults = {
     connection: false,
     tables: [],
     schemas: {},
@@ -26,8 +41,8 @@ export async function GET() {
       
       const tablesResult = await client.query(tablesQuery);
       results.tables = tablesResult.rows.map(r => r.table_name);
-    } catch (error: any) {
-      results.errors.push({ step: 'tables', error: error.message });
+    } catch (error) {
+      results.errors.push({ step: 'tables', error: error instanceof Error ? error.message : 'Unknown error' });
     }
     
     // Get schema for key tables
@@ -70,17 +85,18 @@ export async function GET() {
             results.schemas[tableName].recordCount = parseInt(countResult.rows[0].count);
             
             // Get sample if has data
-            if (results.schemas[tableName].recordCount > 0) {
+            const tableSchema = results.schemas[tableName];
+            if (tableSchema && tableSchema.recordCount > 0) {
               const sampleQuery = `SELECT * FROM ${tableName} LIMIT 1`;
               const sampleResult = await client.query(sampleQuery);
-              results.schemas[tableName].sample = sampleResult.rows[0];
+              tableSchema.sample = sampleResult.rows[0];
             }
-          } catch (error: any) {
-            results.errors.push({ step: `count_${tableName}`, error: error.message });
+          } catch (error) {
+            results.errors.push({ step: `count_${tableName}`, error: error instanceof Error ? error.message : 'Unknown error' });
           }
         }
-      } catch (error: any) {
-        results.errors.push({ step: `schema_${tableName}`, error: error.message });
+      } catch (error) {
+        results.errors.push({ step: `schema_${tableName}`, error: error instanceof Error ? error.message : 'Unknown error' });
       }
     }
     
@@ -109,10 +125,10 @@ export async function GET() {
         count: productsResult.rows.length,
         sample: productsResult.rows[0] || null
       };
-    } catch (error: any) {
+    } catch (error) {
       results.queries.products = {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
     
@@ -141,10 +157,10 @@ export async function GET() {
         count: customersResult.rows.length,
         sample: customersResult.rows[0] || null
       };
-    } catch (error: any) {
+    } catch (error) {
       results.queries.customers = {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
     
@@ -160,16 +176,16 @@ export async function GET() {
       try {
         const result = await client.query(query);
         results.stats[key] = parseInt(result.rows[0].total);
-      } catch (error: any) {
-        results.stats[key] = { error: error.message };
+      } catch (error) {
+        results.stats[key] = { error: error instanceof Error ? error.message : 'Unknown error' };
       }
     }
     
     client.release();
     
-  } catch (error: any) {
+  } catch (error) {
     results.connection = false;
-    results.errors.push({ step: 'connection', error: error.message });
+    results.errors.push({ step: 'connection', error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
   return NextResponse.json(results, { 

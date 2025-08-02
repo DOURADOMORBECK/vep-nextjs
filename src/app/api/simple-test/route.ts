@@ -21,9 +21,9 @@ export async function GET() {
       },
       timestamp: new Date().toISOString()
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json({
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       products: { count: 0, sample: [] },
       customers: { count: 0, sample: [] }
     });

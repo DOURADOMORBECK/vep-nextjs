@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db-wrapper';
 
+interface DebugResults {
+  queries: Record<string, unknown>;
+  samples: Record<string, unknown>;
+  errors: Array<{ query: string; error: string }>;
+}
+
 export async function GET() {
-  const results: any = {
+  const results: DebugResults = {
     queries: {},
     samples: {},
     errors: []
@@ -14,9 +20,9 @@ export async function GET() {
       const totalCount = await query(
         `SELECT COUNT(*) as count FROM pessoas_financesweb`
       );
-      results.queries.totalPessoas = parseInt(totalCount.rows[0].count);
-    } catch (error: any) {
-      results.errors.push({ query: 'total_count', error: error.message });
+      results.queries.totalPessoas = parseInt(totalCount[0].count);
+    } catch (error) {
+      results.errors.push({ query: 'total_count', error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
     // Query 2: Get count by status
@@ -26,9 +32,9 @@ export async function GET() {
          FROM pessoas_financesweb 
          GROUP BY fnc_pes_status`
       );
-      results.queries.byStatus = statusCount.rows;
-    } catch (error: any) {
-      results.errors.push({ query: 'status_count', error: error.message });
+      results.queries.byStatus = statusCount;
+    } catch (error) {
+      results.errors.push({ query: 'status_count', error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
     // Query 3: Get count by tipo_pessoa
@@ -38,9 +44,9 @@ export async function GET() {
          FROM pessoas_financesweb 
          GROUP BY fnc_pes_tipo_pessoa`
       );
-      results.queries.byTipoPessoa = tipoCount.rows;
-    } catch (error: any) {
-      results.errors.push({ query: 'tipo_pessoa_count', error: error.message });
+      results.queries.byTipoPessoa = tipoCount;
+    } catch (error) {
+      results.errors.push({ query: 'tipo_pessoa_count', error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
     // Query 4: Get sample records
@@ -52,9 +58,9 @@ export async function GET() {
          FROM pessoas_financesweb 
          LIMIT 10`
       );
-      results.samples.pessoas = samples.rows;
-    } catch (error: any) {
-      results.errors.push({ query: 'samples', error: error.message });
+      results.samples.pessoas = samples;
+    } catch (error) {
+      results.errors.push({ query: 'samples', error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
     // Query 5: Try the actual customer query
@@ -75,15 +81,15 @@ export async function GET() {
         LIMIT 10`
       );
       results.queries.customersWithFilter = {
-        count: customerQuery.rows.length,
-        data: customerQuery.rows
+        count: customerQuery.length,
+        data: customerQuery
       };
-    } catch (error: any) {
-      results.errors.push({ query: 'customer_query', error: error.message });
+    } catch (error) {
+      results.errors.push({ query: 'customer_query', error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
-  } catch (error: any) {
-    results.errors.push({ query: 'connection', error: error.message });
+  } catch (error) {
+    results.errors.push({ query: 'connection', error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
   return NextResponse.json(results);

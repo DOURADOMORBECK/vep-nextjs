@@ -22,7 +22,7 @@ export async function GET() {
         user: url.username,
         port: url.port || '5432'
       };
-    } catch (e) {
+    } catch {
       // Invalid URL format
     }
   }
@@ -37,7 +37,7 @@ export async function GET() {
       productsWork = true;
       productCount = data.products?.length || 0;
     }
-  } catch (e) {
+  } catch {
     // Ignore
   }
   
