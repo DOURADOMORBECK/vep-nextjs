@@ -52,21 +52,25 @@ export class PessoaService {
 
   static async getAll(type?: 'customer' | 'supplier' | 'both'): Promise<Pessoa[]> {
     try {
-      let whereClause = '';
+      let whereClause = 'WHERE 1=1';
       const params: string[] = [];
       
-      if (type === 'customer') {
-        whereClause = "WHERE fnc_pes_tipo_pessoa = '1'";
-      } else if (type === 'supplier') {
-        whereClause = "WHERE fnc_pes_tipo_pessoa = '2'";
-      }
+      // For now, return all active pessoas and let the type determination happen in mapping
+      // This ensures we don't miss any records due to incorrect type filtering
+      whereClause += " AND (fnc_pes_status = 'A' OR fnc_pes_status = 'ATIVO')";
       
       const result = await query<PessoaFinancesweb>(
         `SELECT * FROM pessoas_financesweb ${whereClause} ORDER BY fnc_pes_nome_fantasia`,
         params
       );
       
-      return result.map(this.mapFinanceswebToPessoa);
+      // Filter by type after mapping if specified
+      let pessoas = result.map(this.mapFinanceswebToPessoa);
+      if (type && type !== 'both') {
+        pessoas = pessoas.filter(p => p.type === type || p.type === 'both');
+      }
+      
+      return pessoas;
     } catch (error) {
       console.error('Error fetching pessoas:', error);
       return [];
