@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         case 'pessoas':
           await syncEntity<PessoaFinancesweb>(
             'pessoas',
-            () => fetchFromAPI("fnc_pessoas", "fnc_pes_tipo_pessoa=eq.2") as Promise<PessoaFinancesweb[]>,
+            () => fetchFromAPI("fnc_pessoas") as Promise<PessoaFinancesweb[]>,
             new PessoaFinanceswebService(),
             (data) => new PessoaFinanceswebService().upsertMany(data)
           );
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         case 'pedidos':
           await syncEntity<PedidoDetalheFinancesweb>(
             'pedidos',
-            () => fetchFromAPI("vw_pedidos_venda_produtos", "fnc_nat_origem=eq.1") as Promise<PedidoDetalheFinancesweb[]>,
+            () => fetchFromAPI("vw_pedidos_venda_produtos") as Promise<PedidoDetalheFinancesweb[]>,
             new PedidoDetalheFinanceswebService(),
             (data) => new PedidoDetalheFinanceswebService().upsertMany(data)
           );
@@ -129,14 +129,14 @@ export async function POST(request: NextRequest) {
 
       await syncEntity<PessoaFinancesweb>(
         'pessoas',
-        () => fetchFromAPI("fnc_pessoas", "fnc_pes_tipo_pessoa=eq.2") as Promise<PessoaFinancesweb[]>,
+        () => fetchFromAPI("fnc_pessoas") as Promise<PessoaFinancesweb[]>,
         new PessoaFinanceswebService(),
         (data) => new PessoaFinanceswebService().upsertMany(data)
       );
 
       await syncEntity<PedidoDetalheFinancesweb>(
         'pedidos',
-        () => fetchFromAPI("vw_pedidos_venda_produtos", "fnc_nat_origem=eq.1") as Promise<PedidoDetalheFinancesweb[]>,
+        () => fetchFromAPI("vw_pedidos_venda_produtos") as Promise<PedidoDetalheFinancesweb[]>,
         new PedidoDetalheFinanceswebService(),
         (data) => new PedidoDetalheFinanceswebService().upsertMany(data)
       );
