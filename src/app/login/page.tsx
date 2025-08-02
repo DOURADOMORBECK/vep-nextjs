@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
+import { DataInitializationService } from '@/services/dataInitializationService';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const { logAction } = useUserLogger();
@@ -55,6 +57,29 @@ export default function LoginPage() {
           module: MODULES.AUTH,
           details: { email, role: data.user?.role, userId: data.user?.id }
         });
+        
+        // Inicializar dados após login bem-sucedido
+        const initToast = toast.loading('Preparando o sistema...');
+        
+        try {
+          const initResult = await DataInitializationService.initializeAllData();
+          
+          if (initResult.success) {
+            toast.success('Sistema pronto para uso!', { 
+              id: initToast,
+              duration: 2000 
+            });
+          } else {
+            toast.success('Sistema iniciado', { 
+              id: initToast,
+              duration: 2000 
+            });
+          }
+        } catch (error) {
+          toast.dismiss(initToast);
+          console.error('Erro na inicialização:', error);
+          // Não bloqueia o login se a inicialização falhar
+        }
         
         // Redirect to dashboard
         router.push('/dashboard');

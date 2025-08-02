@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
+import { DataInitializationService } from '@/services/dataInitializationService';
 
 interface UseSmartDataOptions {
   endpoint: string;
@@ -34,6 +35,29 @@ export function useSmartData<T = unknown>({
     try {
       setLoading(true);
       setError(null);
+
+      // Primeiro, tenta obter dados do cache
+      const entityName = endpoint.split('/').pop() || '';
+      const cachedData = DataInitializationService.getCachedData<T>(entityName);
+      
+      if (cachedData && cachedData.length > 0) {
+        setData(cachedData);
+        setIsDemo(false);
+        setLoading(false);
+        
+        // Faz uma atualização silenciosa em background
+        fetch(endpoint)
+          .then(response => response.json())
+          .then(result => {
+            const extractedData = result.data || result.items || result.results || result;
+            if (Array.isArray(extractedData) && extractedData.length > 0) {
+              setData(extractedData);
+            }
+          })
+          .catch(() => {}); // Ignora erros na atualização silenciosa
+        
+        return;
+      }
 
       const response = await fetch(endpoint);
       

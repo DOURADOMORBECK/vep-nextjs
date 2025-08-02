@@ -1,574 +1,301 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-// Removed railwayApi - using local API instead
+import EmptyState from '@/components/common/EmptyState';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
+import { useSmartData } from '@/hooks/useSmartData';
 import { useUserLogger, USER_ACTIONS, MODULES } from '@/hooks/useUserLogger';
+import toast from 'react-hot-toast';
 
 interface Product {
-  id: string;
-  code: string;
-  name: string;
-  description: string;
-  category: string;
-  unit: string;
-  price: number;
-  stock: number;
-  minStock: number;
-  supplier: string;
-  barcode: string;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
+  fnc_pro_id: number;
+  fnc_pro_descricao: string;
+  fnc_pro_codigo: string;
+  fnc_gpr_descricao: string;
+  fnc_pro_preco_venda: number;
+  fnc_pro_status: string;
+  fnc_pro_estoque_atual: number;
+  fnc_pro_estoque_minimo?: number;
 }
 
-export default function ProdutosPage() {
+// Dados de demonstração
+const DEMO_PRODUCTS: Product[] = [
+  {
+    fnc_pro_id: 1,
+    fnc_pro_descricao: 'Detergente Neutro 5L',
+    fnc_pro_codigo: 'DET001',
+    fnc_gpr_descricao: 'Limpeza',
+    fnc_pro_preco_venda: 25.90,
+    fnc_pro_status: 'Ativo',
+    fnc_pro_estoque_atual: 150,
+    fnc_pro_estoque_minimo: 20
+  },
+  {
+    fnc_pro_id: 2,
+    fnc_pro_descricao: 'Desinfetante Lavanda 2L',
+    fnc_pro_codigo: 'DES002',
+    fnc_gpr_descricao: 'Desinfetantes',
+    fnc_pro_preco_venda: 15.50,
+    fnc_pro_status: 'Ativo',
+    fnc_pro_estoque_atual: 85,
+    fnc_pro_estoque_minimo: 30
+  },
+  {
+    fnc_pro_id: 3,
+    fnc_pro_descricao: 'Álcool 70% 1L',
+    fnc_pro_codigo: 'ALC003',
+    fnc_gpr_descricao: 'Higienização',
+    fnc_pro_preco_venda: 12.00,
+    fnc_pro_status: 'Ativo',
+    fnc_pro_estoque_atual: 200,
+    fnc_pro_estoque_minimo: 50
+  }
+];
+
+export default function ProdutosPageV2() {
   const { logAction } = useUserLogger();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
-
-  const [formData, setFormData] = useState({
-    code: '',
-    name: '',
-    description: '',
-    category: '',
-    unit: 'UN',
-    price: 0,
-    stock: 0,
-    minStock: 0,
-    supplier: '',
-    barcode: '',
-    active: true
+  const [syncLoading, setSyncLoading] = useState(false);
+  
+  // Usar o hook inteligente de dados
+  const { 
+    data: products, 
+    loading, 
+    isDemo, 
+    sync,
+    refresh 
+  } = useSmartData<Product>({
+    endpoint: '/api/produtos',
+    fallbackData: DEMO_PRODUCTS,
+    showToasts: true
   });
 
-  const [categories, setCategories] = useState<string[]>([]);
-
-  const units = [
-    { value: 'UN', label: 'Unidade' },
-    { value: 'KG', label: 'Quilograma' },
-    { value: 'G', label: 'Grama' },
-    { value: 'L', label: 'Litro' },
-    { value: 'ML', label: 'Mililitro' },
-    { value: 'CX', label: 'Caixa' },
-    { value: 'PCT', label: 'Pacote' },
-    { value: 'DZ', label: 'Dúzia' }
-  ];
-
-  // Buscar produtos e categorias da API local
-  useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-    // Log de acesso à página
-    logAction({ 
-      action: USER_ACTIONS.VIEW,
-      module: MODULES.PRODUCTS,
-      details: { page: 'products' }
-    });
-  }, [logAction]);
-
-  const fetchProducts = async () => {
-    try {
-      const response = await fetch('/api/produtos');
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data);
-      } else {
-        console.error('Erro ao buscar produtos:', response.status);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar produtos:', error);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/produtos/categories');
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
-      } else {
-        console.error('Erro ao buscar categorias:', response.status);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar categorias:', error);
-    }
-  };
-
-  // Removida função duplicada - usando logAction do hook
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      if (editingProduct) {
-        // Atualizar produto via API local
-        const response = await fetch(`/api/produtos/${editingProduct.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
-        });
-        if (response.ok) {
-          const updatedProduct = await response.json();
-          setProducts(products.map(p => 
-            p.id === editingProduct.id ? updatedProduct : p
-          ));
-          logAction({ 
-            action: USER_ACTIONS.UPDATE_PRODUCT,
-            module: MODULES.PRODUCTS,
-            details: { productId: editingProduct.id, ...formData }
-          });
-          alert('Produto atualizado com sucesso!');
-        } else {
-          alert('Erro ao atualizar produto');
-        }
-      } else {
-        // Criar produto via API
-        const response = await fetch('/api/produtos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
-        });
-        if (response.ok) {
-          const newProduct = await response.json();
-          await fetchProducts(); // Recarregar lista de produtos
-          logAction({ 
-            action: USER_ACTIONS.CREATE_PRODUCT,
-            module: MODULES.PRODUCTS,
-            details: { ...newProduct }
-          });
-          alert('Produto cadastrado com sucesso!');
-        } else {
-          alert('Erro ao cadastrar produto');
-        }
-      }
-      
-      handleCloseModal();
-    } catch (error) {
-      console.error('Erro ao salvar produto:', error);
-      alert('Erro ao salvar produto. Tente novamente.');
-    }
-  };
-
-  const handleEdit = (product: Product) => {
-    setEditingProduct(product);
-    setFormData({
-      code: product.code,
-      name: product.name,
-      description: product.description,
-      category: product.category,
-      unit: product.unit,
-      price: product.price,
-      stock: product.stock,
-      minStock: product.minStock,
-      supplier: product.supplier,
-      barcode: product.barcode,
-      active: product.active
-    });
-    setIsModalOpen(true);
-    logAction({ 
-      action: USER_ACTIONS.VIEW,
-      module: MODULES.PRODUCTS,
-      details: { productId: product.id, action: 'open_edit' }
-    });
-  };
-
-  const handleDelete = async (productId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este produto?')) {
-      try {
-        const response = await fetch(`/api/produtos/${productId}`, {
-          method: 'DELETE'
-        });
-        if (response.ok) {
-          await fetchProducts(); // Recarregar lista de produtos
-          logAction({ 
-            action: USER_ACTIONS.DELETE_PRODUCT,
-            module: MODULES.PRODUCTS,
-            details: { productId }
-          });
-          alert('Produto excluído com sucesso!');
-        } else {
-          alert('Erro ao excluir produto');
-        }
-      } catch (error) {
-        console.error('Erro ao excluir produto:', error);
-        alert('Erro ao excluir produto. Tente novamente.');
-      }
-    }
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingProduct(null);
-    setFormData({
-      code: '',
-      name: '',
-      description: '',
-      category: '',
-      unit: 'UN',
-      price: 0,
-      stock: 0,
-      minStock: 0,
-      supplier: '',
-      barcode: '',
-      active: true
-    });
-  };
-
-  // Filtros e paginação
+  // Filtrar produtos
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.barcode.includes(searchTerm);
-    const matchesCategory = !selectedCategory || product.category === selectedCategory;
+    const matchesSearch = product.fnc_pro_descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         product.fnc_pro_codigo.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = !selectedCategory || product.fnc_gpr_descricao === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  // Categorias únicas
+  const categories = [...new Set(products.map(p => p.fnc_gpr_descricao))];
+
+  // Função para sincronizar
+  const handleSync = async () => {
+    setSyncLoading(true);
+    logAction({ 
+      action: USER_ACTIONS.SYNC_DATA, 
+      module: MODULES.PRODUCTS,
+      details: { entity: 'produtos' }
+    });
+    
+    try {
+      await sync();
+      await refresh();
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  // Função para editar produto
+  const handleEdit = (product: Product) => {
+    logAction({ 
+      action: USER_ACTIONS.VIEW, 
+      module: MODULES.PRODUCTS,
+      details: { productId: product.fnc_pro_id }
+    });
+    toast('Edição de produtos em desenvolvimento');
+  };
+
+  // Função para exportar
+  const handleExport = () => {
+    toast('Exportação será implementada em breve');
+  };
 
   return (
-    <DashboardLayout title="Cadastro de Produtos" subtitle="Gerenciar produtos do estoque">
+    <DashboardLayout title="Produtos" subtitle="Gerencie seu catálogo de produtos">
       <div className="p-6">
-        {/* Header com Filtros */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                  <i className="fa-solid fa-search text-gray-500"></i>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Buscar por nome, código ou código de barras..."
-                  className="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded-lg pl-10 pr-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
+        {/* Header com ações */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4 flex-1 w-full md:w-auto">
+            {/* Busca */}
+            <div className="relative flex-1 md:max-w-xs">
+              <input
+                type="text"
+                placeholder="Buscar produtos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500"
+              />
+              <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
             </div>
-            
+
+            {/* Filtro por categoria */}
             <select
-              className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-primary-500"
             >
-              <option value="">Todas as Categorias</option>
+              <option value="">Todas as categorias</option>
               {categories.map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
-            
+          </div>
+
+          {/* Botões de ação */}
+          <div className="flex gap-2">
             <button
-              onClick={() => {
-                setIsModalOpen(true);
-                logAction({ 
-                  action: USER_ACTIONS.VIEW,
-                  module: MODULES.PRODUCTS,
-                  details: { action: 'open_create' }
-                });
-              }}
-              className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg font-medium flex items-center"
+              onClick={handleExport}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-2"
             >
-              <i className="fa-solid fa-plus mr-2"></i>
-              Novo Produto
+              <i className="fas fa-download"></i>
+              Exportar
             </button>
+            
+            {isDemo && (
+              <button
+                onClick={handleSync}
+                disabled={syncLoading}
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                <i className={`fas ${syncLoading ? 'fa-spinner fa-spin' : 'fa-sync'}`}></i>
+                Sincronizar
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Tabela de Produtos */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-700 text-gray-300 text-sm">
-                  <th className="px-6 py-3 text-left font-medium">Código</th>
-                  <th className="px-6 py-3 text-left font-medium">Nome</th>
-                  <th className="px-6 py-3 text-left font-medium">Categoria</th>
-                  <th className="px-6 py-3 text-left font-medium">Preço</th>
-                  <th className="px-6 py-3 text-left font-medium">Estoque</th>
-                  <th className="px-6 py-3 text-left font-medium">Unidade</th>
-                  <th className="px-6 py-3 text-left font-medium">Status</th>
-                  <th className="px-6 py-3 text-right font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700">
-                {paginatedProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-700/50">
-                    <td className="px-6 py-4 text-sm font-medium text-white">{product.code}</td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-white">{product.name}</div>
-                        <div className="text-xs text-gray-400">{product.description}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-300">{product.category}</td>
-                    <td className="px-6 py-4 text-sm text-white font-medium">
-                      R$ {product.price.toFixed(2).replace('.', ',')}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <span className={`text-sm font-medium ${
-                          product.stock <= product.minStock ? 'text-red-400' : 'text-white'
-                        }`}>
-                          {product.stock} {product.unit}
-                        </span>
-                        {product.stock <= product.minStock && (
-                          <i className="fa-solid fa-exclamation-triangle text-red-400 text-xs ml-2"></i>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-300">{product.unit}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        product.active 
-                          ? 'bg-green-900 text-green-300' 
-                          : 'bg-red-900 text-red-300'
-                      }`}>
-                        {product.active ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => handleEdit(product)}
-                          className="text-blue-400 hover:text-blue-300"
-                          title="Editar"
-                        >
-                          <i className="fa-solid fa-edit"></i>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className="text-red-400 hover:text-red-300"
-                          title="Excluir"
-                        >
-                          <i className="fa-solid fa-trash"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Paginação */}
-          <div className="px-6 py-3 bg-gray-700 flex items-center justify-between">
-            <div className="text-sm text-gray-400">
-              Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, filteredProducts.length)} de {filteredProducts.length} produtos
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <i className="fa-solid fa-chevron-left"></i>
-              </button>
-              <span className="px-3 py-1 text-white">
-                Página {currentPage} de {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <i className="fa-solid fa-chevron-right"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Modal de Cadastro/Edição */}
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white">
-                  {editingProduct ? 'Editar Produto' : 'Novo Produto'}
-                </h2>
-                <button
-                  onClick={handleCloseModal}
-                  className="text-gray-400 hover:text-white"
+        {/* Indicador de dados demo */}
+        {isDemo && (
+          <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <i className="fas fa-info-circle text-yellow-500"></i>
+            <div className="flex-1">
+              <p className="text-yellow-200">
+                Mostrando dados de demonstração. 
+                <button 
+                  onClick={handleSync}
+                  className="ml-2 text-yellow-400 hover:text-yellow-300 underline"
                 >
-                  <i className="fa-solid fa-times text-xl"></i>
+                  Clique aqui para sincronizar dados reais
                 </button>
-              </div>
-
-              <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Código *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.code}
-                      onChange={(e) => setFormData({...formData, code: e.target.value})}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Código de Barras
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.barcode}
-                      onChange={(e) => setFormData({...formData, barcode: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Nome do Produto *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Descrição
-                    </label>
-                    <textarea
-                      rows={3}
-                      className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Categoria *
-                    </label>
-                    <select
-                      required
-                      className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.category}
-                      onChange={(e) => setFormData({...formData, category: e.target.value})}
-                    >
-                      <option value="">Selecione...</option>
-                      {categories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Unidade *
-                    </label>
-                    <select
-                      required
-                      className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.unit}
-                      onChange={(e) => setFormData({...formData, unit: e.target.value})}
-                    >
-                      {units.map(unit => (
-                        <option key={unit.value} value={unit.value}>{unit.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Preço (R$) *
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.price}
-                      onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Estoque Atual
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.stock}
-                      onChange={(e) => setFormData({...formData, stock: parseInt(e.target.value)})}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Estoque Mínimo
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.minStock}
-                      onChange={(e) => setFormData({...formData, minStock: parseInt(e.target.value)})}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Fornecedor
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-4 py-2.5 focus:ring-primary-500 focus:border-primary-500"
-                      value={formData.supplier}
-                      onChange={(e) => setFormData({...formData, supplier: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 bg-gray-700 border-gray-600 rounded focus:ring-primary-500 focus:ring-2 mr-2"
-                        checked={formData.active}
-                        onChange={(e) => setFormData({...formData, active: e.target.checked})}
-                      />
-                      <span className="text-sm text-gray-300">Produto Ativo</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium"
-                  >
-                    {editingProduct ? 'Atualizar' : 'Cadastrar'}
-                  </button>
-                </div>
-              </form>
+              </p>
             </div>
           </div>
         )}
+
+        {/* Loading */}
+        <div className="relative">
+          <LoadingOverlay show={loading} message="Carregando produtos..." />
+          
+          {/* Conteúdo */}
+          {!loading && (
+            <>
+              {filteredProducts.length === 0 ? (
+                <EmptyState
+                  icon="📦"
+                  title={searchTerm || selectedCategory ? "Nenhum produto encontrado" : "Sem produtos cadastrados"}
+                  description={
+                    searchTerm || selectedCategory 
+                      ? "Tente ajustar os filtros de busca"
+                      : "Sincronize com o ERP para importar seus produtos"
+                  }
+                  action={!isDemo ? {
+                    label: "Sincronizar Agora",
+                    onClick: handleSync,
+                    loading: syncLoading
+                  } : undefined}
+                />
+              ) : (
+                <div className="bg-gray-800 rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-900">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                            Código
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                            Descrição
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                            Categoria
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                            Preço
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                            Estoque
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="relative px-6 py-3">
+                            <span className="sr-only">Ações</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-700">
+                        {filteredProducts.map((product) => (
+                          <tr key={product.fnc_pro_id} className="hover:bg-gray-700/50 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                              {product.fnc_pro_codigo}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-white">
+                              {product.fnc_pro_descricao}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                              <span className="px-2 py-1 text-xs rounded-full bg-gray-700">
+                                {product.fnc_gpr_descricao}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                              R$ {product.fnc_pro_preco_venda.toFixed(2)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`${
+                                product.fnc_pro_estoque_atual < (product.fnc_pro_estoque_minimo || 0)
+                                  ? 'text-red-400'
+                                  : 'text-green-400'
+                              }`}>
+                                {product.fnc_pro_estoque_atual}
+                              </span>
+                              {product.fnc_pro_estoque_minimo && (
+                                <span className="text-gray-500 ml-1">
+                                  / {product.fnc_pro_estoque_minimo}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`px-2 py-1 text-xs rounded-full ${
+                                product.fnc_pro_status === 'Ativo' || product.fnc_pro_status === '2'
+                                  ? 'bg-green-900/20 text-green-400 border border-green-600/30'
+                                  : 'bg-red-900/20 text-red-400 border border-red-600/30'
+                              }`}>
+                                {product.fnc_pro_status === '2' ? 'Ativo' : product.fnc_pro_status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={() => handleEdit(product)}
+                                className="text-primary-400 hover:text-primary-300 transition-colors"
+                              >
+                                <i className="fas fa-edit"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );

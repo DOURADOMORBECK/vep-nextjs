@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { clientAuth, AuthUser } from '@/lib/auth';
+import { DataInitializationService } from '@/services/dataInitializationService';
+import toast from 'react-hot-toast';
 
 interface UseAuthReturn {
   user: AuthUser | null;
@@ -10,6 +12,7 @@ interface UseAuthReturn {
   canAccess: (feature: string) => boolean;
   hasRole: (role: string | string[]) => boolean;
   logout: () => void;
+  dataInitialized: boolean;
 }
 
 // Define feature permissions by role
@@ -60,12 +63,48 @@ const featurePermissions: Record<string, string[]> = {
 export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [dataInitialized, setDataInitialized] = useState(false);
 
   useEffect(() => {
     const userData = clientAuth.getUser();
     setUser(userData);
     setIsLoading(false);
-  }, []);
+    
+    // Se o usuário está autenticado e os dados não foram inicializados
+    if (userData && !dataInitialized) {
+      initializeUserData();
+    }
+  }, [dataInitialized]);
+
+  const initializeUserData = async () => {
+    // Verifica se precisa recarregar
+    if (!DataInitializationService.needsDataRefresh()) {
+      setDataInitialized(true);
+      return;
+    }
+
+    const toastId = toast.loading('Carregando dados do sistema...');
+    
+    try {
+      const result = await DataInitializationService.initializeAllData();
+      
+      if (result.success) {
+        toast.success(`Dados carregados: ${result.loadedEntities.join(', ')}`, {
+          id: toastId,
+          duration: 3000
+        });
+      } else if (result.errors.length > 0) {
+        toast.error('Alguns dados não puderam ser carregados', { id: toastId });
+        console.error('Erros na inicialização:', result.errors);
+      }
+      
+      setDataInitialized(true);
+    } catch (error) {
+      toast.error('Erro ao carregar dados iniciais', { id: toastId });
+      console.error('Erro na inicialização:', error);
+      setDataInitialized(true); // Marca como inicializado mesmo com erro
+    }
+  };
 
   const isAuthenticated = !!user;
   const isAdmin = user?.role === 'admin';
@@ -97,6 +136,8 @@ export function useAuth(): UseAuthReturn {
   };
 
   const logout = () => {
+    // Limpa os caches ao fazer logout
+    DataInitializationService.clearAllCaches();
     clientAuth.logout();
   };
 
@@ -108,6 +149,7 @@ export function useAuth(): UseAuthReturn {
     isOwner,
     canAccess,
     hasRole,
-    logout
+    logout,
+    dataInitialized
   };
 }
