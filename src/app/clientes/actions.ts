@@ -119,17 +119,27 @@ export async function getClientById(id: string) {
 
 export async function createClient(clientData: Omit<ClientData, 'id' | 'createdAt' | 'updatedAt'>) {
   try {
-    // Por enquanto, apenas retorna sucesso simulado
-    // Em produção, você precisaria implementar a criação no banco
-    const newClient: ClientData = {
-      ...clientData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+    const { PessoaService } = await import('@/services/database/pessoaService');
+    
+    // Converter ClientData para formato Pessoa
+    const pessoaData = {
+      code: clientData.code || Date.now().toString(),
+      name: clientData.name,
+      cpf_cnpj: clientData.document,
+      email: clientData.email,
+      phone: clientData.phone,
+      address: `${clientData.address}, ${clientData.number}${clientData.complement ? ', ' + clientData.complement : ''}`,
+      city: clientData.city,
+      state: clientData.state,
+      cep: clientData.zipCode,
+      type: 'customer' as const,
+      active: clientData.active
     };
+    
+    const newPessoa = await PessoaService.create(pessoaData);
     return {
       success: true,
-      data: newClient
+      data: convertToClientData(newPessoa)
     };
   } catch (error) {
     console.error('Error creating client:', error);
@@ -171,10 +181,20 @@ export async function updateClient(id: string, clientData: Partial<ClientData>) 
   }
 }
 
-export async function deleteClient(_id: string) {
+export async function deleteClient(id: string) {
   try {
-    // Por enquanto, apenas retorna sucesso simulado
-    // Em produção, você precisaria implementar a exclusão no banco
+    const { PessoaService } = await import('@/services/database/pessoaService');
+    
+    // Soft delete - marca como inativo
+    const updatedPessoa = await PessoaService.update(id, { active: false });
+    
+    if (!updatedPessoa) {
+      return {
+        success: false,
+        error: 'Client not found'
+      };
+    }
+    
     return {
       success: true
     };

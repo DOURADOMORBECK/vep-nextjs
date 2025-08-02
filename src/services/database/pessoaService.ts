@@ -1,5 +1,6 @@
 import { query, queryOne } from '@/lib/db-wrapper';
 import { PessoaFinancesweb } from './financesweb/pessoaFinanceswebService';
+import { pool } from '@/lib/db';
 
 export interface Pessoa {
   id: string;
@@ -116,16 +117,101 @@ export class PessoaService {
     }
   }
 
+  static async create(data: Omit<Pessoa, 'id' | 'createdAt' | 'updatedAt'>): Promise<Pessoa> {
+    try {
+      const query = `
+        INSERT INTO pessoas_financesweb (
+          fnc_pes_razao_social,
+          fnc_pes_nome_fantasia,
+          fnc_pes_cpf_cnpj,
+          fnc_pes_email,
+          fnc_pes_telefone,
+          fnc_pes_endereco,
+          fnc_pes_cidade,
+          fnc_pes_uf,
+          fnc_pes_cep,
+          fnc_pes_tipo_pessoa,
+          fnc_pes_status,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+        RETURNING *
+      `;
+      
+      // Extrair endereço, número e complemento
+      const addressParts = data.address.split(', ');
+      const endereco = addressParts[0] || '';
+      
+      const values = [
+        data.name, // razao_social
+        data.name, // nome_fantasia (mesmo que razao_social)
+        data.cpf_cnpj,
+        data.email,
+        data.phone,
+        endereco,
+        data.city,
+        data.state,
+        data.cep,
+        data.type === 'supplier' ? '2' : '1', // tipo_pessoa
+        data.active ? 'A' : 'I' // status
+      ];
+      
+      const result = await pool.query<PessoaFinancesweb>(query, values);
+      return this.mapFinanceswebToPessoa(result.rows[0]);
+    } catch (error) {
+      console.error('Error creating pessoa:', error);
+      throw error;
+    }
+  }
+
   static async update(id: string, data: Partial<Pessoa>): Promise<Pessoa | null> {
     try {
-      // Por enquanto, vamos apenas simular a atualização
-      // Em produção, você pode decidir se quer atualizar diretamente no FinancesWeb
-      // ou manter uma tabela local de overrides
-      const pessoa = await this.getById(id);
-      if (!pessoa) return null;
+      const setParts: string[] = [];
+      const values: (string | boolean)[] = [];
+      let paramCount = 1;
+
+      if (data.name !== undefined) {
+        setParts.push(`fnc_pes_razao_social = $${paramCount}, fnc_pes_nome_fantasia = $${paramCount}`);
+        values.push(data.name);
+        paramCount++;
+      }
+      if (data.email !== undefined) {
+        setParts.push(`fnc_pes_email = $${paramCount}`);
+        values.push(data.email);
+        paramCount++;
+      }
+      if (data.phone !== undefined) {
+        setParts.push(`fnc_pes_telefone = $${paramCount}`);
+        values.push(data.phone);
+        paramCount++;
+      }
+      if (data.active !== undefined) {
+        setParts.push(`fnc_pes_status = $${paramCount}`);
+        values.push(data.active ? 'A' : 'I');
+        paramCount++;
+      }
       
-      // Retorna a pessoa com as atualizações aplicadas (simulado)
-      return { ...pessoa, ...data, updatedAt: new Date().toISOString() };
+      if (setParts.length === 0) {
+        return await this.getById(id);
+      }
+      
+      setParts.push(`updated_at = NOW()`);
+      values.push(id);
+      
+      const updateQuery = `
+        UPDATE pessoas_financesweb 
+        SET ${setParts.join(', ')}
+        WHERE fnc_pes_id = $${paramCount}
+        RETURNING *
+      `;
+      
+      const result = await pool.query<PessoaFinancesweb>(updateQuery, values);
+      
+      if (result.rowCount === 0) {
+        return null;
+      }
+      
+      return this.mapFinanceswebToPessoa(result.rows[0]);
     } catch (error) {
       console.error('Error updating pessoa:', error);
       return null;

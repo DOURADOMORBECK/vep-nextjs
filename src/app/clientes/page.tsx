@@ -222,7 +222,11 @@ export default function ClientesPage() {
         const result = await deleteClient(clientId);
         if (result.success) {
           setClients(clients.filter(c => c.id !== clientId));
-          logUserAction('DELETE_CLIENT', { clientId });
+          logAction({ 
+        action: USER_ACTIONS.DELETE,
+        module: MODULES.CLIENTS,
+        details: { clientId }
+      });
         } else {
           console.error('Failed to delete client:', result.error);
           alert('Erro ao excluir cliente');
@@ -231,7 +235,11 @@ export default function ClientesPage() {
         console.error('Error deleting client:', error);
         alert('Erro ao excluir cliente');
       }
-      logUserAction('DELETE_CLIENT', { clientId });
+      logAction({ 
+        action: USER_ACTIONS.DELETE,
+        module: MODULES.CLIENTS,
+        details: { clientId }
+      });
     }
   };
 
@@ -316,7 +324,11 @@ export default function ClientesPage() {
             <button
               onClick={() => {
                 setIsModalOpen(true);
-                logUserAction('OPEN_CREATE_CLIENT');
+                logAction({ 
+                  action: USER_ACTIONS.VIEW,
+                  module: MODULES.CLIENTS,
+                  details: { action: 'open_create' }
+                });
               }}
               className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg font-medium flex items-center"
             >
