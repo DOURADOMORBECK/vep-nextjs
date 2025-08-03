@@ -28,7 +28,7 @@ export async function GET() {
     console.log('[Sync Test] Testando conexão com FinancesWeb...');
     
     // Tentar buscar apenas 1 produto como teste
-    const testData = await fetchFromAPI('fnc_produtos_e_servicos', 'fnc_pro_id=eq.1');
+    const testData = await fetchFromAPI('fnc_produtos_e_servicos');
     
     results.checks.testConnection = true;
     results.checks.errorMessage = 'Conexão com FinancesWeb funcionando!';

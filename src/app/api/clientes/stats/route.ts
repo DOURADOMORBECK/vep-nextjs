@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { PessoaService } from '@/services/database/pessoaService';
+import { PessoaServiceV2 } from '@/services/database/pessoaServiceV2';
 
 export async function GET() {
   try {
-    const stats = await PessoaService.getStats();
+    const stats = await PessoaServiceV2.getStats();
     
     // Return only customer stats
     return NextResponse.json({

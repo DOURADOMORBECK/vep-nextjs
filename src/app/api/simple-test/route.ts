@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { ProdutoService } from '@/services/database/produtoService';
-import { PessoaService } from '@/services/database/pessoaService';
+import { PessoaServiceV2 } from '@/services/database/pessoaServiceV2';
 
 export async function GET() {
   try {
     // Test both services
     const [products, customers] = await Promise.all([
       ProdutoService.getAll().catch(() => []),
-      PessoaService.getCustomers().catch(() => [])
+      PessoaServiceV2.getCustomers().catch(() => [])
     ]);
 
     return NextResponse.json({

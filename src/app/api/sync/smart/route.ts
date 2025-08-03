@@ -79,7 +79,7 @@ async function syncEntity(entity: string, dbAvailable: boolean) {
   try {
     // Buscar dados do FinancesWeb
     console.log(`[Smart Sync] Buscando ${entity} do FinancesWeb...`);
-    const data = await fetchFromAPI(config.apiTable, config.filter);
+    const data = await fetchFromAPI(config.apiTable);
     
     const result = {
       entity,

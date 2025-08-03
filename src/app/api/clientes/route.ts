@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PessoaService } from '@/services/database/pessoaService';
+import { PessoaServiceV2 } from '@/services/database/pessoaServiceV2';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,10 +10,10 @@ export async function GET(request: NextRequest) {
     
     if (search) {
       // Search both customers and filter by type
-      const pessoas = await PessoaService.search(search);
+      const pessoas = await PessoaServiceV2.search(search);
       clientes = pessoas.filter(p => p.type === 'customer' || p.type === 'both');
     } else {
-      clientes = await PessoaService.getCustomers();
+      clientes = await PessoaServiceV2.getCustomers();
     }
     
     return NextResponse.json({ customers: clientes });

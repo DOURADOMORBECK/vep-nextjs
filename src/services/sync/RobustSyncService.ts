@@ -145,7 +145,7 @@ export class RobustSyncService {
       
       // Buscar dados da API
       console.log(`[Sync] Buscando ${entity} do FinancesWeb...`);
-      const data = await fetchFromAPI(config.apiTable, config.filter);
+      const data = await fetchFromAPI(config.apiTable);
       
       if (!Array.isArray(data)) {
         throw new Error(`Resposta inválida da API para ${entity}`);

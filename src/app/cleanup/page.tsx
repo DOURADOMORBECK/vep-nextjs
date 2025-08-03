@@ -96,7 +96,7 @@ export default function CleanupPage() {
             {loading ? 'Verificando...' : 'Verificar Tabelas'}
           </Button>
           
-          {checkResults?.oldTables.exists.length > 0 && (
+          {(checkResults?.oldTables?.exists?.length ?? 0) > 0 && (
             <Button 
               onClick={dropTables} 
               disabled={loading}
@@ -159,25 +159,25 @@ export default function CleanupPage() {
           
           {cleanupResults.success ? (
             <>
-              {cleanupResults.results?.dropped.length > 0 && (
+              {(cleanupResults.results?.dropped?.length ?? 0) > 0 && (
                 <div className="mb-4">
                   <h3 className="font-medium text-green-600 mb-2">
-                    Tabelas removidas com sucesso ({cleanupResults.results.dropped.length}):
+                    Tabelas removidas com sucesso ({cleanupResults.results?.dropped?.length ?? 0}):
                   </h3>
                   <ul className="list-disc list-inside space-y-1">
-                    {cleanupResults.results.dropped.map(table => (
+                    {cleanupResults.results?.dropped?.map(table => (
                       <li key={table} className="text-sm">{table}</li>
                     ))}
                   </ul>
                 </div>
               )}
               
-              {cleanupResults.results?.errors.length > 0 && (
+              {(cleanupResults.results?.errors?.length ?? 0) > 0 && (
                 <div className="mb-4">
                   <h3 className="font-medium text-red-600 mb-2">
-                    Erros ao remover ({cleanupResults.results.errors.length}):
+                    Erros ao remover ({cleanupResults.results?.errors?.length ?? 0}):
                   </h3>
-                  {cleanupResults.results.errors.map((err, idx) => (
+                  {cleanupResults.results?.errors?.map((err, idx) => (
                     <div key={idx} className="text-sm mb-2">
                       <strong>{err.table}:</strong> {err.error}
                     </div>

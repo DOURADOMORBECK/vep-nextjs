@@ -7,7 +7,7 @@ export const API_CONFIG = {
   apiKey: ""
 };
 
-export async function fetchFromAPI(tabela: string, filtro?: string) {
+export async function fetchFromAPI(tabela: string) {
   console.warn(`[DEPRECATED] fetchFromAPI called for table: ${tabela}`);
   console.warn('All data should be fetched directly from PostgreSQL tables:');
   console.warn('- fnc_produtos_e_servicos for products');

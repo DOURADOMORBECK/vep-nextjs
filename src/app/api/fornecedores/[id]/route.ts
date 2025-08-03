@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PessoaService, type Pessoa } from '@/services/database/pessoaService';
+import { PessoaServiceV2, type Pessoa } from '@/services/database/pessoaServiceV2';
 
 // Interface para Supplier que a página espera
 interface Supplier {
@@ -69,11 +69,19 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const pessoa = await PessoaService.getById(id);
+    const pessoa = await PessoaServiceV2.getById(id);
     
     if (!pessoa) {
       return NextResponse.json(
         { error: 'Supplier not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Verify it's a supplier
+    if (pessoa.type !== 'supplier' && pessoa.type !== 'both') {
+      return NextResponse.json(
+        { error: 'Not a supplier' },
         { status: 404 }
       );
     }
@@ -104,7 +112,7 @@ export async function PATCH(
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.active !== undefined) updateData.active = data.active;
     
-    const updatedPessoa = await PessoaService.update(id, updateData);
+    const updatedPessoa = await PessoaServiceV2.update(id, updateData);
     
     if (!updatedPessoa) {
       return NextResponse.json(
@@ -140,7 +148,7 @@ export async function DELETE(
   const { id } = await params;
   try {
     // Soft delete - marca como inativo
-    const updatedPessoa = await PessoaService.update(id, { active: false });
+    const updatedPessoa = await PessoaServiceV2.update(id, { active: false });
     
     if (!updatedPessoa) {
       return NextResponse.json(

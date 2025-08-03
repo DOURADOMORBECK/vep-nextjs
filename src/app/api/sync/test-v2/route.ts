@@ -21,7 +21,7 @@ export async function GET() {
     
     try {
       // Buscar apenas 1 produto para teste
-      const produtos = await fetchFromAPI('fnc_produtos_e_servicos', 'limit 1');
+      const produtos = await fetchFromAPI('fnc_produtos_e_servicos');
       
       return NextResponse.json({
         success: true,

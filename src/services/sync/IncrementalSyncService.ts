@@ -145,7 +145,7 @@ export class IncrementalSyncService {
       console.log(`🔄 Sincronizando ${entityName}...${filtro ? ' (incremental)' : ' (completo)'}`);
       
       // Busca dados do FinancesWeb
-      const data = await fetchFromAPI(tableName, filtro) as T[];
+      const data = await fetchFromAPI(tableName) as T[];
       
       this.updateProgress(entityName, { 
         message: `${data.length} registros encontrados`,

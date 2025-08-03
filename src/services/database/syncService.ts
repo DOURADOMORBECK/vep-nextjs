@@ -299,19 +299,19 @@ class SyncService {
         details: { entity: config.entity }
       });
 
-      // Obter última data de sincronização se for incremental
-      let filter = config.filters;
+      // Sincronização incremental não é mais necessária
+      // Todos os dados estão no PostgreSQL local
       if (incremental && config.incrementalField) {
         const lastSync = await this.getLastSyncDate(config.entity);
         if (lastSync) {
-          const dateFilter = `${config.incrementalField}=gt.${lastSync.toISOString()}`;
-          filter = filter ? `${filter},${dateFilter}` : dateFilter;
+          console.log(`[DEPRECATED] Sincronização incremental solicitada para ${config.entity}`);
+          console.log('Dados agora são lidos diretamente do PostgreSQL');
         }
       }
 
       // Buscar dados da API
       console.log(`🔄 Sincronizando ${config.entity}... (${incremental ? 'incremental' : 'completo'})`);
-      const data = await fetchFromAPI(config.apiEndpoint, filter);
+      const data = await fetchFromAPI(config.apiEndpoint);
       totalRecords = Array.isArray(data) ? data.length : 0;
       console.log(`📦 ${totalRecords} registros encontrados`);
 

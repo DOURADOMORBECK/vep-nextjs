@@ -1,5 +1,4 @@
 import { query, queryOne } from '@/lib/db-wrapper';
-import { pool } from '@/lib/db';
 
 export interface Pessoa {
   id: string;
@@ -71,7 +70,7 @@ export class PessoaService {
       );
       
       // Todos são clientes na view de pedidos
-      let pessoas = result.map(this.mapPostgresToPessoa);
+      const pessoas = result.map(this.mapPostgresToPessoa);
       
       // Filtrar apenas clientes se solicitado
       if (type === 'supplier') {

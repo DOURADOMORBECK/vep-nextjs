@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PessoaService } from '@/services/database/pessoaService';
+import { PessoaServiceV2 } from '@/services/database/pessoaServiceV2';
 
 
 export async function GET(request: NextRequest) {
@@ -11,10 +11,10 @@ export async function GET(request: NextRequest) {
     
     if (search) {
       // Search both suppliers and filter by type
-      const pessoas = await PessoaService.search(search);
+      const pessoas = await PessoaServiceV2.search(search);
       fornecedores = pessoas.filter(p => p.type === 'supplier' || p.type === 'both');
     } else {
-      fornecedores = await PessoaService.getSuppliers();
+      fornecedores = await PessoaServiceV2.getSuppliers();
     }
     
     return NextResponse.json(fornecedores);
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       active: data.active !== false
     };
     
-    const newPessoa = await PessoaService.create(pessoaData);
+    const newPessoa = await PessoaServiceV2.create(pessoaData);
     
     // Convert the new pessoa to supplier format
     const supplier = {

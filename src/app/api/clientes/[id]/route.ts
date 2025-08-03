@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PessoaService } from '@/services/database/pessoaService';
+import { PessoaServiceV2 } from '@/services/database/pessoaServiceV2';
 
 export async function GET(
   request: NextRequest,
@@ -7,7 +7,7 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const cliente = await PessoaService.getById(id);
+    const cliente = await PessoaServiceV2.getById(id);
     
     if (!cliente) {
       return NextResponse.json(
@@ -41,7 +41,7 @@ export async function PATCH(
   const { id } = await params;
   try {
     const data = await request.json();
-    const cliente = await PessoaService.update(id, data);
+    const cliente = await PessoaServiceV2.update(id, data);
     
     if (!cliente) {
       return NextResponse.json(
